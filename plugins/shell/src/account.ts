@@ -12,6 +12,7 @@ export interface AccountRow {
   password_hash: string
   totp_enabled: boolean
   totp_secret: string | null
+  totp_pending_secret: string | null
 }
 
 export interface ShellAccountConfig {
@@ -51,7 +52,7 @@ export async function accountFromCookie(pool: Pool, secret: string, cookieHeader
 
 export async function findAccount(pool: Pool, username: string): Promise<AccountRow | undefined> {
   const result = await pool.query<AccountRow>(
-    `select username, password_hash, totp_enabled, totp_secret
+    `select username, password_hash, totp_enabled, totp_secret, totp_pending_secret
      from accounts where username = $1`,
     [username],
   )

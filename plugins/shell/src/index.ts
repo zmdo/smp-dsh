@@ -6,6 +6,7 @@ import { accountFromCookie, decideLogin, ensureAccount, findAccount, passwordIsD
 import { clearDshCookieHeaders, dshAuthCookieNames, indexGate, smpSessionValue, tokenExchangeUrl } from './gate.ts'
 import { LOGIN_PAGE } from './login-page.ts'
 import { clearSessionCookie, openSession, sealSession, sessionCookie } from './session.ts'
+import { beginTotp, changePassword, changeUsername, confirmTotp, disableTotp } from './security.ts'
 
 interface IndexRequest {
   method?: string
@@ -246,6 +247,8 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     },
   })
 
+  yield* securityRoutes(ctx, secret, session)
+
   const connection = ctx.connection
   const original = connection.authorizeIndex.bind(connection)
   connection.authorizeIndex = (request, response) => {
@@ -270,4 +273,82 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   yield () => {
     connection.authorizeIndex = original
   }
+}
+
+async function* securityRoutes(ctx: HostCtx, secret: string, session: ConsoleSession): AsyncGenerator<() => void> {
+  const post = (
+    path: string,
+    handle: (response: ServerResponse, body: unknown, account: AccountRow) => Promise<void>,
+  ): (() => void) => ctx.webServer.register({
+    kind: 'exact',
+    path,
+    handler: async (request, response) => {
+      if (request.method !== 'POST') {
+        response.writeHead(405, { allow: 'POST', 'cache-control': 'no-store' })
+        response.end()
+        return
+      }
+      const account = await session.read(cookieHeader(request))
+      if (account === undefined) {
+        sendJson(response, 401, { detail: '未登录' })
+        return
+      }
+      let body: unknown
+      try {
+        body = await readJson(request)
+      } catch (error) {
+        void error
+        sendJson(response, 400, { detail: '请求无法读取' })
+        return
+      }
+      await handle(response, body, account)
+    },
+  })
+
+  function answer(
+    response: ServerResponse,
+    result: { ok: true; body: unknown } | { ok: false; status: number; detail: string },
+    cookie?: string,
+  ): void {
+    if (!result.ok) {
+      sendJson(response, result.status, { detail: result.detail })
+      return
+    }
+    sendJson(response, 200, result.body, cookie)
+  }
+
+  yield post('/console-api/auth/username', async (response, body, account) => {
+    const result = await changeUsername(ctx.database.pool, account.username, field(body, 'username') ?? '')
+    const cookie = result.ok && result.body.username !== account.username
+      ? sessionCookie(sealSession(result.body.username, secret))
+      : undefined
+    answer(response, result, cookie)
+  })
+
+  yield post('/console-api/auth/password', async (response, body, account) => {
+    const result = await changePassword(
+      ctx.database.pool,
+      account,
+      field(body, 'current_password') ?? '',
+      field(body, 'new_password') ?? '',
+    )
+    answer(response, result)
+  })
+
+  yield post('/console-api/auth/totp/setup', async (response, _body, account) => {
+    answer(response, await beginTotp(ctx.database.pool, account))
+  })
+
+  yield post('/console-api/auth/totp/confirm', async (response, body, account) => {
+    answer(response, await confirmTotp(ctx.database.pool, account, field(body, 'code') ?? ''))
+  })
+
+  yield post('/console-api/auth/totp/disable', async (response, body, account) => {
+    answer(response, await disableTotp(
+      ctx.database.pool,
+      account,
+      field(body, 'password') ?? '',
+      field(body, 'code') ?? '',
+    ))
+  })
 }

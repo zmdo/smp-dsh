@@ -1,6 +1,8 @@
-import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import contentCss from './content.css'
-import { createSection, type SectionId, type SectionStore } from './section.ts'
+import { navGroups, pageLabel, pageRoutes, type NavGroup, type RegisteredPage } from './pages.ts'
+import { createSection, type SectionStore } from './section.ts'
+import { SecurityView } from './security-view.tsx'
 
 interface Layout {
   selectPanel(id: string | null): void
@@ -50,10 +52,7 @@ interface AuthStore {
 }
 
 interface ShellCtx {
-  slots: {
-    inject(name: string, register: () => () => void): void
-    register(options: object, component: unknown): () => void
-  }
+  slots: PageSlots
   layout: Layout
   sessions: Sessions
   uiWorkspace: Workspace
@@ -61,29 +60,20 @@ interface ShellCtx {
   effect(run: () => (() => void)): void
 }
 
+interface PageSlots {
+  entries(key: string): readonly RegisteredPage[]
+  subscribe(key: string, listener: () => void): () => void
+  inject(name: string, register: () => () => void): void
+  register(options: object, component: unknown): () => void
+}
+
 interface RenderSlot {
   (name: string, props: object, options: { entryKey?: string; fallback?: ReactNode }): ReactNode
 }
 
 const CONSOLE_PANEL = 'console'
-
-const SECTION_LABEL: Record<SectionId, string> = {
-  dashboard: '仪表盘',
-  'quant-overview': '概览',
-  'quant-markets': '行情',
-  'quant-exchanges': '交易所',
-  'quant-strategies': '交易策略',
-  wallet: '钱包实例',
-  cards: '虚拟信用卡',
-  servers: '服务器实例',
-  keys: '服务器密钥',
-  settings: '登录安全',
-  mcp: 'MCP',
-}
-
-const QUANT_TABS: SectionId[] = ['quant-overview', 'quant-markets', 'quant-exchanges', 'quant-strategies']
-const SERVER_TABS: SectionId[] = ['servers', 'keys']
-const SETTINGS_TABS: SectionId[] = ['settings', 'mcp']
+const SECURITY_PAGE = 'settings'
+const PLATFORM_GROUP = 'platform'
 
 const SHELL_STYLE = `
 .smp-shell, .smp-console {
@@ -145,15 +135,6 @@ const SHELL_STYLE = `
 .smp-console .mark { width: 3px; height: 14px; border-radius: 1px; background: var(--smp-primary); }
 .smp-console .empty { margin: 0; padding: 28px 16px; color: var(--smp-muted); }
 `
-
-function tabsFor(id: SectionId): SectionId[] {
-  if (QUANT_TABS.includes(id)) return QUANT_TABS
-  if (id === 'wallet') return ['wallet']
-  if (id === 'cards') return ['cards']
-  if (SERVER_TABS.includes(id)) return SERVER_TABS
-  if (SETTINGS_TABS.includes(id)) return SETTINGS_TABS
-  return ['dashboard']
-}
 
 function createAuth(): AuthStore {
   let snap: AuthSnap = {
@@ -242,10 +223,24 @@ function SessionListView(props: {
   )
 }
 
+function usePages(slots: PageSlots): ReturnType<typeof pageRoutes> {
+  const entries = useSyncExternalStore(
+    listener => slots.subscribe('console.page', listener),
+    () => slots.entries('console.page'),
+  )
+  return pageRoutes(entries)
+}
+
+function groupOf(pages: ReturnType<typeof pageRoutes>, key: string): NavGroup | undefined {
+  const groups = navGroups(pages)
+  return groups.nav.concat(groups.footer).find(group => group.pages.some(page => page.key === key))
+}
+
 function ShellSidebar(props: {
+  slots: PageSlots
   section: SectionStore
   collapsed: boolean
-  openConsole: (id: SectionId) => void
+  openConsole: (id: string) => void
   openConversation: () => void
   toggleSidebar: () => void
   sessions: Sessions
@@ -254,20 +249,15 @@ function ShellSidebar(props: {
   usePanelInfo?: (select: (info: { activePanelId: string | null }) => string | null) => string | null
 }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
+  const pages = usePages(props.slots)
+  const groups = navGroups(pages)
   const panelId = props.usePanelInfo?.(info => info.activePanelId)
   const onConversation = panelId === null
-  const [openGroup, setOpenGroup] = useState<string | null>(null)
-
-  function toggleGroup(name: string, first: SectionId) {
-    if (openGroup === name) { setOpenGroup(null); return }
-    setOpenGroup(name)
-    const inGroup = name === 'quant'
-      ? QUANT_TABS.includes(current)
-      : name === 'accounts'
-        ? current === 'wallet' || current === 'cards'
-        : false
-    if (!inGroup) props.openConsole(first)
-  }
+  useEffect(() => {
+    if (pages.some(page => page.key === current)) return
+    const fallback = pages.find(page => page.key === SECURITY_PAGE) ?? pages[0]
+    if (fallback !== undefined) props.section.set(fallback.key)
+  }, [pages, current, props.section])
 
   if (props.collapsed) {
     return (
@@ -277,52 +267,45 @@ function ShellSidebar(props: {
     )
   }
 
-  const quantOpen = openGroup === 'quant'
-  const accountsOpen = openGroup === 'accounts'
   return (
     <div className="smp-shell">
       <div className="logo"><span className="logo-mark">策</span><span>策略控制台</span></div>
       <nav className="nav">
-        <p className="nav-title">概览</p>
-        <button className={`nav-item${!onConversation && current === 'dashboard' ? ' is-on' : ''}`} type="button" onClick={() => { setOpenGroup(null); props.openConsole('dashboard') }}>仪表盘</button>
-        <button className={`nav-item${onConversation ? ' is-on' : ''}`} type="button" onClick={() => { setOpenGroup(null); props.openConversation() }}>军师</button>
+        <button className={`nav-item${onConversation ? ' is-on' : ''}`} type="button" onClick={props.openConversation}>军师</button>
         {onConversation && (
           <SessionListView sessions={props.sessions} openSession={props.openSession} startSession={props.startSession} />
         )}
-        <p className="nav-title">运营</p>
-        <div className={`nav-group${quantOpen ? ' is-open' : ''}`}>
-          <button className="nav-item" type="button" onClick={() => toggleGroup('quant', 'quant-overview')}>
-            量化交易
-            <svg className="nav-caret" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M4.2 2.4 7.8 6 4.2 9.6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        {groups.nav.map(group => (
+          <button
+            key={group.id}
+            className={`nav-item${!onConversation && group.pages.some(page => page.key === current) ? ' is-on' : ''}`}
+            type="button"
+            onClick={() => {
+              const first = group.pages[0]
+              if (first !== undefined) props.openConsole(first.key)
+            }}
+          >
+            {group.label}
           </button>
-          {quantOpen && (
-            <div className="nav-sub">
-              <button className={`nav-sub-item${!onConversation && QUANT_TABS.includes(current) ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole('quant-overview')}>数字货币</button>
-            </div>
-          )}
-        </div>
-        <p className="nav-title">资源</p>
-        <div className={`nav-group${accountsOpen ? ' is-open' : ''}`}>
-          <button className="nav-item" type="button" onClick={() => toggleGroup('accounts', 'wallet')}>
-            资金账户
-            <svg className="nav-caret" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M4.2 2.4 7.8 6 4.2 9.6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {accountsOpen && (
-            <div className="nav-sub">
-              <button className={`nav-sub-item${!onConversation && current === 'wallet' ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole('wallet')}>数字钱包</button>
-              <button className={`nav-sub-item${!onConversation && current === 'cards' ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole('cards')}>信用卡</button>
-            </div>
-          )}
-        </div>
-        <button className={`nav-item${!onConversation && SERVER_TABS.includes(current) ? ' is-on' : ''}`} type="button" onClick={() => { setOpenGroup(null); props.openConsole('servers') }}>服务器</button>
+        ))}
       </nav>
-      <div className="nav-foot">
-        <button className={`nav-item${!onConversation && SETTINGS_TABS.includes(current) ? ' is-on' : ''}`} type="button" onClick={() => { setOpenGroup(null); props.openConsole('settings') }}>平台设置</button>
-      </div>
+      {groups.footer.length > 0 && (
+        <div className="nav-foot">
+          {groups.footer.map(group => (
+            <button
+              key={group.id}
+              className={`nav-item${!onConversation && group.pages.some(page => page.key === current) ? ' is-on' : ''}`}
+              type="button"
+              onClick={() => {
+                const first = group.pages[0]
+                if (first !== undefined) props.openConsole(first.key)
+              }}
+            >
+              {group.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -332,19 +315,20 @@ function LoginRedirect() {
   return null
 }
 
-function ConsolePanel(props: { section: SectionStore; auth: AuthStore; renderSlot?: RenderSlot }) {
+function ConsolePanel(props: { slots: PageSlots; section: SectionStore; auth: AuthStore; renderSlot?: RenderSlot }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
   const auth = useSyncExternalStore(props.auth.subscribe, props.auth.get)
-  const tabs = tabsFor(current)
+  const pages = usePages(props.slots)
+  const tabs = groupOf(pages, current)?.pages ?? []
   const body = props.renderSlot?.('console.page', {}, { entryKey: current }) ?? null
   return (
     <div className="smp-console">
       {auth.authenticated && (
         <header className="topbar">
           <nav className="tabs">
-            {tabs.map(id => (
-              <button key={id} className={`tab${id === current ? ' is-on' : ''}`} type="button" onClick={() => props.section.set(id)}>
-                {SECTION_LABEL[id]}
+            {tabs.map(page => (
+              <button key={page.key} className={`tab${page.key === current ? ' is-on' : ''}`} type="button" onClick={() => props.section.set(page.key)}>
+                {page.label}
               </button>
             ))}
           </nav>
@@ -377,7 +361,7 @@ export function apply(ctx: ShellCtx): void {
     void auth.refresh()
     return () => { tag.remove() }
   })
-  const openConsole = (id: SectionId): void => {
+  const openConsole = (id: string): void => {
     section.set(id)
     ctx.layout.selectPanel(CONSOLE_PANEL)
   }
@@ -385,6 +369,7 @@ export function apply(ctx: ShellCtx): void {
     name: 'sidebar',
     priority: -100,
     inject: () => ({
+      slots: ctx.slots,
       section,
       openConsole,
       openConversation: () => { ctx.layout.selectPanel(null) },
@@ -414,8 +399,14 @@ export function apply(ctx: ShellCtx): void {
       children: {
         'console.page': { kind: 'keyed', scope: 'root' },
       },
-    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel section={section} auth={auth} renderSlot={props.renderSlot} />)
+    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} section={section} auth={auth} renderSlot={props.renderSlot} />)
     ctx.layout.selectPanel(CONSOLE_PANEL)
     return dispose
   })
+  ctx.slots.inject('console.page', () => ctx.slots.register({
+    name: 'console.page',
+    key: SECURITY_PAGE,
+    label: pageLabel('登录安全', { group: PLATFORM_GROUP, groupLabel: '平台设置', placement: 'footer' }),
+    order: 0,
+  }, () => <SecurityView auth={auth} />))
 }

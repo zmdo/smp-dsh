@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { createHmac } from 'node:crypto'
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
@@ -48,4 +49,33 @@ export function verifyTotp(secret: string, code: string, now = Date.now()): bool
     if (hotp(key, counter + offset) === cleaned) return true
   }
   return false
+}
+
+/** 20 random bytes, the same length pyotp uses for a new authenticator secret. */
+export function newSecret(): string {
+  return encodeBase32(randomBytes(20))
+}
+
+/** otpauth URI the existing authenticator apps already accept. */
+export function provisioningUri(secret: string, username: string): string {
+  const issuer = '策略控制台'
+  const label = encodeURIComponent(`${issuer}:${username}`)
+  const query = new URLSearchParams({ secret, issuer })
+  return `otpauth://totp/${label}?${query.toString()}`
+}
+
+function encodeBase32(input: Buffer): string {
+  let bits = 0
+  let value = 0
+  let out = ''
+  for (const byte of input) {
+    value = (value << 8) | byte
+    bits += 8
+    while (bits >= 5) {
+      bits -= 5
+      out += ALPHABET[(value >> bits) & 31]
+    }
+  }
+  if (bits > 0) out += ALPHABET[(value << (5 - bits)) & 31]
+  return out
 }

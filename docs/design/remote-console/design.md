@@ -16,7 +16,7 @@
 
 ## 2. 目标
 
-- 浏览器打开的仍是 `dsh web`。栏目划分保持现在的壳、仪表盘、数字货币、资金账户、服务器、平台设置。
+- 浏览器打开的仍是 `dsh web`，本进程默认听 `9090`，地址是 `http://127.0.0.1:9090/`。`smp` 里正在跑的控制台继续用 `8080`，两边同时开。栏目划分保持现在的壳、仪表盘、数字货币、资金账户、服务器、平台设置。
 - 每个栏目插件带上自己的宿主端。宿主端直接读写现有 PostgreSQL，并在需要时调用交易所 API 或 SSH。
 - 原来运维服务做的事改由服务器插件承担：连接测试、安装组件、巡检、采指标、终端。
 - `dsh` 崩溃后重启即可。数据库里的登记还在，远端容器还在。重启前没做完的 SSH 记为失败，由人再点一次。
@@ -42,6 +42,7 @@
 | 协议客户端 | SSH、密文、助记词派生是插件依赖的库，在 `dsh` 进程内调用，不另起服务 |
 | 接口 | 浏览器走插件登记的 `/console-api`、`/login`、`/mcp`。`/api` 仍属于 `dsh` |
 | 登录 | 壳插件签发 `smp_session`。没有会话时打开 `/login` |
+| 端口 | 本进程默认 `9090`。`smp` 的控制台留在 `8080`，不共用、不互相代理 |
 | 崩溃 | 重启 `dsh`。启动时把上次留下的 `running` 任务标为失败 |
 
 ## 5. 组成
@@ -82,14 +83,14 @@ flowchart LR
 | 插件 | 页面 | 宿主端 |
 | --- | --- | --- |
 | `@smp/console-store` | 无 | 连接池、密文、启动时迁移。提供 `database` 和 `secrets` |
-| `@smp/console-shell` | 侧栏、登录页、顶部 Tab、军师 | 签发和校验 `smp_session`，登记 `/login` |
+| `@smp/console-shell` | 侧栏、登录页、登录安全、军师 | 签发和校验 `smp_session`，登记 `/login` 和登录安全 |
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
 | `@smp/console-quant` | 概览、行情、交易所、交易策略 | 交易所账户；调用交易所 API 取余额和行情 |
 | `@smp/console-accounts` | 钱包、钱包详情、虚拟信用卡 | 这些表的读写；进程内派生地址 |
 | `@smp/console-servers` | 服务器、详情、登记、终端、密钥 | 服务器、分组、密钥、容器清单、任务、巡检、采指标、组件安装、终端 |
-| `@smp/console-settings` | 登录安全、MCP | 改密码、两步验证、`/mcp` |
+| `@smp/console-settings` | MCP | MCP 开关和 `/mcp` |
 
-栏目插件只往壳声明的 `console.page` 登记页面，不登记 `sidebar`。侧栏仍由壳以优先级 `-100` 占用。`conversation` 留给 `dsh` 会话，点「军师」时 `selectPanel(null)`。
+栏目插件只往壳声明的 `console.page` 登记页面，并带上 `label` 和 `order`。同一 `group` 的页面合成侧栏的一项，顶部页签用各页自己的 `label`。没写 `group` 的页面单独成为一项。`placement: 'footer'` 的组固定在侧栏底部。壳自己登记「平台设置」：组 `platform`，页签「登录安全」，放在底部。其他栏目不在壳里写死。侧栏仍由壳以优先级 `-100` 占用。`conversation` 留给 `dsh` 会话，点「军师」时 `selectPanel(null)`。槽位只留下 `label` 和 `order`，所以组名、组的标题和位置附在 `label` 函数上。
 
 跨栏目的读取走数据库，不走另一个插件的 HTTP。例如 MCP 要列出服务器时，设置插件读 `servers` 表，不请求服务器插件的路由。
 
@@ -109,8 +110,9 @@ flowchart LR
 - 用 `database` 核对 `accounts`。空表时用配置里的初始用户名和密码插入一行；没配初始密码且表是空的，加载失败。
 - 替换现在壳里为了询问网站后台而拉起的子进程，以及进程内那份会话缓存。一次校验用完即丢，不在模块顶层留缓存。
 - 没有会话时，索引门禁把浏览器送到 `/login`，并清掉 `dsh` 发给浏览器的登录 cookie。有会话时放行页面，军师连接沿用现在的换票方式。启动 token 仍留在进程里。
+- 登录安全在壳里：修改用户名、密码和两步验证。改密码时用同一套口令把钱包助记词重新加密。用户名改掉后重新签发 `smp_session`。
 
-客户端 `inject` 为 `['slots']`，另外使用 `layout`、`sessions`、`uiWorkspace`、`workspaces`。当前选中的栏目放在这次 `apply` 的状态或 React 树里，不放在模块级变量上。
+客户端 `inject` 为 `['slots']`，另外使用 `layout`、`sessions`、`uiWorkspace`、`workspaces`。当前选中的页面是这次 `apply` 里的状态，键来自已登记的 `console.page`，不放在模块级变量上。壳登记的页面键是 `settings`，它在底部的「平台设置」里，页签是「登录安全」。
 
 ### 6.3 服务器
 
@@ -151,9 +153,9 @@ flowchart LR
 
 ### 6.6 平台设置
 
-宿主 `inject` 为 `['webServer', 'database']`。
+宿主 `inject` 为 `['webServer', 'database', 'consoleSession']`。
 
-登录安全修改 `accounts` 的用户名、密码和两步验证。MCP 读写 `mcp_settings`，并登记 `/mcp`。令牌只在生成时返回一次，库里存哈希。`/mcp` 按该行的开关决定是否读出服务器、钱包和信用卡。
+登录安全属于壳，已经在「平台设置」里。这个插件只负责 MCP：读写 `mcp_settings`，并登记 `/mcp`。页面登记到同一组 `platform`，页签是「MCP」，因此仍出现在侧栏底部的「平台设置」中。令牌只在生成时返回一次，库里存哈希。`/mcp` 按该行的开关决定是否读出服务器、钱包和信用卡。
 
 ### 6.7 仪表盘
 
@@ -185,11 +187,11 @@ flowchart LR
 
 | 插件 | 登记的路径 |
 | --- | --- |
-| 壳 | `/login`、索引门禁、`/console-api/auth/login`、`/console-api/auth/logout`、`/console-api/auth/me`、`/console-api/auth/session` |
+| 壳 | `/login`、索引门禁、`/console-api/auth/login`、`/console-api/auth/logout`、`/console-api/auth/me`、`/console-api/auth/session`、`/console-api/auth/username`、`/console-api/auth/password`、`/console-api/auth/totp/*` |
 | 服务器 | `/console-api/servers`、`/console-api/server-groups`、`/console-api/ssh-keys`、`/console-api/components`、`/console-api/ops-jobs/:id`、终端 WebSocket |
 | 资金账户 | `/console-api/wallets`、`/console-api/cards` |
 | 数字货币 | `/console-api/exchanges`、`/console-api/markets` |
-| 平台设置 | `/console-api/auth/username`、`/console-api/auth/password`、`/console-api/auth/totp/*`、`/console-api/mcp`、`/mcp` |
+| 平台设置 | `/console-api/mcp`、`/mcp` |
 
 除登录和 `/login`、`/mcp` 外，路由都要求有效的 `smp_session`。壳把校验做成 `database` 之上的函数，栏目插件调用它，不各自解析 cookie 格式。
 
@@ -205,10 +207,10 @@ flowchart LR
 ## 10. 构建顺序
 
 1. 存储插件。连上现有库，提供 `database` 和 `secrets`，启动迁移可用。
-2. 壳。`/login` 和 `smp_session` 不再访问网站后台。
+2. 壳。`/login`、`smp_session` 和登录安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，登录安全是其中的页签。
 3. 服务器插件。把连接测试、巡检、采指标、组件安装和终端从运维服务搬进来，页面仍轮询 `ops_jobs`。
 4. 资金账户、数字货币、平台设置。按栏目把对应的读写和外部调用搬进宿主端。
 5. 仪表盘维持空宿主。
-6. 六个栏目和存储插件都由本进程答完请求之后，部署里去掉网站后台、运维服务和旧的单页应用入口。
+6. 六个栏目和存储插件都由本进程答完请求之后，去掉 `smp` 在 `8080` 上的网站后台、运维服务和旧入口。本进程仍听 `9090`。
 
 每一步都可以单独对上现有页面：同一条 `/console-api` 路径，先由插件答，应答形状与现在的网站后台一致。

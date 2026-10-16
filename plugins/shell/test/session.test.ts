@@ -47,7 +47,7 @@ test('each apply owns its selected column', () => {
   first.subscribe(() => { seen += 1 })
   first.set('servers')
   assert.equal(first.get(), 'servers')
-  assert.equal(second.get(), 'dashboard')
+  assert.equal(second.get(), 'settings')
   assert.equal(seen, 1)
   first.set('servers')
   assert.equal(seen, 1)

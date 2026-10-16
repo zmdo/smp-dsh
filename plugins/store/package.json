@@ -13,6 +13,7 @@
   },
   "files": [
     "lib/index.js",
+    "migrations",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg"
