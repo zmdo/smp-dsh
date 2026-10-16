@@ -1,0 +1,3 @@
+- insert:
+    - id: console-store
+      name: '@smp/console-store'
