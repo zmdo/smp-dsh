@@ -30,3 +30,12 @@ test('an invalid encryption key fails the plugin', async () => {
   })
   await assert.rejects(() => Promise.resolve(fiber))
 })
+
+test('an unreachable database fails the plugin', async () => {
+  const ctx = new Context()
+  const fiber = ctx.plugin({ apply, Config, inject: [] }, {
+    databaseUrl: 'postgresql://127.0.0.1:1/smp',
+    encryptionKey: KEY,
+  })
+  await assert.rejects(() => Promise.resolve(fiber))
+})

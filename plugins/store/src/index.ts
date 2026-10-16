@@ -55,15 +55,24 @@ export const inject = []
 
 const migrationsDir = fileURLToPath(new URL('../migrations', import.meta.url))
 
-export function apply(ctx: Context, config: Config): void {
+// How long a startup connection may wait before the plugin fails to load.
+const CONNECT_TIMEOUT_MS = 5_000
+
+/**
+ * The returned generator is the plugin's own effect. A nested effect would
+ * only log a failed connection, and dependents would wait for a service that
+ * never appears.
+ */
+export async function* apply(ctx: Context, config: Config): AsyncGenerator<() => Promise<void>> {
   const key = decodeFernetKey(config.encryptionKey)
   const connectionString = normalizeDatabaseUrl(config.databaseUrl)
   const codec = new SecretsCodec(key)
-  ctx.effect(async function* () {
-    const pool = new Pool({ connectionString })
-    yield () => pool.end()
-    await applyMigrations(pool, migrationsDir)
-    new Database(ctx, pool)
-    new Secrets(ctx, codec)
+  const pool = new Pool({ connectionString, connectionTimeoutMillis: CONNECT_TIMEOUT_MS })
+  pool.on('error', (error: Error) => {
+    ctx.logger.error(error)
   })
+  yield () => pool.end()
+  await applyMigrations(pool, migrationsDir)
+  new Database(ctx, pool)
+  new Secrets(ctx, codec)
 }

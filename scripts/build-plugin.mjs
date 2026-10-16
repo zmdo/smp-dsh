@@ -10,7 +10,7 @@ await esbuild.build({
   bundle: true,
   format: 'esm',
   platform: 'node',
-  external: ['@deepseek-ai/cordis', '@deepseek-ai/schemastery'],
+  packages: 'external',
 })
 
 if (!existsSync('src/client.tsx')) {
