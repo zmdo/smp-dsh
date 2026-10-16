@@ -12,7 +12,7 @@ description: >-
 
 源码在 `tmp/deepseek-harness`，提交 `1517a4db`，对应运行版本 `0.2.1-alpha.5`。不要改这棵检出。本文件和检出冲突时，以检出为准，去读下面点名的文件，不要凭记忆补 API。
 
-本规范从这些文件改写而来，去掉了只在 Harness 仓库内部使用的安装器、覆盖率门禁和官方图标流程：
+本规范从这些文件改写而来，去掉了只在 Harness 仓库内部使用的安装器和覆盖率门禁。清单用的 locale 和图标仍然要做：
 
 - `packages/preset/agent-preset/skills/cordis-plugin-development/`
 - `packages/preset/agent-preset/skills/cordis-composition-reference/SKILL.md`
@@ -53,7 +53,7 @@ window.__ModuleLoader__.load({ id: '@smp/console-quant', factory: (require) => {
 ```
 
 - 非基线的运行时依赖写进 `dsh.client.external`。`.css` 按文本打进包。
-- 可见的清单标题用 `package.json` 的 `description`。本项目的控制台插件不进插件市场，不必做官方图标和 `locale/en.json`。
+- 每个插件都有 `locale/en.json`、`locale/zh.json` 和包内的 `icon.svg`，并导出 `./locale/*.json` 和 `./icon`。清单标题用 `meta.title`，说明用 `meta.description`。中文是日常看到的语言，英文同样写全，缺了会退回包名和默认图标。图标用 SVG、PNG、JPEG 或 WebP，不超过 256 KiB，不使用指向包外的路径。控制台插件不进插件市场，这两样仍然要有，插件管理器不启动插件也会显示它们。
 
 ## 补丁
 

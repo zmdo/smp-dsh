@@ -15,9 +15,11 @@
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
   },
-  "files": ["lib/index.js", "lib/client.js", "cordis.patch.yml"],
+  "files": ["lib/index.js", "lib/client.js", "cordis.patch.yml", "locale/*.json", "icon.svg"],
   "engines": { "dsh": "0.2.1-alpha.5" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
@@ -26,7 +28,7 @@
 }
 ```
 
-只有宿主、没有页面时，去掉 `./client`、`dsh.client` 和 `lib/client.js`。
+只有宿主、没有页面时，去掉 `./client`、`dsh.client` 和 `lib/client.js`。`locale` 和 `./icon` 仍然保留。
 
 `src/index.ts`：
 

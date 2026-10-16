@@ -45,6 +45,9 @@ scripts/
 plugins/servers/
   package.json
   cordis.patch.yml
+  icon.svg
+  locale/en.json
+  locale/zh.json
   src/index.ts
   src/client.tsx
   src/pages/
@@ -57,10 +60,10 @@ plugins/servers/
 `package.json` 至少包含：
 
 - `"private": true`，`"type": "module"`
-- `"description"` 作为清单上的标题
+- `"description"` 作为没有 locale 时的退路
 - `"main": "./lib/index.js"`
-- `exports` 有 `.`、`./client`、`./package.json`
-- `files` 列出 `lib/index.js`、`lib/client.js`、`cordis.patch.yml`
+- `exports` 有 `.`、`./client`、`./package.json`、`./locale/*.json`、`./icon`
+- `files` 列出 `lib/index.js`、`lib/client.js`、`cordis.patch.yml`、`locale/*.json`、`icon.svg`
 - `engines.dsh` 为 `0.2.1-alpha.5`
 - `dsh.bundle.patch` 为 `./cordis.patch.yml`
 - `dsh.client.platform` 为 `web`
@@ -73,7 +76,27 @@ plugins/servers/
       name: '@smp/console-servers'
 ```
 
-没有页面的插件去掉 `src/client.tsx`、`exports` 里的 `./client`、`files` 里的 `lib/client.js`、`dsh.client`。存储插件的 SQL 放在 `plugins/store/migrations/`。组件脚本不放进任何插件目录，由服务器插件的配置指向仓库外面的那个目录。
+没有页面的插件去掉 `src/client.tsx`、`exports` 里的 `./client`、`files` 里的 `lib/client.js`、`dsh.client`。`locale` 和 `icon.svg` 仍在。存储插件的 SQL 放在 `plugins/store/migrations/`。组件脚本不放进任何插件目录，由服务器插件的配置指向仓库外面的那个目录。
+
+## 清单
+
+插件管理器不启动插件就会读这两样。每个插件，包括没有页面的存储插件，都要有。
+
+`locale/en.json` 和 `locale/zh.json` 都写 `meta.title` 和 `meta.description`。中文是自己使用时看到的文字。英文写同样的意思，避免界面语言是英文时退回包名。
+
+| 插件 | 中文标题 | 中文说明 | 英文标题 |
+| --- | --- | --- | --- |
+| 存储 | 存储 | 数据库连接和密文 | Store |
+| 壳 | 控制台 | 侧栏、登录和军师 | Console |
+| 仪表盘 | 仪表盘 | 总览 | Dashboard |
+| 数字货币 | 数字货币 | 行情、交易所和交易策略 | Markets |
+| 资金账户 | 资金账户 | 钱包和虚拟信用卡 | Accounts |
+| 服务器 | 服务器 | 服务器、密钥和终端 | Servers |
+| 平台设置 | 平台设置 | 登录安全和 MCP | Settings |
+
+`icon.svg` 放在包根，由 `"./icon": "./icon.svg"` 导出。每个插件一张，彼此分得开。格式可以是 SVG、PNG、JPEG 或 WebP，不超过 256 KiB，文件留在包内，不使用绝对路径、网址或指向包外的符号链接。
+
+`packages/console-kit` 不是插件，没有 locale，也没有图标。
 
 `lib/` 是构建产物，不手改，不提交。交给 `dsh` 之前先构建。
 
