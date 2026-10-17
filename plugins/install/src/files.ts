@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto'
 import { access, readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
-import { readProfilePatches, reconcileProfilePatches } from '@deepseek-ai/dsh-app-boot'
 import {
   clearInstallDisabled,
   clearStoreCredentials,
@@ -73,8 +74,23 @@ export async function saveCredentials(path: string, credentials: StoreCredential
 
 /** Reload the store plugin from the patch file just written. */
 export async function reloadStore(ctx: Context, profile: ProfileFacts): Promise<void> {
-  const patches = readProfilePatches('dsh', profile)
-  await reconcileProfilePatches(ctx.root, patches, 'dsh', ['console-store'])
+  const boot = await hostAppBoot()
+  const patches = boot.readProfilePatches('dsh', profile)
+  await boot.reconcileProfilePatches(ctx.root, patches, 'dsh', ['console-store'])
+}
+
+/**
+ * The process that launched dsh already loaded this package. A second copy
+ * has an empty reload registry, so profile reload always fails.
+ */
+function hostAppBoot(): Promise<AppBoot> {
+  const require = createRequire(process.argv[1])
+  return import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
+}
+
+interface AppBoot {
+  readProfilePatches(binName: string, profile: ProfileFacts): unknown
+  reconcileProfilePatches(root: Context, patches: unknown, binName: string, requiredIds: string[]): Promise<unknown>
 }
 
 export interface ProfileFacts {
