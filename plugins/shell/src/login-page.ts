@@ -11,7 +11,13 @@ export const LOGIN_PAGE = `<!doctype html>
 fetch('/console-api/site').then(function (response) {
   return response.json()
 }).then(function (site) {
-  if (typeof site.title === 'string' && site.title !== '') document.title = site.title
+  if (typeof site.title === 'string' && site.title !== '') {
+    document.title = site.title
+    var heading = document.querySelector('.login-brand h1')
+    if (heading) heading.textContent = site.title
+  }
+  var mark = document.querySelector('.logo-mark img')
+  if (mark && typeof site.icon === 'string' && site.icon.indexOf('data:image/') === 0) mark.src = site.icon
   if (typeof site.icon !== 'string' || site.icon.indexOf('data:image/') !== 0) return
   document.querySelectorAll('link[rel="icon"]').forEach(function (node) { node.remove() })
   var link = document.createElement('link')
@@ -42,9 +48,10 @@ fetch('/console-api/site').then(function (response) {
   }
   .login-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .logo-mark {
-    width: 28px; height: 28px; border-radius: 6px; background: var(--primary); color: #fff;
-    display: grid; place-items: center; font-size: 14px; font-weight: 700;
+    width: 28px; height: 28px; border-radius: 6px; background: transparent;
+    display: grid; place-items: center;
   }
+  .logo-mark img { width: 28px; height: 28px; display: block; object-fit: contain; }
   h1 { margin: 0; font-size: 20px; font-weight: 650; }
   .muted { margin: 0 0 18px; color: var(--muted); }
   label { display: grid; gap: 6px; margin-bottom: 14px; color: #606266; }
@@ -64,7 +71,7 @@ fetch('/console-api/site').then(function (response) {
 <body>
   <div class="login-wrap">
     <form class="login-card">
-      <div class="login-brand"><span class="logo-mark">策</span><h1>策略控制台</h1></div>
+      <div class="login-brand"><span class="logo-mark"><img src="/favicon.svg" alt=""></span><h1>DeepSeek Harness</h1></div>
       <p class="muted">使用用户名和密码登录。开启两步验证后，还需要验证码。</p>
       <p class="banner" hidden></p>
       <label>用户名<input name="username" value="admin" autocomplete="username" required></label>

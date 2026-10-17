@@ -1,5 +1,17 @@
 import { DEFAULT_TITLE } from './site.ts'
 
+export interface SiteSnap {
+  title: string
+  icon: string
+}
+
+export interface SiteStore {
+  get(): SiteSnap
+  subscribe(listener: () => void): () => void
+  refresh(): Promise<void>
+  apply(title: string, icon: string): void
+}
+
 /** Browser tab title and favicon. An empty icon restores the harness files. */
 export function applySiteChrome(title: string, icon: string): void {
   document.title = title.trim() === '' ? DEFAULT_TITLE : title
@@ -26,18 +38,35 @@ function defaultIcon(scheme: 'light' | 'dark', href: string): HTMLLinkElement {
   return link
 }
 
-/** The harness title stays when this read fails. */
-export function loadSiteChrome(): void {
-  void fetch('/console-api/site', { credentials: 'same-origin' })
-    .then(async response => {
+function siteSnap(body: { title?: unknown; icon?: unknown }): SiteSnap {
+  return {
+    title: typeof body.title === 'string' && body.title !== '' ? body.title : DEFAULT_TITLE,
+    icon: typeof body.icon === 'string' ? body.icon : '',
+  }
+}
+
+/** One record for the tab, the sidebar, and the login page. */
+export function createSiteStore(): SiteStore {
+  let snap: SiteSnap = { title: DEFAULT_TITLE, icon: '' }
+  const listeners = new Set<() => void>()
+  const publish = (next: SiteSnap): void => {
+    snap = next
+    applySiteChrome(next.title, next.icon)
+    for (const listener of listeners) listener()
+  }
+  return {
+    get: () => snap,
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    async refresh() {
+      const response = await fetch('/console-api/site', { credentials: 'same-origin' })
       if (!response.ok) return
-      const body = await response.json() as { title?: unknown; icon?: unknown }
-      applySiteChrome(
-        typeof body.title === 'string' ? body.title : '',
-        typeof body.icon === 'string' ? body.icon : '',
-      )
-    })
-    .catch((cause: unknown) => {
-      void cause
-    })
+      publish(siteSnap(await response.json() as { title?: unknown; icon?: unknown }))
+    },
+    apply(title, icon) {
+      publish({ title: title.trim() === '' ? DEFAULT_TITLE : title, icon })
+    },
+  }
 }

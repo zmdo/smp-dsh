@@ -1,8 +1,8 @@
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
 import { shellCopy } from './copy.ts'
-import { applySiteChrome } from './site-chrome.ts'
 import { DEFAULT_TITLE, siteDraft } from './site.ts'
+import type { SiteStore } from './site-chrome.ts'
 
 interface LocaleChoice {
   id: string
@@ -21,7 +21,7 @@ export interface ThemeFace {
   subscribe(listener: () => void): () => void
 }
 
-export function GeneralView(props: { locale: LocaleFace; theme: ThemeFace }) {
+export function GeneralView(props: { locale: LocaleFace; theme: ThemeFace; site: SiteStore }) {
   const locale = useSyncExternalStore(listener => props.locale.subscribe(listener), () => props.locale.getSnapshot())
   const theme = useSyncExternalStore(listener => props.theme.subscribe(listener), () => props.theme.getTheme())
   const copy = shellCopy(locale.active)
@@ -32,6 +32,7 @@ export function GeneralView(props: { locale: LocaleFace; theme: ThemeFace }) {
   ]
   return (
     <>
+      <SitePanel copy={copy} site={props.site} />
       <Panel title={copy.language}>
         <div className="choice-row">
           {locale.locales.map(choice => (
@@ -62,32 +63,25 @@ export function GeneralView(props: { locale: LocaleFace; theme: ThemeFace }) {
           ))}
         </div>
       </Panel>
-      <SitePanel copy={copy} />
     </>
   )
 }
 
-function SitePanel(props: { copy: ReturnType<typeof shellCopy> }) {
+function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore }) {
   const { copy } = props
-  const [title, setTitle] = useState(DEFAULT_TITLE)
-  const [icon, setIcon] = useState('')
+  const site = useSyncExternalStore(props.site.subscribe, props.site.get)
+  const [title, setTitle] = useState(site.title)
+  const [icon, setIcon] = useState(site.icon)
+  const [seen, setSeen] = useState(site)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    let stopped = false
-    void fetch('/console-api/site', { credentials: 'same-origin' })
-      .then(async response => {
-        if (!response.ok || stopped) return
-        const body = await response.json() as { title?: unknown; icon?: unknown }
-        if (stopped) return
-        if (typeof body.title === 'string' && body.title !== '') setTitle(body.title)
-        if (typeof body.icon === 'string') setIcon(body.icon)
-      })
-      .catch((cause: unknown) => { void cause })
-    return () => { stopped = true }
-  }, [])
+  if (seen !== site) {
+    setSeen(site)
+    if (title === seen.title) setTitle(site.title)
+    if (icon === seen.icon) setIcon(site.icon)
+  }
 
   function onIcon(event: { target: HTMLInputElement }): void {
     const file = event.target.files?.[0]
@@ -133,7 +127,7 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy> }) {
       const nextIcon = typeof payload.icon === 'string' ? payload.icon : ''
       setTitle(nextTitle)
       setIcon(nextIcon)
-      applySiteChrome(nextTitle, nextIcon)
+      props.site.apply(nextTitle, nextIcon)
       setMessage(copy.siteSaved)
     }).catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : copy.requestFailed)

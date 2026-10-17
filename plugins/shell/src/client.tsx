@@ -5,7 +5,7 @@ import { createSection, type SectionStore } from './section.ts'
 import { shellCopy, type ShellCopy } from './copy.ts'
 import { GeneralView, type LocaleFace, type ThemeFace } from './general-view.tsx'
 import { SecurityView } from './security-view.tsx'
-import { loadSiteChrome } from './site-chrome.ts'
+import { createSiteStore, type SiteStore } from './site-chrome.ts'
 
 interface Layout {
   selectPanel(id: string | null): void
@@ -92,11 +92,30 @@ const SHELL_STYLE = `
 }
 .smp-shell { height: 100%; display: flex; flex-direction: column; background: var(--dsw-specific-sidebar-fill); overflow: hidden; }
 .smp-shell.is-collapsed { align-items: center; padding-top: 14px; }
-.smp-shell .logo { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 15px; font-weight: 650; color: var(--smp-text); }
+.smp-shell .logo { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 16px; font-size: 15px; font-weight: 650; color: var(--smp-text); }
+.smp-shell .logo-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.smp-shell .fold {
+  width: 28px; height: 28px; margin-left: auto; border: 0; border-radius: 4px; background: transparent;
+  color: var(--smp-muted); display: grid; place-items: center; padding: 0; flex: none; cursor: pointer;
+}
+.smp-shell .fold:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--smp-text); }
+.smp-shell .nav-glyph { width: 16px; height: 16px; flex: none; display: block; }
+.smp-shell .rail { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; width: 100%; min-height: 0; padding: 8px 0 12px; }
+.smp-shell .rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.smp-shell .rail-item {
+  width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent; color: var(--smp-text);
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+}
+.smp-shell .rail-item.is-on { background: var(--smp-primary-soft); color: var(--smp-primary); }
 .smp-shell .logo-mark, .smp-shell .rail-mark {
   width: 28px; height: 28px; border-radius: 6px; background: var(--smp-primary); color: #fff;
   display: grid; place-items: center; font-size: 14px; font-weight: 700; border: 0; padding: 0;
 }
+.smp-shell .logo-mark.has-icon, .smp-shell .rail-mark.has-icon { background: transparent; }
+.smp-shell .logo-mark img, .smp-shell .rail-mark img { width: 28px; height: 28px; display: block; object-fit: contain; }
+.smp-shell .mark-dark { display: none; }
+body[data-ds-dark-theme] .smp-shell .mark-light { display: none; }
+body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .nav { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 10px; gap: 2px; overflow: auto; }
 .smp-shell .nav-title { margin: 16px 12px 4px; color: var(--smp-muted); font-size: 12px; font-weight: 600; }
 .smp-shell .nav-title:first-child { margin-top: 8px; }
@@ -246,10 +265,72 @@ function groupOf(pages: ReturnType<typeof pageRoutes>, key: string): NavGroup | 
   return groups.nav.concat(groups.footer).find(group => group.pages.some(page => page.key === key))
 }
 
+function NavGlyph(props: { name: string }) {
+  const common = { className: 'nav-glyph', viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true }
+  if (props.name === 'chat') {
+    return (
+      <svg {...common}>
+        <path d="M3 3.2h10v7.2H8.2L5.2 13V10.4H3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+  if (props.name === 'settings') {
+    return (
+      <svg {...common}>
+        <path d="M2.8 4.2h10.4M2.8 8h10.4M2.8 11.8h10.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        <circle cx="5.4" cy="4.2" r="1.5" fill="currentColor" />
+        <circle cx="10.6" cy="8" r="1.5" fill="currentColor" />
+        <circle cx="6.6" cy="11.8" r="1.5" fill="currentColor" />
+      </svg>
+    )
+  }
+  return (
+    <svg {...common}>
+      <rect x="3" y="3" width="10" height="10" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
+function FoldIcon() {
+  return (
+    <svg className="nav-glyph" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="2.4" y="3" width="11.2" height="10" rx="1.4" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M6 3v10" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}
+function BrandMark(props: { icon: string }) {
+  if (props.icon !== '') return <img src={props.icon} alt="" />
+  return (
+    <>
+      <img className="mark-light" src="/favicon.svg" alt="" />
+      <img className="mark-dark" src="/favicon-dark.svg" alt="" />
+    </>
+  )
+}
+
+function RailItem(props: { group: NavGroup; on: boolean; onOpen: (id: string) => void }) {
+  return (
+    <button
+      className={`rail-item${props.on ? ' is-on' : ''}`}
+      type="button"
+      aria-label={props.group.label}
+      title={props.group.label}
+      onClick={() => {
+        const first = props.group.pages[0]
+        if (first !== undefined) props.onOpen(first.key)
+      }}
+    >
+      <NavGlyph name={props.group.icon === '' ? 'box' : props.group.icon} />
+    </button>
+  )
+}
+
 function ShellSidebar(props: {
   slots: PageSlots
   locale: LocaleFace
   section: SectionStore
+  site: SiteStore
   collapsed: boolean
   openConsole: (id: string) => void
   openConversation: () => void
@@ -262,6 +343,7 @@ function ShellSidebar(props: {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
   const pages = usePages(props.slots, props.locale)
   const copy = useCopy(props.locale)
+  const site = useSyncExternalStore(props.site.subscribe, props.site.get)
   const groups = navGroups(pages)
   const panelId = props.usePanelInfo?.(info => info.activePanelId)
   const onConversation = panelId === null
@@ -274,16 +356,44 @@ function ShellSidebar(props: {
   if (props.collapsed) {
     return (
       <div className="smp-shell is-collapsed">
-        <button className="rail-mark" type="button" aria-label={copy.expand} onClick={props.toggleSidebar}>策</button>
+        <button className="rail-mark has-icon" type="button" aria-label={copy.expand} onClick={props.toggleSidebar}>
+          <BrandMark icon={site.icon} />
+        </button>
+        <div className="rail">
+          <button
+            className={`rail-item${onConversation ? ' is-on' : ''}`}
+            type="button"
+            aria-label={copy.advisor}
+            title={copy.advisor}
+            onClick={props.openConversation}
+          >
+            <NavGlyph name="chat" />
+          </button>
+          {groups.nav.map(group => (
+            <RailItem key={group.id} group={group} on={group.pages.some(page => page.key === current)} onOpen={props.openConsole} />
+          ))}
+          <div className="rail-foot">
+            {groups.footer.map(group => (
+              <RailItem key={group.id} group={group} on={!onConversation && group.pages.some(page => page.key === current)} onOpen={props.openConsole} />
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="smp-shell">
-      <div className="logo"><span className="logo-mark">策</span><span>{copy.console}</span></div>
+      <div className="logo">
+        <span className="logo-mark has-icon"><BrandMark icon={site.icon} /></span>
+        <span className="logo-name">{site.title}</span>
+        <button className="fold" type="button" aria-label={copy.collapse} onClick={props.toggleSidebar}><FoldIcon /></button>
+      </div>
       <nav className="nav">
-        <button className={`nav-item${onConversation ? ' is-on' : ''}`} type="button" onClick={props.openConversation}>{copy.advisor}</button>
+        <button className={`nav-item${onConversation ? ' is-on' : ''}`} type="button" onClick={props.openConversation}>
+          <NavGlyph name="chat" />
+          <span>{copy.advisor}</span>
+        </button>
         {onConversation && (
           <SessionListView sessions={props.sessions} copy={copy} openSession={props.openSession} startSession={props.startSession} />
         )}
@@ -297,7 +407,8 @@ function ShellSidebar(props: {
               if (first !== undefined) props.openConsole(first.key)
             }}
           >
-            {group.label}
+            <NavGlyph name={group.icon === '' ? 'box' : group.icon} />
+            <span>{group.label}</span>
           </button>
         ))}
       </nav>
@@ -313,7 +424,8 @@ function ShellSidebar(props: {
                 if (first !== undefined) props.openConsole(first.key)
               }}
             >
-              {group.label}
+              <NavGlyph name={group.icon === '' ? 'box' : group.icon} />
+              <span>{group.label}</span>
             </button>
           ))}
         </div>
@@ -367,13 +479,14 @@ export const inject = ['slots', 'layout', 'sessions', 'uiWorkspace', 'workspaces
 export function apply(ctx: ShellCtx): void {
   const section = createSection()
   const auth = createAuth()
+  const site = createSiteStore()
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = '@smp/console-shell'
     tag.textContent = SHELL_STYLE + consoleCss
     document.head.appendChild(tag)
     void auth.refresh()
-    loadSiteChrome()
+    void site.refresh().catch((cause: unknown) => { void cause })
     return () => { tag.remove() }
   })
   const openConsole = (id: string): void => {
@@ -391,6 +504,7 @@ export function apply(ctx: ShellCtx): void {
       openConversation: () => { ctx.layout.selectPanel(null) },
       toggleSidebar: () => { ctx.layout.toggleSidebar() },
       sessions: ctx.sessions,
+      site,
       startSession: () => {
         ctx.layout.selectPanel(null)
         const existing = ctx.workspaces.list.getSnapshot().items[0]?.workspaceId
@@ -432,6 +546,7 @@ export function apply(ctx: ShellCtx): void {
       group: PLATFORM_GROUP,
       groupLabel: () => shellCopy(ctx.locale.getSnapshot().active).platform,
       placement: 'footer',
+      icon: 'settings',
     }),
     order: 5,
   }, () => <SecurityView auth={auth} locale={ctx.locale} />))
@@ -442,7 +557,8 @@ export function apply(ctx: ShellCtx): void {
       group: PLATFORM_GROUP,
       groupLabel: () => shellCopy(ctx.locale.getSnapshot().active).platform,
       placement: 'footer',
+      icon: 'settings',
     }),
     order: 0,
-  }, () => <GeneralView locale={ctx.locale} theme={theme} />))
+  }, () => <GeneralView locale={ctx.locale} theme={theme} site={site} />))
 }

@@ -18,6 +18,7 @@ export interface PageLabel {
   group?: string
   groupLabel?: string | (() => string)
   placement?: PagePlacement
+  icon?: string
 }
 
 export interface PageRoute {
@@ -27,6 +28,7 @@ export interface PageRoute {
   group: string
   groupLabel: string
   placement: PagePlacement
+  icon: string
 }
 
 export interface NavGroup {
@@ -34,16 +36,18 @@ export interface NavGroup {
   label: string
   placement: PagePlacement
   order: number
+  icon: string
   pages: PageRoute[]
 }
 
 /** Pages that share a group become one sidebar item and a row of tabs. */
-export function pageLabel(text: string | (() => string), place?: { group: string; groupLabel: string | (() => string); placement?: PagePlacement }): PageLabel {
+export function pageLabel(text: string | (() => string), place?: { group: string; groupLabel: string | (() => string); placement?: PagePlacement; icon?: string }): PageLabel {
   const label: PageLabel = () => typeof text === 'function' ? text() : text
   if (place !== undefined) {
     label.group = place.group
     label.groupLabel = place.groupLabel
     if (place.placement !== undefined) label.placement = place.placement
+    if (place.icon !== undefined && place.icon !== '') label.icon = place.icon
   }
   return label
 }
@@ -82,6 +86,7 @@ export function pageRoutes(entries: readonly RegisteredPage[]): PageRoute[] {
       group,
       groupLabel,
       placement: placementOf(raw) ?? 'nav',
+      icon: typeof raw === 'function' && raw.icon !== undefined ? raw.icon : '',
     })
   }
   routes.sort((left, right) => left.order - right.order || (left.key < right.key ? -1 : left.key > right.key ? 1 : 0))
@@ -99,6 +104,7 @@ export function navGroups(routes: readonly PageRoute[]): { nav: NavGroup[]; foot
         label: route.groupLabel,
         placement: route.placement,
         order: route.order,
+        icon: route.icon,
         pages: [route],
       })
       continue
@@ -107,6 +113,7 @@ export function navGroups(routes: readonly PageRoute[]): { nav: NavGroup[]; foot
     if (route.order < existing.order) {
       existing.order = route.order
       existing.label = route.groupLabel
+      existing.icon = route.icon
     }
     if (route.placement === 'footer') existing.placement = 'footer'
   }

@@ -16,6 +16,7 @@ test('harness settings sits with login security under platform settings', () => 
   const groups = navGroups(routes)
   assert.deepEqual(groups.nav.map(group => group.label), ['行情'])
   assert.deepEqual(groups.footer[0]?.pages.map(page => page.label), ['通用', '登录安全', 'Harness 设置'])
+  assert.equal(groups.footer[0]?.icon, '')
 })
 
 test('sidebar routes follow the pages plugins registered', () => {
@@ -50,6 +51,23 @@ test('shell labels are read again when the locale changes', () => {
   const next = pageRoutes([page])
   assert.equal(next[0]?.label, 'Security')
   assert.equal(navGroups(next).footer[0]?.label, 'Platform settings')
+})
+
+test('the earliest page names the group icon', () => {
+  const marked = pageRoutes([{
+    options: {
+      key: 'general',
+      label: pageLabel('通用', { group: 'platform', groupLabel: '平台设置', icon: 'settings' }),
+      order: 0,
+    },
+  }, {
+    options: {
+      key: 'later',
+      label: pageLabel('后来', { group: 'platform', groupLabel: '后来', icon: 'box' }),
+      order: 5,
+    },
+  }])
+  assert.equal(navGroups(marked).nav[0]?.icon, 'settings')
 })
 
 test('a username with a space is rejected', () => {
