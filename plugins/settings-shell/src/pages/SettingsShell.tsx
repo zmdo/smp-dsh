@@ -1,4 +1,5 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Surface } from '@smp/console-kit'
 import { generalRowIds, sectionNav, type RegisteredSection } from '../sections.ts'
 
 interface SectionSlots {
@@ -64,11 +65,9 @@ const HARNESS_PAGE = 'harness'
 export function SettingsHost(props: { page?: string; slots: SectionSlots; locale: LocaleFace; renderSlot?: RenderSlot }) {
   if (props.page === MODELS_PAGE) {
     return (
-      <div className="smp-settings-shell">
-        <div className="smp-settings-body">
-          {props.renderSlot?.('settings.section', { close: closeSettings }, { only: 'models' })}
-        </div>
-      </div>
+      <Surface>
+        {props.renderSlot?.('settings.section', { close: closeSettings }, { only: 'models' })}
+      </Surface>
     )
   }
   if (props.page === HARNESS_PAGE) return <SettingsShell slots={props.slots} locale={props.locale} renderSlot={props.renderSlot} />

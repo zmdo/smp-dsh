@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { Panel } from '@smp/console-kit'
 import { shellCopy } from './copy.ts'
 
 interface LocaleChoice {
@@ -29,42 +30,36 @@ export function GeneralView(props: { locale: LocaleFace; theme: ThemeFace }) {
   ]
   return (
     <>
-      <section className="panel">
-        <header className="panel-head"><h1><i className="mark" />{copy.language}</h1></header>
-        <div className="panel-body">
-          <div className="choice-row">
-            {locale.locales.map(choice => (
-              <button
-                key={choice.id}
-                className={choice.id === locale.active ? 'primary' : 'secondary'}
-                type="button"
-                aria-pressed={choice.id === locale.active}
-                onClick={() => props.locale.setLocale(choice.id)}
-              >
-                {choice.label}
-              </button>
-            ))}
-          </div>
+      <Panel title={copy.language}>
+        <div className="choice-row">
+          {locale.locales.map(choice => (
+            <button
+              key={choice.id}
+              className={choice.id === locale.active ? 'primary' : 'secondary'}
+              type="button"
+              aria-pressed={choice.id === locale.active}
+              onClick={() => props.locale.setLocale(choice.id)}
+            >
+              {choice.label}
+            </button>
+          ))}
         </div>
-      </section>
-      <section className="panel">
-        <header className="panel-head"><h1><i className="mark" />{copy.appearance}</h1></header>
-        <div className="panel-body">
-          <div className="choice-row">
-            {themes.map(choice => (
-              <button
-                key={choice.id}
-                className={choice.id === theme.preference ? 'primary' : 'secondary'}
-                type="button"
-                aria-pressed={choice.id === theme.preference}
-                onClick={() => props.theme.setTheme(choice.id)}
-              >
-                {choice.label}
-              </button>
-            ))}
-          </div>
+      </Panel>
+      <Panel title={copy.appearance}>
+        <div className="choice-row">
+          {themes.map(choice => (
+            <button
+              key={choice.id}
+              className={choice.id === theme.preference ? 'primary' : 'secondary'}
+              type="button"
+              aria-pressed={choice.id === theme.preference}
+              onClick={() => props.theme.setTheme(choice.id)}
+            >
+              {choice.label}
+            </button>
+          ))}
         </div>
-      </section>
+      </Panel>
     </>
   )
 }

@@ -35,6 +35,7 @@
     "test": "node --test test/**/*.test.ts"
   },
   "dependencies": {
+    "@smp/console-kit": "file:../../packages/console-kit",
     "@deepseek-ai/cordis": "~4.0.5-alpha.2",
     "@deepseek-ai/schemastery": "~3.18.5-alpha.2",
     "bcryptjs": "^3.0.2",

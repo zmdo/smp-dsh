@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react'
 import QRCode from 'qrcode'
+import { Panel } from '@smp/console-kit'
 import { shellCopy } from './copy.ts'
 import type { LocaleFace } from './general-view.tsx'
 
@@ -119,9 +120,7 @@ export function SecurityView(props: { auth: AuthStore; locale: LocaleFace }) {
     <>
       {error !== '' && <p className="banner error">{error}</p>}
       {message !== '' && <p className="banner ok">{message}</p>}
-      <section className="panel">
-        <header className="panel-head"><h1><i className="mark" />{copy.security}</h1></header>
-        <div className="panel-body">
+      <Panel title={copy.security}>
           <form className="panel-form" onSubmit={saveUsername}>
             <label>{copy.username}<input value={username} autoComplete="username" required onChange={event => setUsername(event.target.value)} /></label>
             <button className="primary" type="submit" disabled={busy}>{copy.saveUsername}</button>
@@ -149,18 +148,14 @@ export function SecurityView(props: { auth: AuthStore; locale: LocaleFace }) {
               <button className="primary" type="submit" disabled={busy}>{copy.disableTotp}</button>
             </form>
           )}
-        </div>
-      </section>
-      <section className="panel">
-        <header className="panel-head"><h1><i className="mark" />{copy.changePassword}</h1></header>
-        <div className="panel-body">
+      </Panel>
+      <Panel title={copy.changePassword}>
           <form className="panel-form" onSubmit={changePassword}>
             <label>{copy.currentPassword}<input value={currentPassword} type="password" autoComplete="current-password" required onChange={event => setCurrentPassword(event.target.value)} /></label>
             <label>{copy.newPassword}<input value={newPassword} type="password" autoComplete="new-password" required onChange={event => setNewPassword(event.target.value)} /></label>
             <button className="primary" type="submit" disabled={busy}>{copy.save}</button>
           </form>
-        </div>
-      </section>
+      </Panel>
     </>
   )
 }

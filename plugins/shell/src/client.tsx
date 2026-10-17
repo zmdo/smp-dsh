@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
-import contentCss from './content.css'
+import { consoleCss } from '@smp/console-kit'
 import { navGroups, pageLabel, pageRoutes, type NavGroup, type RegisteredPage } from './pages.ts'
 import { createSection, type SectionStore } from './section.ts'
 import { shellCopy, type ShellCopy } from './copy.ts'
@@ -136,11 +136,6 @@ const SHELL_STYLE = `
 .smp-console .tab { display: flex; align-items: center; height: 100%; padding: 0 14px; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); }
 .smp-console .tab.is-on { color: var(--smp-primary); box-shadow: inset 0 -2px 0 var(--smp-primary); }
 .smp-console .content { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px 28px; }
-.smp-console .panel { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--smp-line); border-radius: 4px; }
-.smp-console .panel-head { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--smp-line); }
-.smp-console .panel-head h1 { margin: 0; font-size: 14px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
-.smp-console .mark { width: 3px; height: 14px; border-radius: 1px; background: var(--smp-primary); }
-.smp-console .empty { margin: 0; padding: 28px 16px; color: var(--smp-muted); }
 `
 
 function createAuth(): AuthStore {
@@ -374,7 +369,7 @@ export function apply(ctx: ShellCtx): void {
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = '@smp/console-shell'
-    tag.textContent = SHELL_STYLE + contentCss
+    tag.textContent = SHELL_STYLE + consoleCss
     document.head.appendChild(tag)
     void auth.refresh()
     return () => { tag.remove() }
