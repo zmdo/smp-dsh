@@ -1,5 +1,4 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
-import { Surface } from '@smp/console-kit'
 import { generalRowIds, sectionNav, type RegisteredSection } from '../sections.ts'
 
 interface SectionSlots {
@@ -58,18 +57,10 @@ export function GeneralSection(props: { slots: SectionSlots; renderSlot?: Render
   )
 }
 
-const MODELS_PAGE = 'models'
 const HARNESS_PAGE = 'harness'
 
-/** Stays mounted so both the models tab and Harness settings can draw sections. */
+/** Stays mounted so Harness settings can draw sections. The models tab draws itself. */
 export function SettingsHost(props: { page?: string; slots: SectionSlots; locale: LocaleFace; renderSlot?: RenderSlot }) {
-  if (props.page === MODELS_PAGE) {
-    return (
-      <Surface>
-        {props.renderSlot?.('settings.section', { close: closeSettings }, { only: 'models' })}
-      </Surface>
-    )
-  }
   if (props.page === HARNESS_PAGE) return <SettingsShell slots={props.slots} locale={props.locale} renderSlot={props.renderSlot} />
   return null
 }
