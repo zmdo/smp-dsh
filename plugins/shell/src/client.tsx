@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { consoleCss } from '@smp/console-kit'
 import { navGroups, pageLabel, pageRoutes, visibleGroups, type NavGroup, type RegisteredPage } from './pages.ts'
@@ -9,7 +9,7 @@ import { SecurityView } from './security-view.tsx'
 import { createSiteStore, type SiteStore } from './site-chrome.ts'
 import { CONVERSATION_ID, menuChoices, sidebarBlocks, type PlacedOption } from './menu.ts'
 import { createMenuStore, type MenuStore } from './menu-store.ts'
-import { DEFAULT_LANDING } from './landing.ts'
+import { DEFAULT_LANDING, DEFAULT_SIDEBAR } from './landing.ts'
 import { createLandingStore, type LandingStore } from './landing-store.ts'
 import { MenuView } from './menu-view.tsx'
 
@@ -111,8 +111,8 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .nav { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 10px; gap: 2px; overflow: auto; }
 .smp-shell .nav-title { margin: 16px 12px 4px; color: var(--smp-muted); font-size: 13px; font-weight: 600; }
 .smp-shell .nav > .menu-block:first-child .nav-title, .smp-shell .nav-foot > .menu-block:first-child .nav-title { margin-top: 8px; }
-.smp-console .menu-landing { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.smp-console .menu-landing select { width: 280px; }
+.smp-console .site-pref { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.smp-console .site-pref select { width: 280px; }
 .smp-console .menu-create { display: flex; gap: 8px; max-width: 440px; margin: 12px 0; }
 .smp-console .menu-create input { flex: 1; }
 .smp-console .menu-board { display: grid; gap: 12px; }
@@ -341,6 +341,14 @@ function ShellSidebar(props: {
   const copy = useCopy(props.locale)
   const site = useSyncExternalStore(props.site.subscribe, props.site.get)
   const saved = useSyncExternalStore(props.menu.subscribe, props.menu.get)
+  const chrome = useSyncExternalStore(props.landing.subscribe, props.landing.get)
+  const seenSidebar = useRef<string | null>(null)
+  useEffect(() => {
+    const mode = chrome.loaded ? chrome.sidebar : DEFAULT_SIDEBAR
+    if (seenSidebar.current === mode) return
+    seenSidebar.current = mode
+    if ((mode === 'collapsed') !== props.collapsed) props.toggleSidebar()
+  }, [chrome.loaded, chrome.sidebar, props.collapsed, props.toggleSidebar])
   const groups = navGroups(pages)
   const listed = visibleGroups(groups)
   const byId = new Map(listed.nav.concat(listed.footer).map(group => [group.id, group]))
@@ -350,7 +358,7 @@ function ShellSidebar(props: {
   const harnessOn = current === AGENT_CHAT || current === ARCHIVE_PAGE
   useEffect(() => {
     if (pages.length === 0 || pages.some(page => page.key === current)) return
-    if (current === props.landing.get()) return
+    if (current === props.landing.get().page) return
     const fallback = pages.find(page => page.key === DEFAULT_LANDING) ?? pages[0]
     if (fallback !== undefined) props.section.set(fallback.key)
   }, [pages, current, props.section, props.landing])
@@ -580,7 +588,7 @@ export function apply(ctx: ShellCtx): void {
       },
     }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} openConsole={openConsole} renderSlot={props.renderSlot} />)
     void landing.refresh().finally(() => {
-      if (!chosen) show(landing.get())
+      if (!chosen) show(landing.get().page)
     })
     return dispose
   })
@@ -610,7 +618,7 @@ export function apply(ctx: ShellCtx): void {
       icon: 'settings',
     }),
     order: 0,
-  }, () => <GeneralView locale={ctx.locale} theme={theme} site={site} />))
+  }, () => <GeneralView slots={ctx.slots} locale={ctx.locale} theme={theme} site={site} landing={landing} />))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: MENU_PAGE,
@@ -621,7 +629,7 @@ export function apply(ctx: ShellCtx): void {
       icon: 'settings',
     }),
     order: 2,
-  }, () => <MenuView slots={ctx.slots} locale={ctx.locale} menu={menu} landing={landing} />))
+  }, () => <MenuView slots={ctx.slots} locale={ctx.locale} menu={menu} />))
   const harnessLabel = () => shellCopy(ctx.locale.getSnapshot().active).harness
   registerNested(ctx, AGENT_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, AGENT_GROUP, harnessLabel, 0)
   // The archive plugin registers this page. A second registration of the same key throws.

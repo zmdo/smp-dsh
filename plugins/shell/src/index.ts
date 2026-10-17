@@ -7,7 +7,7 @@ import { clearDshCookieHeaders, dshAuthCookieNames, indexGate, smpSessionValue, 
 import { LOGIN_PAGE } from './login-page.ts'
 import { clearSessionCookie, openSession, sealSession, sessionCookie } from './session.ts'
 import { beginTotp, changePassword, changeUsername, confirmTotp, disableTotp } from './security.ts'
-import { landingDraft, loadLanding, saveLanding } from './landing.ts'
+import { loadLanding, loadSidebar, preferencePatch, saveLanding, saveSidebar } from './landing.ts'
 import { loadMenu, menuDraft, saveMenu } from './menu.ts'
 import { loadSite, saveSite, siteDraft, siteView } from './site.ts'
 
@@ -372,7 +372,10 @@ async function* landingRoutes(ctx: HostCtx, session: ConsoleSession): AsyncGener
         return
       }
       if (request.method === 'GET') {
-        sendJson(response, 200, { page: await loadLanding(ctx.database.pool) })
+        sendJson(response, 200, {
+          page: await loadLanding(ctx.database.pool),
+          sidebar: await loadSidebar(ctx.database.pool),
+        })
         return
       }
       if (request.method !== 'POST') {
@@ -388,13 +391,17 @@ async function* landingRoutes(ctx: HostCtx, session: ConsoleSession): AsyncGener
         sendJson(response, 400, { detail: '请求无法读取' })
         return
       }
-      const draft = landingDraft(body)
+      const draft = preferencePatch(body)
       if (!draft.ok) {
         sendJson(response, 400, { detail: '页面不对' })
         return
       }
-      await saveLanding(ctx.database.pool, draft.page)
-      sendJson(response, 200, { page: draft.page })
+      if (draft.page !== undefined) await saveLanding(ctx.database.pool, draft.page)
+      if (draft.sidebar !== undefined) await saveSidebar(ctx.database.pool, draft.sidebar)
+      sendJson(response, 200, {
+        page: draft.page ?? await loadLanding(ctx.database.pool),
+        sidebar: draft.sidebar ?? await loadSidebar(ctx.database.pool),
+      })
     },
   })
 }
