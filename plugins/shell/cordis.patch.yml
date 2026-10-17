@@ -1,3 +1,9 @@
 - insert:
     - id: console-shell
       name: '@smp/console-shell'
+
+# The harness settings panel is declared by its sidebar. This console draws
+# its own sidebar, so that plugin stays off and the shell mounts the panel
+# inside 平台设置 / Harness 设置.
+- id: ui-sidebar
+  disabled: true
