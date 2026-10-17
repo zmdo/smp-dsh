@@ -62,7 +62,7 @@ export type PreferencePatch =
   | { ok: true; page?: string; sidebar?: SidebarMode }
   | { ok: false }
 
-/** A menu save may change the landing page, the sidebar, or both. */
+/** A site save may change the landing page, the sidebar, or both. */
 export function preferencePatch(body: unknown): PreferencePatch {
   if (body === null || typeof body !== 'object') return { ok: false }
   const record = body as { page?: unknown; sidebar?: unknown }

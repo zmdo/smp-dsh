@@ -111,8 +111,6 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .nav { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 10px; gap: 2px; overflow: auto; }
 .smp-shell .nav-title { margin: 16px 12px 4px; color: var(--smp-muted); font-size: 13px; font-weight: 600; }
 .smp-shell .nav > .menu-block:first-child .nav-title, .smp-shell .nav-foot > .menu-block:first-child .nav-title { margin-top: 8px; }
-.smp-console .site-pref { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-.smp-console .site-pref select { width: 280px; }
 .smp-console .menu-create { display: flex; gap: 8px; max-width: 440px; margin: 12px 0; }
 .smp-console .menu-create input { flex: 1; }
 .smp-console .menu-board { display: grid; gap: 12px; }

@@ -78,18 +78,30 @@ export function GeneralView(props: { slots: PageSlots; locale: LocaleFace; theme
 function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore; slots: PageSlots; landing: LandingStore }) {
   const { copy } = props
   const site = useSyncExternalStore(props.site.subscribe, props.site.get)
-  const [title, setTitle] = useState(site.title)
-  const [icon, setIcon] = useState(site.icon)
-  const [seen, setSeen] = useState(site)
+  const entries = useSyncExternalStore(listener => props.slots.subscribe('console.page', listener), () => props.slots.entries('console.page'))
+  const chrome = useSyncExternalStore(props.landing.subscribe, props.landing.get)
+  const destinations = landingPages(navGroups(pageRoutes(entries)))
+  const storedPage = landingChoice(chrome.page, destinations)
+  const baseline = { title: site.title, icon: site.icon, page: storedPage, sidebar: chrome.sidebar }
+  const [title, setTitle] = useState(baseline.title)
+  const [icon, setIcon] = useState(baseline.icon)
+  const [page, setPage] = useState(baseline.page)
+  const [sidebar, setSidebar] = useState<SidebarMode>(baseline.sidebar)
+  const [seen, setSeen] = useState(baseline)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
 
-  if (seen !== site) {
-    setSeen(site)
-    if (title === seen.title) setTitle(site.title)
-    if (icon === seen.icon) setIcon(site.icon)
+  if (seen.title !== baseline.title || seen.icon !== baseline.icon || seen.page !== baseline.page || seen.sidebar !== baseline.sidebar) {
+    const previous = seen
+    setSeen(baseline)
+    if (title === previous.title) setTitle(baseline.title)
+    if (icon === previous.icon) setIcon(baseline.icon)
+    if (page === previous.page) setPage(baseline.page)
+    if (sidebar === previous.sidebar) setSidebar(baseline.sidebar)
   }
+
+  const dirty = title !== baseline.title || icon !== baseline.icon || page !== baseline.page || sidebar !== baseline.sidebar
 
   function onIcon(event: { target: HTMLInputElement }): void {
     const file = event.target.files?.[0]
@@ -111,33 +123,48 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore;
 
   function save(event: FormEvent): void {
     event.preventDefault()
+    if (!dirty || busy) return
     const draft = siteDraft({ title, icon })
     if (!draft.ok) {
       setError(draft.error === 'title' ? copy.titleInvalid : copy.iconInvalid)
       setMessage('')
       return
     }
+    const siteChanged = draft.title !== baseline.title || draft.icon !== baseline.icon
+    const entryChanged = page !== baseline.page || sidebar !== baseline.sidebar
     setBusy(true)
     setError('')
     setMessage('')
-    void fetch('/console-api/site', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ title: draft.title, icon: draft.icon }),
-    }).then(async response => {
-      const payload = await response.json().catch(() => ({})) as { detail?: unknown; title?: unknown; icon?: unknown }
-      if (!response.ok) {
-        setError(typeof payload.detail === 'string' ? payload.detail : copy.requestFailed)
-        return
+    void (async () => {
+      if (siteChanged) {
+        const response = await fetch('/console-api/site', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title: draft.title, icon: draft.icon }),
+        })
+        const payload = await response.json().catch(() => ({})) as { detail?: unknown; title?: unknown; icon?: unknown }
+        if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.requestFailed)
+        const nextTitle = typeof payload.title === 'string' && payload.title !== '' ? payload.title : DEFAULT_TITLE
+        const nextIcon = typeof payload.icon === 'string' ? payload.icon : ''
+        setTitle(nextTitle)
+        setIcon(nextIcon)
+        props.site.apply(nextTitle, nextIcon)
       }
-      const nextTitle = typeof payload.title === 'string' && payload.title !== '' ? payload.title : DEFAULT_TITLE
-      const nextIcon = typeof payload.icon === 'string' ? payload.icon : ''
-      setTitle(nextTitle)
-      setIcon(nextIcon)
-      props.site.apply(nextTitle, nextIcon)
+      if (entryChanged) {
+        const response = await fetch('/console-api/landing', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ page, sidebar }),
+        })
+        const payload = await response.json().catch(() => ({})) as { detail?: unknown }
+        if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.requestFailed)
+        props.landing.apply(page)
+        props.landing.applySidebar(sidebar)
+      }
       setMessage(copy.siteSaved)
-    }).catch((cause: unknown) => {
+    })().catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : copy.requestFailed)
     }).finally(() => { setBusy(false) })
   }
@@ -149,7 +176,7 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore;
       <form className="panel-form" onSubmit={save}>
         <label>
           {copy.siteTitle}
-          <input aria-label={copy.siteTitle} value={title} maxLength={80} onChange={event => setTitle(event.target.value)} />
+          <input aria-label={copy.siteTitle} value={title} maxLength={80} onChange={event => { setTitle(event.target.value); setMessage('') }} />
         </label>
         <label>
           {copy.siteIcon}
@@ -158,82 +185,29 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore;
         <p className="row">
           <img src={icon === '' ? '/favicon.svg' : icon} alt="" width={32} height={32} />
           <span className="muted">{copy.siteIconHint}</span>
-        </p>
-        <p className="row">
           {icon !== '' && (
-            <button
-              className="secondary"
-              type="button"
-              onClick={() => { setIcon(''); setMessage(''); setError('') }}
-            >
+            <button className="secondary" type="button" onClick={() => { setIcon(''); setMessage(''); setError('') }}>
               {copy.siteIconDefault}
             </button>
           )}
-          <button className="primary" type="submit" disabled={busy}>{copy.save}</button>
         </p>
+        <label>
+          {copy.landing}
+          <select aria-label={copy.landing} value={page} onChange={event => { setPage(event.target.value); setMessage('') }}>
+            {destinations.map(item => (
+              <option key={item.key} value={item.key}>{landingLabel(item, destinations)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {copy.sidebar}
+          <select aria-label={copy.sidebar} value={sidebar} onChange={event => { setSidebar(event.target.value === 'expanded' ? 'expanded' : 'collapsed'); setMessage('') }}>
+            <option value="collapsed">{copy.sidebarCollapsed}</option>
+            <option value="expanded">{copy.sidebarExpanded}</option>
+          </select>
+        </label>
+        <button className="primary" type="submit" disabled={!dirty || busy}>{copy.save}</button>
       </form>
-      <SiteEntry copy={copy} slots={props.slots} landing={props.landing} />
     </Panel>
-  )
-}
-
-function SiteEntry(props: { copy: ReturnType<typeof shellCopy>; slots: PageSlots; landing: LandingStore }) {
-  const entries = useSyncExternalStore(listener => props.slots.subscribe('console.page', listener), () => props.slots.entries('console.page'))
-  const chrome = useSyncExternalStore(props.landing.subscribe, props.landing.get)
-  const destinations = landingPages(navGroups(pageRoutes(entries)))
-  const landingValue = landingChoice(chrome.page, destinations)
-  const { copy } = props
-  const [note, setNote] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function save(body: { page?: string; sidebar?: SidebarMode }, apply: () => void): Promise<void> {
-    setBusy(true)
-    setError('')
-    setNote('')
-    try {
-      const response = await fetch('/console-api/landing', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const payload = await response.json() as { detail?: unknown }
-      if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.requestFailed)
-      apply()
-      setNote(copy.landingSaved)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : copy.requestFailed)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <>
-      {error !== '' && <p className="banner error">{error}</p>}
-      {note !== '' && <p className="banner ok">{note}</p>}
-      <label className="site-pref">{copy.landing}
-        <select aria-label={copy.landing} value={landingValue} disabled={busy} onChange={event => {
-          const page = event.target.value
-          if (page === landingValue) return
-          void save({ page }, () => props.landing.apply(page))
-        }}>
-          {destinations.map(page => (
-            <option key={page.key} value={page.key}>{landingLabel(page, destinations)}</option>
-          ))}
-        </select>
-      </label>
-      <label className="site-pref">{copy.sidebar}
-        <select aria-label={copy.sidebar} value={chrome.sidebar} disabled={busy} onChange={event => {
-          const mode: SidebarMode = event.target.value === 'expanded' ? 'expanded' : 'collapsed'
-          if (mode === chrome.sidebar) return
-          void save({ sidebar: mode }, () => props.landing.applySidebar(mode))
-        }}>
-          <option value="collapsed">{copy.sidebarCollapsed}</option>
-          <option value="expanded">{copy.sidebarExpanded}</option>
-        </select>
-      </label>
-    </>
   )
 }
