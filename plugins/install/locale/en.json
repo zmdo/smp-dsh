@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Install",
-    "description": "Enter the database URL and encryption key on the first start"
+    "description": "Enter the database connection and encryption key on the first start"
   }
 }

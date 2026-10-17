@@ -15,6 +15,7 @@ import {
 import { encryptionKeyError } from './key.ts'
 import { INSTALL_PAGE } from './page.ts'
 import { databaseReachable } from './probe.ts'
+import { composeDatabaseUrl } from './url.ts'
 
 interface IndexRequest {
   method?: string
@@ -88,9 +89,36 @@ export async function* apply(ctx: HostCtx): AsyncGenerator<() => void> {
   })
   yield ctx.webServer.register({
     kind: 'exact',
+    path: '/console-api/install/probe',
+    handler: (request, response) => probe(request, response),
+  })
+  yield ctx.webServer.register({
+    kind: 'exact',
     path: '/console-api/install',
     handler: (request, response) => submit(ctx, gate, request, response),
   })
+}
+
+/** Check the database fields without writing them. The install button stays off until this succeeds. */
+async function probe(request: IncomingMessage, response: ServerResponse): Promise<void> {
+  if (request.method !== 'POST') {
+    response.writeHead(405, { allow: 'POST', 'cache-control': 'no-store' })
+    response.end()
+    return
+  }
+  const body = await readBody(request, response)
+  if (body === undefined) return
+  const composed = composeDatabaseUrl(databaseParts(body))
+  if (!composed.ok) {
+    sendJson(response, 400, { ok: false, detail: composed.detail })
+    return
+  }
+  const databaseError = await databaseReachable(composed.url)
+  if (databaseError !== undefined) {
+    sendJson(response, 400, { ok: false, detail: databaseError })
+    return
+  }
+  sendJson(response, 200, { ok: true })
 }
 
 async function submit(
@@ -104,15 +132,14 @@ async function submit(
     response.end()
     return
   }
-  let body: unknown
-  try {
-    body = await readJson(request)
-  } catch (cause) {
-    void cause
-    sendJson(response, 400, { ok: false, detail: '请求无法读取' })
+  const body = await readBody(request, response)
+  if (body === undefined) return
+  const composed = composeDatabaseUrl(databaseParts(body))
+  if (!composed.ok) {
+    sendJson(response, 400, { ok: false, detail: composed.detail })
     return
   }
-  const databaseUrl = field(body, 'databaseUrl')?.trim() ?? ''
+  const databaseUrl = composed.url
   const encryptionKey = field(body, 'encryptionKey')?.trim() ?? ''
   const keyError = encryptionKeyError(encryptionKey)
   if (keyError !== undefined) {
@@ -164,6 +191,26 @@ function holdIndex(connection: ConnectionService): IndexGate {
       armed = false
       connection.authorizeIndex = original
     },
+  }
+}
+
+function databaseParts(body: unknown): { host: string, port: string, database: string, username: string, password: string } {
+  return {
+    host: field(body, 'host') ?? '',
+    port: field(body, 'port') ?? '',
+    database: field(body, 'database') ?? '',
+    username: field(body, 'username') ?? '',
+    password: field(body, 'password') ?? '',
+  }
+}
+
+async function readBody(request: IncomingMessage, response: ServerResponse): Promise<unknown> {
+  try {
+    return await readJson(request)
+  } catch (cause) {
+    void cause
+    sendJson(response, 400, { ok: false, detail: '请求无法读取' })
+    return undefined
   }
 }
 
