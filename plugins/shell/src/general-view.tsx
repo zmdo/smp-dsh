@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore, type FormEvent } from 'react'
+import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
 import { shellCopy } from './copy.ts'
 import { landingChoice, landingLabel, landingPages, type SidebarMode } from './landing.ts'
@@ -91,6 +91,7 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore;
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   if (seen.title !== baseline.title || seen.icon !== baseline.icon || seen.page !== baseline.page || seen.sidebar !== baseline.sidebar) {
     const previous = seen
@@ -104,7 +105,9 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore;
   const dirty = title !== baseline.title || icon !== baseline.icon || page !== baseline.page || sidebar !== baseline.sidebar
 
   function onIcon(event: { target: HTMLInputElement }): void {
-    const file = event.target.files?.[0]
+    const input = event.target
+    const file = input.files?.[0]
+    input.value = ''
     if (file === undefined) return
     const reader = new FileReader()
     reader.onload = () => {
@@ -178,19 +181,21 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore;
           {copy.siteTitle}
           <input aria-label={copy.siteTitle} value={title} maxLength={80} onChange={event => { setTitle(event.target.value); setMessage('') }} />
         </label>
-        <label>
-          {copy.siteIcon}
-          <input aria-label={copy.siteIcon} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={onIcon} />
-        </label>
-        <p className="row">
-          <img src={icon === '' ? '/favicon.svg' : icon} alt="" width={32} height={32} />
-          <span className="muted">{copy.siteIconHint}</span>
-          {icon !== '' && (
-            <button className="secondary" type="button" onClick={() => { setIcon(''); setMessage(''); setError('') }}>
-              {copy.siteIconDefault}
-            </button>
-          )}
-        </p>
+        <div className="site-icon-field">
+          <span>{copy.siteIcon}</span>
+          <button type="button" className="site-icon" aria-label={copy.siteIcon} onClick={() => fileRef.current?.click()}>
+            <img src={icon === '' ? '/favicon.svg' : icon} alt="" width={100} height={100} />
+          </button>
+          <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={onIcon} />
+          <p className="row">
+            <span className="muted">{copy.siteIconHint}</span>
+            {icon !== '' && (
+              <button className="secondary" type="button" onClick={() => { setIcon(''); setMessage(''); setError('') }}>
+                {copy.siteIconDefault}
+              </button>
+            )}
+          </p>
+        </div>
         <label>
           {copy.landing}
           <select aria-label={copy.landing} value={page} onChange={event => { setPage(event.target.value); setMessage('') }}>

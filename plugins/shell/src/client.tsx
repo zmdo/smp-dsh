@@ -111,6 +111,9 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .nav { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 10px; gap: 2px; overflow: auto; }
 .smp-shell .nav-title { margin: 16px 12px 4px; color: var(--smp-muted); font-size: 13px; font-weight: 600; }
 .smp-shell .nav > .menu-block:first-child .nav-title, .smp-shell .nav-foot > .menu-block:first-child .nav-title { margin-top: 8px; }
+.smp-console .site-icon-field { display: grid; gap: 6px; justify-items: start; color: var(--dsw-alias-label-secondary); }
+.smp-console button.site-icon { width: 100px; height: 100px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--dsw-alias-bg-layer-1); cursor: pointer; overflow: hidden; }
+.smp-console button.site-icon img { width: 100px; height: 100px; object-fit: contain; display: block; }
 .smp-console .menu-create { display: flex; gap: 8px; max-width: 440px; margin: 12px 0; }
 .smp-console .menu-create input { flex: 1; }
 .smp-console .menu-board { display: grid; gap: 12px; }

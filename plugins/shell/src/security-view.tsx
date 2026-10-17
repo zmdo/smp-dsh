@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { useState, useSyncExternalStore, type FormEvent } from 'react'
 import QRCode from 'qrcode'
 import { Panel } from '@smp/console-kit'
 import { shellCopy } from './copy.ts'
@@ -45,12 +45,17 @@ export function SecurityView(props: { auth: AuthStore; locale: LocaleFace }) {
   const [disableCode, setDisableCode] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
-  const [username, setUsername] = useState(auth.username ?? '')
+  const savedName = auth.username ?? ''
+  const [username, setUsername] = useState(savedName)
+  const [seenName, setSeenName] = useState(savedName)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (auth.username !== null) setUsername(auth.username)
-  }, [auth.username])
+  if (seenName !== savedName) {
+    const previous = seenName
+    setSeenName(savedName)
+    if (username === previous) setUsername(savedName)
+  }
+  const usernameDirty = username !== savedName
+  const passwordDirty = currentPassword !== '' || newPassword !== ''
 
   async function run(action: () => Promise<string>): Promise<void> {
     setError('')
@@ -68,6 +73,7 @@ export function SecurityView(props: { auth: AuthStore; locale: LocaleFace }) {
 
   function saveUsername(event: FormEvent): void {
     event.preventDefault()
+    if (!usernameDirty || busy) return
     void run(async () => {
       await post('/console-api/auth/username', copy.requestFailed, { username })
       return copy.usernameSaved
@@ -108,6 +114,7 @@ export function SecurityView(props: { auth: AuthStore; locale: LocaleFace }) {
 
   function changePassword(event: FormEvent): void {
     event.preventDefault()
+    if (!passwordDirty || busy) return
     void run(async () => {
       await post('/console-api/auth/password', copy.requestFailed, { current_password: currentPassword, new_password: newPassword })
       setCurrentPassword('')
@@ -122,8 +129,8 @@ export function SecurityView(props: { auth: AuthStore; locale: LocaleFace }) {
       {message !== '' && <p className="banner ok">{message}</p>}
       <Panel title={copy.security}>
           <form className="panel-form" onSubmit={saveUsername}>
-            <label>{copy.username}<input value={username} autoComplete="username" required onChange={event => setUsername(event.target.value)} /></label>
-            <button className="primary" type="submit" disabled={busy}>{copy.saveUsername}</button>
+            <label>{copy.username}<input value={username} autoComplete="username" required onChange={event => { setUsername(event.target.value); setMessage('') }} /></label>
+            <button className="primary" type="submit" disabled={!usernameDirty || busy}>{copy.saveUsername}</button>
           </form>
           <p>{copy.totp}：<strong>{auth.totpEnabled ? copy.totpOn : copy.totpOff}</strong></p>
           {!auth.totpEnabled ? (
@@ -151,9 +158,9 @@ export function SecurityView(props: { auth: AuthStore; locale: LocaleFace }) {
       </Panel>
       <Panel title={copy.changePassword}>
           <form className="panel-form" onSubmit={changePassword}>
-            <label>{copy.currentPassword}<input value={currentPassword} type="password" autoComplete="current-password" required onChange={event => setCurrentPassword(event.target.value)} /></label>
-            <label>{copy.newPassword}<input value={newPassword} type="password" autoComplete="new-password" required onChange={event => setNewPassword(event.target.value)} /></label>
-            <button className="primary" type="submit" disabled={busy}>{copy.save}</button>
+            <label>{copy.currentPassword}<input value={currentPassword} type="password" autoComplete="current-password" required onChange={event => { setCurrentPassword(event.target.value); setMessage('') }} /></label>
+            <label>{copy.newPassword}<input value={newPassword} type="password" autoComplete="new-password" required onChange={event => { setNewPassword(event.target.value); setMessage('') }} /></label>
+            <button className="primary" type="submit" disabled={!passwordDirty || busy}>{copy.save}</button>
           </form>
       </Panel>
     </>

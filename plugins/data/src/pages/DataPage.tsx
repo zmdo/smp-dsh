@@ -25,6 +25,7 @@ export function DataPage(props: { locale: LocaleFace }) {
   const [active, setActive] = useState(props.locale.getSnapshot().active)
   const copy = dataCopy(active)
   const [key, setKey] = useState('')
+  const [savedKey, setSavedKey] = useState('')
   const [visible, setVisible] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -39,7 +40,11 @@ export function DataPage(props: { locale: LocaleFace }) {
         const payload = await response.json().catch(() => ({})) as { encryptionKey?: unknown; detail?: unknown }
         if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.loadFailed)
         if (typeof payload.encryptionKey !== 'string') throw new Error(copy.loadFailed)
-        if (!stopped) setKey(payload.encryptionKey)
+        if (!stopped) {
+          const loaded = payload.encryptionKey
+          setSavedKey(loaded)
+          setKey(current => current === '' ? loaded : current)
+        }
       })
       .catch(caught => {
         if (!stopped) setError(caught instanceof Error ? caught.message : copy.loadFailed)
@@ -59,6 +64,7 @@ export function DataPage(props: { locale: LocaleFace }) {
 
   function save(event: FormEvent): void {
     event.preventDefault()
+    if (key === savedKey || busy) return
     setError('')
     setMessage('')
     setBusy(true)
@@ -70,6 +76,7 @@ export function DataPage(props: { locale: LocaleFace }) {
     }).then(async response => {
       const payload = await response.json().catch(() => ({})) as { detail?: unknown }
       if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : copy.saveFailed)
+      setSavedKey(key)
       setMessage(copy.saved)
     }).catch(caught => {
       setError(caught instanceof Error ? caught.message : copy.saveFailed)
@@ -87,13 +94,13 @@ export function DataPage(props: { locale: LocaleFace }) {
           <div className="smp-data-field">
             <label htmlFor="encryptionKey">{copy.key}</label>
             <span className="smp-data-key">
-              <input id="encryptionKey" type={visible ? 'text' : 'password'} value={key} autoComplete="off" spellCheck={false} required onChange={event => setKey(event.target.value)} />
+              <input id="encryptionKey" type={visible ? 'text' : 'password'} value={key} autoComplete="off" spellCheck={false} required onChange={event => { setKey(event.target.value); setMessage('') }} />
               <button className="secondary" type="button" onClick={() => setVisible(current => !current)}>{visible ? copy.hide : copy.show}</button>
               <button className="secondary" type="button" onClick={generate}>{copy.generate}</button>
             </span>
           </div>
           <p className="muted">{copy.warning}</p>
-          <button className="primary" type="submit" disabled={busy}>{copy.save}</button>
+          <button className="primary" type="submit" disabled={key === savedKey || busy}>{copy.save}</button>
         </form>
       </Panel>
     </>
