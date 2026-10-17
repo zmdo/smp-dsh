@@ -95,25 +95,26 @@ const SHELL_STYLE = `
 .smp-shell .logo { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 16px; font-size: 15px; font-weight: 650; color: var(--smp-text); }
 .smp-shell .logo-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .smp-shell .fold {
-  width: 28px; height: 28px; margin-left: auto; border: 0; border-radius: 4px; background: transparent;
+  width: 20px; height: 20px; margin-left: auto; border: 0; border-radius: 4px; background: transparent;
   color: var(--smp-muted); display: grid; place-items: center; padding: 0; flex: none; cursor: pointer;
 }
+.smp-shell .fold .nav-glyph, .smp-shell .rail-expand .nav-glyph { width: 20px; height: 20px; }
 .smp-shell .fold:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--smp-text); }
-.smp-shell .nav-glyph { width: 16px; height: 16px; flex: none; display: block; }
+.smp-shell .nav-glyph { width: 18px; height: 18px; flex: none; display: block; }
 .smp-shell .rail { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; width: 100%; min-height: 0; padding: 8px 0 12px; }
 .smp-shell .rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .smp-shell .rail-item {
-  width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent; color: var(--smp-text);
+  width: 40px; height: 40px; border: 0; border-radius: 6px; background: transparent; color: var(--smp-text);
   display: grid; place-items: center; padding: 0; cursor: pointer;
 }
 .smp-shell .rail-item.is-on { background: var(--smp-primary-soft); color: var(--smp-primary); }
 .smp-shell .logo-mark, .smp-shell .rail-mark {
-  width: 28px; height: 28px; border-radius: 6px; background: var(--smp-primary); color: #fff;
+  width: 20px; height: 20px; border-radius: 6px; background: var(--smp-primary); color: #fff;
   display: grid; place-items: center; font-size: 14px; font-weight: 700; border: 0; padding: 0;
 }
 .smp-shell .logo-mark.has-icon, .smp-shell .rail-mark.has-icon { background: transparent; color: var(--smp-text); }
 .smp-shell .rail-mark { cursor: pointer; }
-.smp-shell .logo-mark img, .smp-shell .rail-mark img { width: 28px; height: 28px; display: block; object-fit: contain; }
+.smp-shell .logo-mark img, .smp-shell .rail-mark img { width: 20px; height: 20px; display: block; object-fit: contain; }
 .smp-shell .rail-expand { display: none; }
 .smp-shell .rail-mark:hover, .smp-shell .rail-mark:focus-visible { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-shell .rail-mark:hover .rail-logo, .smp-shell .rail-mark:focus-visible .rail-logo { display: none; }
@@ -122,14 +123,14 @@ const SHELL_STYLE = `
 body[data-ds-dark-theme] .smp-shell .mark-light { display: none; }
 body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .nav { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 10px; gap: 2px; overflow: auto; }
-.smp-shell .nav-title { margin: 16px 12px 4px; color: var(--smp-muted); font-size: 12px; font-weight: 600; }
+.smp-shell .nav-title { margin: 16px 12px 4px; color: var(--smp-muted); font-size: 13px; font-weight: 600; }
 .smp-shell .nav-title:first-child { margin-top: 8px; }
 .smp-shell .nav-foot { margin-top: auto; padding: 8px 10px 12px; border-top: 1px solid var(--smp-line); }
 .smp-shell .nav-item, .smp-shell .nav-sub-item, .smp-shell .session-row, .smp-shell .session-new {
-  display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent;
+  display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent;
   text-align: left; color: var(--smp-text); border-radius: 4px; position: relative;
 }
-.smp-shell .nav-item { height: 40px; padding: 0 12px; }
+.smp-shell .nav-item { height: 44px; padding: 0 12px; font-size: 14px; }
 .smp-shell .nav-item:hover, .smp-shell .nav-sub-item:hover, .smp-shell .session-row:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-shell .nav-item.is-on { background: var(--smp-primary-soft); color: var(--smp-primary); font-weight: 600; }
 .smp-shell .nav-item.is-on::before {
