@@ -197,6 +197,7 @@
 }
 .smp-console button.link.danger { color: var(--red); }
 .smp-console .panel button:disabled { opacity: 0.55; cursor: not-allowed; }
+.smp-console .choice-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .smp-console .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .smp-console .node-card {
   background: #fff;

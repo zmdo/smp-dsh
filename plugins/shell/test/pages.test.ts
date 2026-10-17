@@ -8,12 +8,13 @@ import { decryptMnemonic, encryptMnemonic } from '../src/vault.ts'
 test('harness settings sits with login security under platform settings', () => {
   const routes = pageRoutes([
     { options: { key: 'settings', label: pageLabel('登录安全', { group: 'platform', groupLabel: '平台设置', placement: 'footer' }), order: 0 } },
+    { options: { key: 'general', label: pageLabel('通用', { group: 'platform', groupLabel: '平台设置', placement: 'footer' }), order: 5 } },
     { options: { key: 'harness', label: pageLabel('Harness 设置', { group: 'platform', groupLabel: '平台设置', placement: 'footer' }), order: 10 } },
     { options: { key: 'markets', label: '行情', order: 30 } },
   ])
   const groups = navGroups(routes)
   assert.deepEqual(groups.nav.map(group => group.label), ['行情'])
-  assert.deepEqual(groups.footer[0]?.pages.map(page => page.label), ['登录安全', 'Harness 设置'])
+  assert.deepEqual(groups.footer[0]?.pages.map(page => page.label), ['登录安全', '通用', 'Harness 设置'])
 })
 
 test('sidebar routes follow the pages plugins registered', () => {

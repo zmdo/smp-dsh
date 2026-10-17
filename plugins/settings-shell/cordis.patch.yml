@@ -1,0 +1,8 @@
+- insert:
+    - id: console-settings-shell
+      name: '@smp/console-settings-shell'
+
+# That plugin also registers the general section and declares
+# settings.general.item. This shell declares the same slot.
+- id: ui-settings-general
+  disabled: true

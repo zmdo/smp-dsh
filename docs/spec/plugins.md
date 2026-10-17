@@ -38,7 +38,7 @@ scripts/
 | `plugins/accounts` | `@smp/console-accounts` | `console-accounts` | 有 |
 | `plugins/servers` | `@smp/console-servers` | `console-servers` | 有 |
 | `plugins/settings` | `@smp/console-settings` | `console-settings` | 有 |
-| `plugins/harness` | `@smp/console-harness` | `console-harness` | 有 |
+| `plugins/settings-shell` | `@smp/console-settings-shell` | `console-settings-shell` | 有 |
 
 有页面的插件：
 

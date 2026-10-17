@@ -1,9 +1,9 @@
 {
-  "name": "@smp/console-harness",
+  "name": "@smp/console-settings-shell",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Harness 设置壳",
+  "description": "设置壳",
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",

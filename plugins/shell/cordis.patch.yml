@@ -3,7 +3,6 @@
       name: '@smp/console-shell'
 
 # The console draws its own sidebar. Leaving this on would also let the
-# harness settings dialog declare settings.section, which the harness
-# settings shell declares instead.
+# harness settings dialog declare settings.section.
 - id: ui-sidebar
   disabled: true

@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react
 import contentCss from './content.css'
 import { navGroups, pageLabel, pageRoutes, type NavGroup, type RegisteredPage } from './pages.ts'
 import { createSection, type SectionStore } from './section.ts'
+import { GeneralView, type LocaleFace, type ThemeFace } from './general-view.tsx'
 import { SecurityView } from './security-view.tsx'
 
 interface Layout {
@@ -57,6 +58,9 @@ interface ShellCtx {
   sessions: Sessions
   uiWorkspace: Workspace
   workspaces: Workspaces
+  locale: LocaleFace
+  theme: ThemeFace
+  on(name: 'theme/change', listener: () => void): () => void
   effect(run: () => (() => void)): void
 }
 
@@ -73,6 +77,7 @@ interface RenderSlot {
 
 const CONSOLE_PANEL = 'console'
 const SECURITY_PAGE = 'settings'
+const GENERAL_PAGE = 'general'
 const PLATFORM_GROUP = 'platform'
 
 const SHELL_STYLE = `
@@ -348,7 +353,7 @@ function ConsolePanel(props: { slots: PageSlots; section: SectionStore; auth: Au
   )
 }
 
-export const inject = ['slots', 'layout', 'sessions', 'uiWorkspace', 'workspaces']
+export const inject = ['slots', 'layout', 'sessions', 'uiWorkspace', 'workspaces', 'locale', 'theme']
 
 export function apply(ctx: ShellCtx): void {
   const section = createSection()
@@ -403,10 +408,21 @@ export function apply(ctx: ShellCtx): void {
     ctx.layout.selectPanel(CONSOLE_PANEL)
     return dispose
   })
+  const theme: ThemeFace = {
+    getTheme: () => ctx.theme.getTheme(),
+    setTheme: (id) => { ctx.theme.setTheme(id) },
+    subscribe: (listener) => ctx.on('theme/change', listener),
+  }
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: SECURITY_PAGE,
     label: pageLabel('登录安全', { group: PLATFORM_GROUP, groupLabel: '平台设置', placement: 'footer' }),
     order: 0,
   }, () => <SecurityView auth={auth} />))
+  ctx.slots.inject('console.page', () => ctx.slots.register({
+    name: 'console.page',
+    key: GENERAL_PAGE,
+    label: pageLabel('通用', { group: PLATFORM_GROUP, groupLabel: '平台设置', placement: 'footer' }),
+    order: 5,
+  }, () => <GeneralView locale={ctx.locale} theme={theme} />))
 }

@@ -1,4 +1,4 @@
-import { HarnessSettings, installStyle } from './pages/HarnessSettings.tsx'
+import { GeneralSection, SettingsShell, installStyle } from './pages/SettingsShell.tsx'
 import { pageLabel } from './page-label.ts'
 
 interface SectionSlots {
@@ -8,17 +8,33 @@ interface SectionSlots {
   register(options: object, component: unknown): () => void
 }
 
-interface HarnessCtx {
+interface LocaleFace {
+  getSnapshot(): { active: string }
+  subscribe(listener: () => void): () => void
+}
+
+interface SettingsCtx {
   slots: SectionSlots
+  locale: LocaleFace
   effect(run: () => (() => void)): void
 }
 
 const HARNESS_PAGE = 'harness'
 
-export const inject = ['slots']
+export const inject = ['slots', 'locale']
 
-export function apply(ctx: HarnessCtx): void {
+export function apply(ctx: SettingsCtx): void {
   ctx.effect(installStyle)
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'general',
+    order: 0,
+    label: () => ctx.locale.getSnapshot().active === 'zh' ? '通用设置' : 'General',
+    children: {
+      'settings.general.item': { kind: 'list', scope: 'root' },
+    },
+    inject: () => ({ slots: ctx.slots }),
+  }, GeneralSection))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: HARNESS_PAGE,
@@ -27,6 +43,6 @@ export function apply(ctx: HarnessCtx): void {
     children: {
       'settings.section': { kind: 'list', scope: 'root' },
     },
-    inject: () => ({ slots: ctx.slots }),
-  }, HarnessSettings))
+    inject: () => ({ slots: ctx.slots, locale: ctx.locale }),
+  }, SettingsShell))
 }
