@@ -86,6 +86,7 @@ flowchart LR
 | `@smp/console-session-log` | 无 | 实现 `sessionPersistence`，把会话日志写入 PostgreSQL，并停用 jsonl 后端 |
 | `@smp/console-storage` | 无 | 提供 `postgres` 存储后端，只把 `workspace` 域指到数据库 |
 | `@smp/console-install` | 无 | 新的 profile 里启动一次，写入数据库地址和加密密钥，并留下 `install-complete`。标记还在时不再出现 |
+| `@smp/console-data` | 数据 | 在平台设置里查看和更换加密密钥。写入补丁，并让当前进程改用新密钥 |
 | `@smp/console-shell` | 侧栏、登录页、安全、Harness | 签发和校验 `smp_session`，登记 `/login` 和安全 |
 | `@smp/console-settings-shell` | Harness 设置 | 无。列出已登记的栏目，并自己登记通用栏目 |
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
@@ -129,6 +130,10 @@ flowchart LR
 ### 6.2.3 插件
 
 `@smp/console-plugins` 往同一组登记页签「插件」。它读 `pluginInventory.list()`，只列出全局 Loader 条目：名称、说明和启停状态。列表分页，每页可以选 10、20 或 50 条，也可以直接跳到某一页，并按启停状态筛选。点一行展开模块名、条目标识、启用、运行阶段和预设。会话插件仍留在「Harness 设置」的「内置插件」里。这一页不改启用状态。
+
+### 6.2.4 数据
+
+`@smp/console-data` 往同一组登记页签「数据」。页面读出存储插件配置里的加密密钥，默认不显示明文，点按钮才看得到。可以改，也可以生成一把新的。保存时写回 `console-store` 的 `encryptionKey`，并让当前进程的 `secrets` 改用这一把。已经用旧密钥加密的内容解不开。数据库地址不在这一页改。
 
 ### 6.3 服务器
 

@@ -18,7 +18,7 @@ export class Database extends Service {
 
 /** Ciphertext stored in PostgreSQL. The key stays in this service. */
 export class Secrets extends Service {
-  private readonly codec: SecretsCodec
+  private codec: SecretsCodec
 
   constructor(ctx: Context, codec: SecretsCodec) {
     super(ctx, 'secrets')
@@ -31,6 +31,11 @@ export class Secrets extends Service {
 
   decrypt(ciphertext: string): string {
     return this.codec.decrypt(ciphertext)
+  }
+
+  /** Later writes use this key. Text already stored with the previous key cannot be opened. */
+  replaceKey(encoded: string): void {
+    this.codec = new SecretsCodec(decodeFernetKey(encoded))
   }
 }
 
