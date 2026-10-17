@@ -9,6 +9,8 @@ import { SecurityView } from './security-view.tsx'
 import { createSiteStore, type SiteStore } from './site-chrome.ts'
 import { CONVERSATION_ID, menuChoices, sidebarBlocks, type PlacedOption } from './menu.ts'
 import { createMenuStore, type MenuStore } from './menu-store.ts'
+import { DEFAULT_LANDING } from './landing.ts'
+import { createLandingStore, type LandingStore } from './landing-store.ts'
 import { MenuView } from './menu-view.tsx'
 
 interface Layout {
@@ -109,6 +111,8 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .nav { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 8px 10px; gap: 2px; overflow: auto; }
 .smp-shell .nav-title { margin: 16px 12px 4px; color: var(--smp-muted); font-size: 13px; font-weight: 600; }
 .smp-shell .nav > .menu-block:first-child .nav-title, .smp-shell .nav-foot > .menu-block:first-child .nav-title { margin-top: 8px; }
+.smp-console .menu-landing { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.smp-console .menu-landing select { width: 280px; }
 .smp-console .menu-create { display: flex; gap: 8px; max-width: 440px; margin: 12px 0; }
 .smp-console .menu-create input { flex: 1; }
 .smp-console .menu-board { display: grid; gap: 12px; }
@@ -324,6 +328,7 @@ function ShellSidebar(props: {
   section: SectionStore
   site: SiteStore
   menu: MenuStore
+  landing: LandingStore
   chatSide: ChatSideMount
   collapsed: boolean
   openConsole: (id: string) => void
@@ -344,10 +349,11 @@ function ShellSidebar(props: {
   const onConversation = panelId === null
   const harnessOn = current === AGENT_CHAT || current === ARCHIVE_PAGE
   useEffect(() => {
-    if (pages.some(page => page.key === current)) return
-    const fallback = pages.find(page => page.key === SECURITY_PAGE) ?? pages[0]
+    if (pages.length === 0 || pages.some(page => page.key === current)) return
+    if (current === props.landing.get()) return
+    const fallback = pages.find(page => page.key === DEFAULT_LANDING) ?? pages[0]
     if (fallback !== undefined) props.section.set(fallback.key)
-  }, [pages, current, props.section])
+  }, [pages, current, props.section, props.landing])
 
   const openItem = (item: PlacedOption): void => {
     if (item.id === CONVERSATION_ID) {
@@ -511,10 +517,11 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
 export const inject = ['slots', 'layout', 'locale', 'theme']
 
 export function apply(ctx: ShellCtx): void {
-  const section = createSection()
+  const section = createSection(AGENT_CHAT)
   const auth = createAuth()
   const site = createSiteStore()
   const menu = createMenuStore()
+  const landing = createLandingStore()
   const chatSide = createChatSideMount()
   ctx.effect(() => {
     const tag = document.createElement('style')
@@ -526,9 +533,14 @@ export function apply(ctx: ShellCtx): void {
     void menu.refresh().catch((cause: unknown) => { void cause })
     return () => { tag.remove() }
   })
-  const openConsole = (id: string): void => {
+  let chosen = false
+  const show = (id: string): void => {
     section.set(id)
     ctx.layout.selectPanel(id === AGENT_CHAT ? null : CONSOLE_PANEL)
+  }
+  const openConsole = (id: string): void => {
+    chosen = true
+    show(id)
   }
   ctx.slots.inject('sidebar', () => ctx.slots.register({
     name: 'sidebar',
@@ -546,6 +558,7 @@ export function apply(ctx: ShellCtx): void {
       toggleSidebar: () => { ctx.layout.toggleSidebar() },
       site,
       menu,
+      landing,
       chatSide,
     }),
   }, ShellSidebar))
@@ -566,7 +579,9 @@ export function apply(ctx: ShellCtx): void {
         'console.settings-host': { kind: 'single', scope: 'root' },
       },
     }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} openConsole={openConsole} renderSlot={props.renderSlot} />)
-    ctx.layout.selectPanel(CONSOLE_PANEL)
+    void landing.refresh().finally(() => {
+      if (!chosen) show(landing.get())
+    })
     return dispose
   })
   const theme: ThemeFace = {
@@ -606,7 +621,7 @@ export function apply(ctx: ShellCtx): void {
       icon: 'settings',
     }),
     order: 2,
-  }, () => <MenuView slots={ctx.slots} locale={ctx.locale} menu={menu} />))
+  }, () => <MenuView slots={ctx.slots} locale={ctx.locale} menu={menu} landing={landing} />))
   const harnessLabel = () => shellCopy(ctx.locale.getSnapshot().active).harness
   registerNested(ctx, AGENT_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, AGENT_GROUP, harnessLabel, 0)
   // The archive plugin registers this page. A second registration of the same key throws.

@@ -75,7 +75,7 @@ export function SettingsShell(props: { slots: SectionSlots; locale: LocaleFace; 
   const zh = locale.active === 'zh'
   return (
     <div className="smp-settings-shell">
-      <nav className="smp-settings-nav" aria-label={zh ? 'Harness 设置' : 'Harness settings'}>
+      <nav className="smp-settings-nav" aria-label="Harness">
         {sections.map(section => (
           <button
             key={section.id}

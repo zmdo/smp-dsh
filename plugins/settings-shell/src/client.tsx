@@ -46,7 +46,7 @@ export function apply(ctx: SettingsCtx): void {
     name: 'console.page',
     key: HARNESS_PAGE,
     label: pageLabel(
-      () => ctx.locale.getSnapshot().active === 'zh' ? 'Harness 设置' : 'Harness settings',
+      () => 'Harness',
       { group: 'platform', groupLabel: '平台设置', placement: 'footer' },
     ),
     order: 10,
