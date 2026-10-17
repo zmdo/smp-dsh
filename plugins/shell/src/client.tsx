@@ -272,10 +272,15 @@ function groupOf(pages: ReturnType<typeof pageRoutes>, key: string): NavGroup | 
 
 function NavGlyph(props: { name: string }) {
   const common = { className: 'nav-glyph', viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': true }
-  if (props.name === 'chat') {
+  if (props.name === 'robot') {
     return (
       <svg {...common}>
-        <path d="M3 3.2h10v7.2H8.2L5.2 13V10.4H3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+        <path d="M8 1.8v1.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        <circle cx="8" cy="1.8" r="0.7" fill="currentColor" />
+        <rect x="3" y="4" width="10" height="7.4" rx="2" stroke="currentColor" strokeWidth="1.4" />
+        <circle cx="6.2" cy="7.4" r="0.8" fill="currentColor" />
+        <circle cx="9.8" cy="7.4" r="0.8" fill="currentColor" />
+        <path d="M6.2 9.4h3.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
       </svg>
     )
   }
@@ -373,7 +378,7 @@ function ShellSidebar(props: {
             title={copy.advisor}
             onClick={props.openConversation}
           >
-            <NavGlyph name="chat" />
+            <NavGlyph name="robot" />
           </button>
           {groups.nav.map(group => (
             <RailItem key={group.id} group={group} on={group.pages.some(page => page.key === current)} onOpen={props.openConsole} />
@@ -396,8 +401,9 @@ function ShellSidebar(props: {
         <button className="fold" type="button" aria-label={copy.collapse} onClick={props.toggleSidebar}><FoldIcon /></button>
       </div>
       <nav className="nav">
+        <div className="nav-title">{copy.overview}</div>
         <button className={`nav-item${onConversation ? ' is-on' : ''}`} type="button" onClick={props.openConversation}>
-          <NavGlyph name="chat" />
+          <NavGlyph name="robot" />
           <span>{copy.advisor}</span>
         </button>
         {onConversation && (

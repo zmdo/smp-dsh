@@ -1,6 +1,7 @@
 const zh = {
   console: '策略控制台',
-  advisor: '军师',
+  advisor: 'Harness',
+  overview: '概览',
   expand: '展开侧栏',
   collapse: '收起侧栏',
   newSession: '新会话',
@@ -52,7 +53,8 @@ const zh = {
 
 const en: typeof zh = {
   console: 'Strategy console',
-  advisor: 'Advisor',
+  advisor: 'Harness',
+  overview: 'Overview',
   expand: 'Expand sidebar',
   collapse: 'Collapse sidebar',
   newSession: 'New session',
