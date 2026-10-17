@@ -10,7 +10,7 @@ test('registered harness sections become the settings nav', () => {
     { options: { id: 'hidden' } },
     { options: { id: 'blank', label: '' } },
   ])
-  assert.deepEqual(nav.map(item => item.id), ['general', 'models', 'plugins'])
+  assert.deepEqual(nav.map(item => item.id), ['general', 'plugins'])
   assert.equal(nav[0]?.label, '通用设置')
 })
 

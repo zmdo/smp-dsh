@@ -1,4 +1,4 @@
-import { GeneralSection, SettingsShell, installStyle } from './pages/SettingsShell.tsx'
+import { GeneralSection, SettingsHost, installStyle } from './pages/SettingsShell.tsx'
 import { pageLabel } from './page-label.ts'
 
 interface SectionSlots {
@@ -35,6 +35,13 @@ export function apply(ctx: SettingsCtx): void {
     },
     inject: () => ({ slots: ctx.slots }),
   }, GeneralSection))
+  ctx.slots.inject('console.settings-host', () => ctx.slots.register({
+    name: 'console.settings-host',
+    children: {
+      'settings.section': { kind: 'list', scope: 'root' },
+    },
+    inject: () => ({ slots: ctx.slots, locale: ctx.locale }),
+  }, SettingsHost))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: HARNESS_PAGE,
@@ -43,9 +50,5 @@ export function apply(ctx: SettingsCtx): void {
       { group: 'platform', groupLabel: '平台设置', placement: 'footer' },
     ),
     order: 10,
-    children: {
-      'settings.section': { kind: 'list', scope: 'root' },
-    },
-    inject: () => ({ slots: ctx.slots, locale: ctx.locale }),
-  }, SettingsShell))
+  }, () => null))
 }

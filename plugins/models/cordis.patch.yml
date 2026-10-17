@@ -1,0 +1,3 @@
+- insert:
+    - id: console-models
+      name: '@smp/console-models'

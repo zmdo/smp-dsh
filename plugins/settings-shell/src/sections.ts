@@ -15,13 +15,16 @@ export interface SectionNavItem {
 /** Rows the console shell draws on its own 通用 tab. */
 const SHELL_ROWS = new Set(['language', 'appearance'])
 
+/** The models page draws this section on its own platform tab. */
+const PLATFORM_SECTIONS = new Set(['models'])
+
 /** Nav rows for settings sections plugins registered, in order. */
 export function sectionNav(entries: readonly RegisteredSection[]): SectionNavItem[] {
   const items: SectionNavItem[] = []
   for (const entry of entries) {
     const id = entry.options.id
     const raw = entry.options.label
-    if (id === undefined || raw === undefined) continue
+    if (id === undefined || raw === undefined || PLATFORM_SECTIONS.has(id)) continue
     const label = typeof raw === 'function' ? raw() : raw
     if (label === '') continue
     items.push({ id, label, order: entry.options.order ?? 0 })

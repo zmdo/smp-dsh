@@ -57,6 +57,24 @@ export function GeneralSection(props: { slots: SectionSlots; renderSlot?: Render
   )
 }
 
+const MODELS_PAGE = 'models'
+const HARNESS_PAGE = 'harness'
+
+/** Stays mounted so both the models tab and Harness settings can draw sections. */
+export function SettingsHost(props: { page?: string; slots: SectionSlots; locale: LocaleFace; renderSlot?: RenderSlot }) {
+  if (props.page === MODELS_PAGE) {
+    return (
+      <div className="smp-settings-shell">
+        <div className="smp-settings-body">
+          {props.renderSlot?.('settings.section', { close: closeSettings }, { only: 'models' })}
+        </div>
+      </div>
+    )
+  }
+  if (props.page === HARNESS_PAGE) return <SettingsShell slots={props.slots} locale={props.locale} renderSlot={props.renderSlot} />
+  return null
+}
+
 export function SettingsShell(props: { slots: SectionSlots; locale: LocaleFace; renderSlot?: RenderSlot }) {
   const entries = useEntries(props.slots, 'settings.section')
   const locale = useSyncExternalStore(listener => props.locale.subscribe(listener), () => props.locale.getSnapshot())

@@ -356,6 +356,7 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
         {auth.checked && auth.authenticated && (
           <>
             {auth.passwordIsDefault && <p className="banner">{copy.banner}</p>}
+            {props.renderSlot?.('console.settings-host', { page: current })}
             {body}
           </>
         )}
@@ -416,6 +417,7 @@ export function apply(ctx: ShellCtx): void {
       key: CONSOLE_PANEL,
       children: {
         'console.page': { kind: 'keyed', scope: 'root' },
+        'console.settings-host': { kind: 'single', scope: 'root' },
       },
     }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} renderSlot={props.renderSlot} />)
     ctx.layout.selectPanel(CONSOLE_PANEL)
@@ -434,7 +436,7 @@ export function apply(ctx: ShellCtx): void {
       groupLabel: () => shellCopy(ctx.locale.getSnapshot().active).platform,
       placement: 'footer',
     }),
-    order: 0,
+    order: 5,
   }, () => <SecurityView auth={auth} locale={ctx.locale} />))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
@@ -444,6 +446,6 @@ export function apply(ctx: ShellCtx): void {
       groupLabel: () => shellCopy(ctx.locale.getSnapshot().active).platform,
       placement: 'footer',
     }),
-    order: 5,
+    order: 0,
   }, () => <GeneralView locale={ctx.locale} theme={theme} />))
 }

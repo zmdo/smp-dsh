@@ -39,6 +39,7 @@ scripts/
 | `plugins/servers` | `@smp/console-servers` | `console-servers` | 有 |
 | `plugins/settings` | `@smp/console-settings` | `console-settings` | 有 |
 | `plugins/settings-shell` | `@smp/console-settings-shell` | `console-settings-shell` | 有 |
+| `plugins/models` | `@smp/console-models` | `console-models` | 有 |
 
 有页面的插件：
 
@@ -94,6 +95,8 @@ plugins/servers/
 | 资金账户 | 资金账户 | 钱包和虚拟信用卡 | Accounts |
 | 服务器 | 服务器 | 服务器、密钥和终端 | Servers |
 | 平台设置 | 平台设置 | 登录安全和 MCP | Settings |
+| 设置壳 | 设置壳 | 把已登记的 Harness 设置栏目列在平台设置里 | Settings shell |
+| 模型 | 模型 | 把 Harness 的模型配置同步到数据库 | Models |
 
 `icon.svg` 放在包根，由 `"./icon": "./icon.svg"` 导出。每个插件一张，彼此分得开。格式可以是 SVG、PNG、JPEG 或 WebP，不超过 256 KiB，文件留在包内，不使用绝对路径、网址或指向包外的符号链接。
 

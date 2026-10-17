@@ -117,7 +117,11 @@ flowchart LR
 
 ### 6.2.1 设置壳
 
-`@smp/console-settings-shell` 只有客户端。它往同一组 `platform` 登记页签「Harness 设置」，并在这一页声明 `settings.section`。它自己登记 `general` 这一栏，并声明 `settings.general.item`。画行时跳过 `language` 和 `appearance`，这两项在壳的「通用」页签里。其余 Harness 设置插件继续把自己的栏目登记到 `settings.section`，保存仍走它们原来的配置。补丁停用 `ui-settings-general`，否则那一栏也会声明 `settings.general.item`。这个插件不声明 `sidebar.settings`，因此不会把 Harness 那块带遮罩的设置弹层挂进来。
+`@smp/console-settings-shell` 只有客户端。壳的主面板声明 `console.settings-host`，这一项一直挂着，并在这里声明 `settings.section`。设置壳自己登记 `general` 这一栏，并声明 `settings.general.item`。画行时跳过 `language` 和 `appearance`，这两项在壳的「通用」页签里；也跳过 `models`，这一栏由模型页签画出。其余 Harness 设置插件继续把自己的栏目登记到 `settings.section`，保存仍走它们原来的配置。补丁停用 `ui-settings-general`，否则那一栏也会声明 `settings.general.item`。这个插件不声明 `sidebar.settings`，因此不会把 Harness 那块带遮罩的设置弹层挂进来。
+
+### 6.2.2 模型
+
+`@smp/console-models` 往同一组 `platform` 登记页签「模型」，排在「Harness 设置」前面。它不声明 `settings.section`，页面内容由设置壳在选中这一页时画出原来的模型栏目。宿主监听 `settings/document-updated`、`llm/adapters-updated` 和 `credentials/reference-updated`。事件之后重读模型目录和去掉密钥字段的设置，把供应商、接入地址、模型名和配置档写入 `console_model_profiles`。API 密钥按引用名再读，加密后放进同一行。Harness 的文件仍是调用时读取的那一份。
 
 ### 6.3 服务器
 
@@ -212,7 +216,7 @@ flowchart LR
 ## 10. 构建顺序
 
 1. 存储插件。连上现有库，提供 `database` 和 `secrets`，启动迁移可用。
-2. 壳。`/login`、`smp_session` 和登录安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，登录安全和通用是其中的页签。设置壳接着登记同一组的「Harness 设置」。
+2. 壳。`/login`、`smp_session` 和登录安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，通用、登录安全和模型是其中的页签。设置壳接着登记同一组的「Harness 设置」，模型栏目从那里挪到模型页签。
 3. 服务器插件。把连接测试、巡检、采指标、组件安装和终端从运维服务搬进来，页面仍轮询 `ops_jobs`。
 4. 资金账户、数字货币、平台设置。按栏目把对应的读写和外部调用搬进宿主端。
 5. 仪表盘维持空宿主。
