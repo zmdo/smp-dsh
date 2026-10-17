@@ -24,7 +24,7 @@ await esbuild.build({
   format: 'cjs',
   platform: 'browser',
   jsx: 'automatic',
-  external: ['react', 'react/jsx-runtime'],
+  external: ['react', 'react/jsx-runtime', 'react-dom'],
   loader: { '.css': 'text' },
   banner: {
     js: `window.__ModuleLoader__.load({ id: ${JSON.stringify(pkg.name)}, factory: (require) => {\nvar module = { exports: {} }; var exports = module.exports;`,

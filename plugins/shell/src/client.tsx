@@ -1,4 +1,5 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { consoleCss } from '@smp/console-kit'
 import { navGroups, pageLabel, pageRoutes, visibleGroups, type NavGroup, type RegisteredPage } from './pages.ts'
 import { createSection, type SectionStore } from './section.ts'
@@ -13,33 +14,6 @@ import { MenuView } from './menu-view.tsx'
 interface Layout {
   selectPanel(id: string | null): void
   toggleSidebar(): void
-}
-
-interface SessionRow {
-  title?: string
-  displayTitle?: string
-  cwd?: string
-  sessionId: string
-  updatedAt: number
-  blank: boolean
-  origin?: string
-}
-
-interface Sessions {
-  list: {
-    getSnapshot(): { ids: string[]; byId: Record<string, SessionRow>; phase: string }
-    subscribe(listener: () => void): () => void
-  }
-}
-
-interface Workspace {
-  startSession(workspaceId?: string): void
-  openSession(id: string): void
-}
-
-interface Workspaces {
-  list: { getSnapshot(): { items: { workspaceId: string }[] } }
-  initializeDefault(): Promise<{ workspaceId: string } | undefined>
 }
 
 interface AuthSnap {
@@ -60,9 +34,6 @@ interface AuthStore {
 interface ShellCtx {
   slots: PageSlots
   layout: Layout
-  sessions: Sessions
-  uiWorkspace: Workspace
-  workspaces: Workspaces
   locale: LocaleFace
   theme: ThemeFace
   on(name: 'theme/change', listener: () => void): () => void
@@ -77,7 +48,13 @@ interface PageSlots {
 }
 
 interface RenderSlot {
-  (name: string, props: object, options: { entryKey?: string; fallback?: ReactNode }): ReactNode
+  (name: string, props: object, options?: { entryKey?: string; fallback?: ReactNode }): ReactNode
+}
+
+interface ChatSideMount {
+  subscribe(listener: () => void): () => void
+  get(): HTMLElement | null
+  set(node: HTMLElement | null): void
 }
 
 const CONSOLE_PANEL = 'console'
@@ -143,12 +120,12 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-console .menu-grip { width: 10px; height: 14px; background: radial-gradient(circle, var(--dsw-alias-label-tertiary) 1px, transparent 1.5px) 0 0 / 5px 5px; }
 .smp-console .menu-empty { margin: 0; color: var(--dsw-alias-label-tertiary); }
 .smp-shell .nav-foot { margin-top: auto; padding: 8px 10px 12px; border-top: 1px solid var(--smp-line); }
-.smp-shell .nav-item, .smp-shell .nav-sub-item, .smp-shell .session-row, .smp-shell .session-new {
+.smp-shell .nav-item, .smp-shell .nav-sub-item {
   display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent;
   text-align: left; color: var(--smp-text); border-radius: 4px; position: relative;
 }
 .smp-shell .nav-item { height: 44px; padding: 0 12px; font-size: 14px; }
-.smp-shell .nav-item:hover, .smp-shell .nav-sub-item:hover, .smp-shell .session-row:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
+.smp-shell .nav-item:hover, .smp-shell .nav-sub-item:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-shell .nav-item.is-on { background: var(--smp-primary-soft); color: var(--smp-primary); font-weight: 600; }
 .smp-shell .nav-item.is-on::before {
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--smp-primary);
@@ -169,23 +146,16 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .nav-sub { display: flex; flex-direction: column; gap: 2px; padding: 0 0 4px 26px; }
 .smp-shell .nav-sub-item { height: 34px; padding: 0 12px; font-size: 14px; }
 .smp-shell .nav-sub-item.is-on { color: var(--smp-primary); font-weight: 600; background: var(--smp-primary-soft); }
-.smp-shell .sessions, .smp-chat-side .sessions { display: flex; flex-direction: column; gap: 2px; min-height: 0; }
-.smp-shell .session-new, .smp-shell .session-row, .smp-chat-side .session-new, .smp-chat-side .session-row {
-  height: 32px; padding: 0 10px; color: var(--dsw-alias-label-secondary);
-  display: flex; align-items: center; width: 100%; border: 0; background: transparent; text-align: left; border-radius: 4px; cursor: pointer;
-}
-.smp-chat-side .session-row:hover, .smp-chat-side .session-new:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
-.smp-shell .session-row.is-on, .smp-chat-side .session-row.is-on { color: var(--dsw-alias-state-business-primary); font-weight: 600; }
-.smp-shell .session-row span, .smp-chat-side .session-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.smp-shell .session-empty, .smp-chat-side .session-empty { margin: 4px 10px; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
-[data-phase]:has(.smp-chat-side) { padding-left: 240px; padding-top: 49px; }
+[data-phase]:has(.smp-chat-side) { padding-left: 280px; padding-top: 49px; }
 .smp-chat-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 6; }
 .smp-chat-side {
-  position: absolute; left: 0; top: 49px; bottom: 0; width: 240px; z-index: 4; box-sizing: border-box;
-  display: flex; flex-direction: column; gap: 4px; padding: 8px; overflow: auto;
+  position: absolute; left: 0; top: 49px; bottom: 0; width: 280px; z-index: 4; box-sizing: border-box;
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  --dsh-sidebar-inline-padding: 12px; padding: 6px 0 8px 4px;
   border-right: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-specific-sidebar-fill);
   color: var(--dsw-alias-label-primary);
 }
+.smp-chat-side > * { flex: 1; min-height: 0; min-width: 0; }
 .smp-console {
   --text: var(--smp-text); --muted: var(--smp-muted); --line: var(--smp-line); --border: var(--dsw-alias-border-l3);
   --primary: var(--smp-primary); --primary-soft: var(--dsw-alias-state-business-tertiary);
@@ -260,44 +230,30 @@ function useCopy(locale: LocaleFace): ShellCopy {
   return shellCopy(snap.active)
 }
 
-function sessionLabel(row: SessionRow, copy: ShellCopy): string {
-  if (row.displayTitle !== undefined && row.displayTitle !== '') return row.displayTitle
-  if (row.title !== undefined && row.title !== '') return row.title
-  if (row.cwd !== undefined && row.cwd !== '') {
-    const base = row.cwd.split('/').filter(part => part !== '').pop()
-    if (base !== undefined && base !== '') return base
+function createChatSideMount(): ChatSideMount {
+  let node: HTMLElement | null = null
+  const listeners = new Set<() => void>()
+  return {
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    get: () => node,
+    set(next) {
+      if (node === next) return
+      node = next
+      for (const listener of listeners) listener()
+    },
   }
-  return copy.untitled
 }
 
-function SessionListView(props: {
-  sessions: Sessions
-  copy: ShellCopy
-  openSession: (id: string) => void
-  startSession: () => void
-}) {
-  const snap = useSyncExternalStore(props.sessions.list.subscribe, props.sessions.list.getSnapshot)
-  const [picked, setPicked] = useState<string | null>(null)
-  const rows = snap.ids
-    .map(id => snap.byId[id])
-    .filter((row): row is SessionRow => row !== undefined && row.origin !== 'subagent')
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-  return (
-    <div className="sessions">
-      <button className="session-new" type="button" onClick={props.startSession}>{props.copy.newSession}</button>
-      {rows.length === 0 && <p className="session-empty">{snap.phase === 'ready' ? props.copy.noSessions : props.copy.loadingSessions}</p>}
-      {rows.map(row => (
-        <button
-          key={row.sessionId}
-          className={`session-row${picked === row.sessionId ? ' is-on' : ''}`}
-          type="button"
-          onClick={() => { setPicked(row.sessionId); props.openSession(row.sessionId) }}
-        >
-          <span>{sessionLabel(row, props.copy)}</span>
-        </button>
-      ))}
-    </div>
-  )
+function OfficialSessions(props: { mount: ChatSideMount; renderSlot?: RenderSlot }) {
+  const node = useSyncExternalStore(props.mount.subscribe, props.mount.get)
+  if (node === null || props.renderSlot === undefined) return null
+  return createPortal(props.renderSlot('sidebar.workspaces', {
+    wide: true,
+    expandSidebar: () => {},
+  }), node)
 }
 
 function usePages(slots: PageSlots, locale: LocaleFace): ReturnType<typeof pageRoutes> {
@@ -369,9 +325,11 @@ function ShellSidebar(props: {
   section: SectionStore
   site: SiteStore
   menu: MenuStore
+  chatSide: ChatSideMount
   collapsed: boolean
   openConsole: (id: string) => void
   toggleSidebar: () => void
+  renderSlot?: RenderSlot
   usePanelInfo?: (select: (info: { activePanelId: string | null }) => string | null) => string | null
 }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
@@ -406,8 +364,7 @@ function ShellSidebar(props: {
     return !onConversation && (byId.get(item.id)?.pages.some(page => page.key === current) ?? false)
   }
 
-  if (props.collapsed) {
-    return (
+  const column = props.collapsed ? (
       <div className="smp-shell is-collapsed">
         <button className="rail-mark has-icon" type="button" aria-label={copy.expand} onClick={props.toggleSidebar}>
           <span className="rail-logo"><BrandMark icon={site.icon} /></span>
@@ -424,10 +381,7 @@ function ShellSidebar(props: {
           </div>
         </div>
       </div>
-    )
-  }
-
-  return (
+  ) : (
     <div className="smp-shell">
       <div className="logo">
         <span className="logo-mark has-icon"><BrandMark icon={site.icon} /></span>
@@ -460,6 +414,12 @@ function ShellSidebar(props: {
         </div>
       )}
     </div>
+  )
+  return (
+    <>
+      {column}
+      <OfficialSessions mount={props.chatSide} renderSlot={props.renderSlot} />
+    </>
   )
 }
 
@@ -494,9 +454,7 @@ function LoginRedirect() {
 function ConversationChrome(props: {
   locale: LocaleFace
   openConsole: (id: string) => void
-  sessions: Sessions
-  startSession: () => void
-  openSession: (id: string) => void
+  chatSide: ChatSideMount
 }) {
   const copy = useCopy(props.locale)
   return (
@@ -508,9 +466,7 @@ function ConversationChrome(props: {
           <button className="tab" type="button" onClick={() => props.openConsole(EVOLUTION_PAGE)}>{copy.evolution}</button>
         </nav>
       </header>
-      <aside className="smp-chat-side">
-        <SessionListView sessions={props.sessions} copy={copy} openSession={props.openSession} startSession={props.startSession} />
-      </aside>
+      <aside className="smp-chat-side" ref={props.chatSide.set} />
     </>
   )
 }
@@ -554,13 +510,14 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
   )
 }
 
-export const inject = ['slots', 'layout', 'sessions', 'uiWorkspace', 'workspaces', 'locale', 'theme']
+export const inject = ['slots', 'layout', 'locale', 'theme']
 
 export function apply(ctx: ShellCtx): void {
   const section = createSection()
   const auth = createAuth()
   const site = createSiteStore()
   const menu = createMenuStore()
+  const chatSide = createChatSideMount()
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = '@smp/console-shell'
@@ -575,24 +532,14 @@ export function apply(ctx: ShellCtx): void {
     section.set(id)
     ctx.layout.selectPanel(id === AGENT_CHAT ? null : CONSOLE_PANEL)
   }
-  const startSession = (): void => {
-    openConsole(AGENT_CHAT)
-    const existing = ctx.workspaces.list.getSnapshot().items[0]?.workspaceId
-    if (existing !== undefined) {
-      ctx.uiWorkspace.startSession(existing)
-      return
-    }
-    void ctx.workspaces.initializeDefault().then(prepared => {
-      if (prepared !== undefined) ctx.uiWorkspace.startSession(prepared.workspaceId)
-    })
-  }
-  const openSession = (id: string): void => {
-    openConsole(AGENT_CHAT)
-    ctx.uiWorkspace.openSession(id)
-  }
   ctx.slots.inject('sidebar', () => ctx.slots.register({
     name: 'sidebar',
     priority: -100,
+    // ui-sidebar is disabled, so this entry declares the workspace browser slot.
+    // The workspace plugin fills it; the shell paints that entry under the chat tabs.
+    children: {
+      'sidebar.workspaces': { kind: 'single', scope: 'root' },
+    },
     inject: () => ({
       slots: ctx.slots,
       locale: ctx.locale,
@@ -601,6 +548,7 @@ export function apply(ctx: ShellCtx): void {
       toggleSidebar: () => { ctx.layout.toggleSidebar() },
       site,
       menu,
+      chatSide,
     }),
   }, ShellSidebar))
   ctx.slots.inject('conversation.header.leading', () => ctx.slots.register({
@@ -608,9 +556,7 @@ export function apply(ctx: ShellCtx): void {
     inject: () => ({
       locale: ctx.locale,
       openConsole,
-      sessions: ctx.sessions,
-      startSession,
-      openSession,
+      chatSide,
     }),
   }, ConversationChrome))
   ctx.slots.inject('main', () => {
