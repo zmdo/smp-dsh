@@ -129,12 +129,42 @@ export function menuList(options: readonly MenuOption[], saved: MenuLayout, over
   return { ungrouped: [...ungrouped, ...rest], groups: listed }
 }
 
+/** Smallest unused "前缀 N", starting at 1. */
+export function untitledName(titles: readonly string[], prefix: string): string {
+  const used = new Set(titles)
+  let number = 1
+  while (used.has(`${prefix}${number}`)) number += 1
+  return `${prefix}${number}`
+}
+
+export function renameGroup(layout: MenuLayout, id: string, title: string): MenuLayout | { ok: false } {
+  const text = title.trim()
+  if (text === '' || text.length > SECTION_LIMIT) return { ok: false }
+  if (!layout.groups.some(group => group.id === id)) return { ok: false }
+  if (layout.groups.some(group => group.id !== id && group.title === text)) return { ok: false }
+  return { groups: layout.groups.map(group => group.id === id ? { ...group, title: text } : group), items: layout.items }
+}
+
 export function createGroup(layout: MenuLayout, title: string, id: string): MenuLayout | { ok: false } {
   const text = title.trim()
   if (text === '' || text.length > SECTION_LIMIT || !ID_PATTERN.test(id)) return { ok: false }
   if (layout.groups.some(group => group.title === text || group.id === id)) return { ok: false }
   const sort = layout.groups.reduce((max, group) => Math.max(max, group.sort), -1) + 1
   return { groups: [...layout.groups, { id, title: text, sort }], items: layout.items }
+}
+
+/** `index` is the position among groups before the moved group is removed. */
+export function moveGroup(layout: MenuLayout, id: string, index: number): MenuLayout {
+  const groups = [...layout.groups].sort((left, right) => left.sort - right.sort || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+  const from = groups.findIndex(group => group.id === id)
+  if (from < 0) return layout
+  let at = index
+  if (from < at) at -= 1
+  at = Math.max(0, Math.min(at, groups.length - 1))
+  const [moved] = groups.splice(from, 1)
+  if (moved === undefined) return layout
+  groups.splice(at, 0, moved)
+  return { groups: groups.map((group, position) => ({ ...group, sort: position })), items: layout.items }
 }
 
 export function deleteGroup(layout: MenuLayout, groupId: string): MenuLayout {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createGroup, deleteGroup, loadMenu, menuChoices, menuDraft, menuList, moveItem, saveMenu, sidebarBlocks } from '../src/menu.ts'
+import { createGroup, deleteGroup, loadMenu, menuChoices, menuDraft, menuList, moveGroup, moveItem, renameGroup, saveMenu, sidebarBlocks, untitledName } from '../src/menu.ts'
 import type { NavGroup } from '../src/pages.ts'
 
 const platform: NavGroup = {
@@ -58,6 +58,30 @@ test('a group can be created, and deleting it returns its items', () => {
   const removed = deleteGroup(layout, 'overview')
   assert.deepEqual(removed.groups, [])
   assert.deepEqual(removed.items, [{ id: 'conversation', groupId: '', sort: 0 }])
+})
+
+test('a new group takes the first free untitled number and can be renamed', () => {
+  assert.equal(untitledName(['概览', '未命名分组1'], '未命名分组'), '未命名分组2')
+  assert.equal(untitledName(['未命名分组2'], '未命名分组'), '未命名分组1')
+  const layout = { groups: [{ id: 'one', title: '未命名分组1', sort: 0 }], items: [] }
+  const renamed = renameGroup(layout, 'one', ' 工作台 ')
+  assert.equal('groups' in renamed && renamed.groups[0]?.title, '工作台')
+  assert.equal('ok' in renameGroup(layout, 'one', ''), true)
+  assert.equal('ok' in renameGroup({ groups: [{ id: 'two', title: '工作台', sort: 1 }, ...layout.groups], items: [] }, 'one', '工作台'), true)
+})
+
+test('dragging a group changes only the group order', () => {
+  const layout = {
+    groups: [
+      { id: 'overview', title: '概览', sort: 0 },
+      { id: 'work', title: '工作台', sort: 1 },
+    ],
+    items: [{ id: 'conversation', groupId: 'overview', sort: 0 }],
+  }
+  const moved = moveGroup(layout, 'work', 0)
+  assert.deepEqual(moved.groups.map(group => [group.id, group.sort]), [['work', 0], ['overview', 1]])
+  assert.deepEqual(moved.items, layout.items)
+  assert.equal(moveGroup(layout, 'missing', 0), layout)
 })
 
 test('dragging an item lands at the requested index', () => {

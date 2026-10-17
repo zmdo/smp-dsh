@@ -118,7 +118,7 @@ flowchart LR
 - 没有会话时，索引门禁把浏览器送到 `/login`，并清掉 `dsh` 发给浏览器的登录 cookie。有会话时放行页面，Harness 连接沿用现在的换票方式。启动 token 仍留在进程里。
 - 「安全」在壳里：修改用户名、密码和两步验证。改密码时用同一套口令把钱包助记词重新加密。用户名改掉后重新签发 `smp_session`。
 
-客户端 `inject` 为 `['slots']`，另外使用 `layout`、`sessions`、`uiWorkspace`、`workspaces`、`locale`、`theme`。当前选中的页面是这次 `apply` 里的状态，键来自已登记的 `console.page`，不放在模块级变量上。壳登记的页面键是 `settings` 和 `general`，都在底部的「平台设置」里。`settings` 的页签是「安全」。`general` 的页签是「通用」，语言调用 `locale.setLocale`，外观调用 `theme.setTheme`。网站标题和图标写在 `console_site`，并显示在侧栏和登录页。图标留空时继续用 DeepSeek Harness 的图标。配置页里的图标是 100×100，点击它打开文件选择。「安全」里的「保存用户名」和改密码的「保存」同样只在内容有改动时可以点。「通用」页的「网站」里可以选择登录初始面板。选项是已登记的页面；一个栏目有多个子页时，每个子页单独一条，写成「栏目 / 子页」。没保存过时进入 Harness 的「会话」。这一项写在 `console_site.landing_page`。同一张表单还可以选择侧边栏初始状态，展开或收起，没保存过时收起，写在 `console_site.sidebar_collapsed`。标题、图标和这两项一起由「保存」写入，没有改动时按钮不可点。补丁把 `ui-sidebar` 标为停用。
+客户端 `inject` 为 `['slots']`，另外使用 `layout`、`sessions`、`uiWorkspace`、`workspaces`、`locale`、`theme`。当前选中的页面是这次 `apply` 里的状态，键来自已登记的 `console.page`，不放在模块级变量上。壳登记的页面键是 `settings` 和 `general`，都在底部的「平台设置」里。`settings` 的页签是「安全」。`general` 的页签是「通用」，语言调用 `locale.setLocale`，外观调用 `theme.setTheme`。网站标题和图标写在 `console_site`，并显示在侧栏和登录页。图标留空时继续用 DeepSeek Harness 的图标。配置页里的图标是 100×100，点击它打开文件选择。「安全」里的「保存用户名」和改密码的「保存」同样只在内容有改动时可以点。「通用」页的「网站」里可以选择登录初始面板。选项是已登记的页面；一个栏目有多个子页时，每个子页单独一条，写成「栏目 / 子页」。没保存过时进入 Harness 的「会话」。这一项写在 `console_site.landing_page`。同一张表单还可以选择侧边栏初始状态，展开或收起，没保存过时收起，写在 `console_site.sidebar_collapsed`。标题、图标和这两项一起由「保存」写入，没有改动时按钮不可点。「菜单」的「新建分组」和「模型」的「添加」在各自标题栏右侧。新建后出现「未命名分组 N」，名称处于编辑中；对号保存，叉号取消。除「未分组」外，分组可以改名、删除和拖动排序。补丁把 `ui-sidebar` 标为停用。
 
 ### 6.2.1 设置壳
 

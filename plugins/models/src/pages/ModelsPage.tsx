@@ -181,7 +181,10 @@ export function ModelsPage(props: {
   }
 
   return (
-    <Panel title={copy.title}>
+    <Panel
+      title={copy.title}
+      extra={<button className="primary" type="button" onClick={() => setAdding(true)}>{copy.add}</button>}
+    >
       {error !== '' && <p className="banner error">{error}</p>}
       {adding ? (
         <AddProvider
@@ -195,9 +198,7 @@ export function ModelsPage(props: {
           onSaved={() => { setAdding(false); reload() }}
           onError={setError}
         />
-      ) : (
-        <p><button className="primary" type="button" onClick={() => setAdding(true)}>{copy.add}</button></p>
-      )}
+      ) : null}
       {rows.length === 0 ? <p className="empty">{copy.empty}</p> : (
         <div className="table-wrap">
           <table className="smp-models-table">
