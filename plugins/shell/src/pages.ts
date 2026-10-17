@@ -129,3 +129,13 @@ export function navGroups(routes: readonly PageRoute[]): { nav: NavGroup[]; foot
   footer.sort(byOrder)
   return { nav, footer }
 }
+
+/** Children of the Harness row. They keep their tabs, and stay out of the menu list. */
+const NESTED_NAV = new Set(['agent', 'evolution'])
+
+export function visibleGroups(groups: { nav: NavGroup[]; footer: NavGroup[] }): { nav: NavGroup[]; footer: NavGroup[] } {
+  return {
+    nav: groups.nav.filter(group => !NESTED_NAV.has(group.id)),
+    footer: groups.footer,
+  }
+}

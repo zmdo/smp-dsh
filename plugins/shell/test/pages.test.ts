@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { navGroups, pageLabel, pageRoutes } from '../src/pages.ts'
+import { navGroups, pageLabel, pageRoutes, visibleGroups } from '../src/pages.ts'
 import { shellCopy } from '../src/copy.ts'
 import { checkNewPassword, cleanUsername } from '../src/security.ts'
 import { newSecret, provisioningUri } from '../src/totp.ts'
@@ -51,6 +51,19 @@ test('shell labels are read again when the locale changes', () => {
   const next = pageRoutes([page])
   assert.equal(next[0]?.label, 'Security')
   assert.equal(navGroups(next).footer[0]?.label, 'Platform settings')
+})
+
+test('harness children keep their tabs and stay out of the menu list', () => {
+  const routes = pageRoutes([
+    { options: { key: 'agent-chat', label: pageLabel('会话', { group: 'agent', groupLabel: '智能体会话' }), order: 0 } },
+    { options: { key: 'agent-archive', label: pageLabel('归档管理', { group: 'agent', groupLabel: '智能体会话' }), order: 1 } },
+    { options: { key: 'evolution-chat', label: pageLabel('会话', { group: 'evolution', groupLabel: '自进化' }), order: 0 } },
+    { options: { key: 'markets', label: '行情', order: 30 } },
+  ])
+  const groups = navGroups(routes)
+  assert.deepEqual(groups.nav.map(group => group.id), ['agent', 'evolution', 'markets'])
+  assert.deepEqual(visibleGroups(groups).nav.map(group => group.id), ['markets'])
+  assert.deepEqual(groups.nav.find(group => group.id === 'agent')?.pages.map(page => page.label), ['会话', '归档管理'])
 })
 
 test('the earliest page names the group icon', () => {

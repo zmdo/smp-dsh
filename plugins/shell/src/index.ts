@@ -7,6 +7,7 @@ import { clearDshCookieHeaders, dshAuthCookieNames, indexGate, smpSessionValue, 
 import { LOGIN_PAGE } from './login-page.ts'
 import { clearSessionCookie, openSession, sealSession, sessionCookie } from './session.ts'
 import { beginTotp, changePassword, changeUsername, confirmTotp, disableTotp } from './security.ts'
+import { loadMenu, menuDraft, saveMenu } from './menu.ts'
 import { loadSite, saveSite, siteDraft, siteView } from './site.ts'
 
 interface IndexRequest {
@@ -250,6 +251,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   })
 
   yield* siteRoutes(ctx, session)
+  yield* menuRoutes(ctx, session)
   yield* securityRoutes(ctx, secret, session)
 
   const connection = ctx.connection
@@ -317,6 +319,43 @@ async function* siteRoutes(ctx: HostCtx, session: ConsoleSession): AsyncGenerato
       }
       await saveSite(ctx.database.pool, draft.title, draft.icon)
       sendJson(response, 200, siteView(draft))
+    },
+  })
+}
+
+async function* menuRoutes(ctx: HostCtx, session: ConsoleSession): AsyncGenerator<() => void> {
+  yield ctx.webServer.register({
+    kind: 'exact',
+    path: '/console-api/menu',
+    handler: async (request, response) => {
+      if (await session.read(cookieHeader(request)) === undefined) {
+        sendJson(response, 401, { detail: '未登录' })
+        return
+      }
+      if (request.method === 'GET') {
+        sendJson(response, 200, await loadMenu(ctx.database.pool))
+        return
+      }
+      if (request.method !== 'POST') {
+        response.writeHead(405, { allow: 'GET, POST', 'cache-control': 'no-store' })
+        response.end()
+        return
+      }
+      let body: unknown
+      try {
+        body = await readJson(request)
+      } catch (error) {
+        void error
+        sendJson(response, 400, { detail: '请求无法读取' })
+        return
+      }
+      const draft = menuDraft(body)
+      if (!draft.ok) {
+        sendJson(response, 400, { detail: '分组不能超过 40 个字' })
+        return
+      }
+      await saveMenu(ctx.database.pool, draft.layout)
+      sendJson(response, 200, draft.layout)
     },
   })
 }
