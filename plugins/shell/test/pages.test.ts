@@ -57,12 +57,11 @@ test('harness tabs stay out of the menu list', () => {
   const routes = pageRoutes([
     { options: { key: 'agent-chat', label: pageLabel('会话', { group: 'agent', groupLabel: 'Harness' }), order: 0 } },
     { options: { key: 'archive', label: pageLabel('档案', { group: 'agent', groupLabel: 'Harness' }), order: 1 } },
-    { options: { key: 'evolution', label: pageLabel('自进化', { group: 'agent', groupLabel: 'Harness' }), order: 2 } },
     { options: { key: 'markets', label: '行情', order: 30 } },
   ])
   const groups = navGroups(routes)
   assert.deepEqual(visibleGroups(groups).nav.map(group => group.id), ['markets'])
-  assert.deepEqual(groups.nav.find(group => group.id === 'agent')?.pages.map(page => page.label), ['会话', '档案', '自进化'])
+  assert.deepEqual(groups.nav.find(group => group.id === 'agent')?.pages.map(page => page.label), ['会话', '档案'])
 })
 
 test('the earliest page names the group icon', () => {

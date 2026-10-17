@@ -65,7 +65,6 @@ const PLATFORM_GROUP = 'platform'
 const AGENT_GROUP = 'agent'
 const AGENT_CHAT = 'agent-chat'
 const ARCHIVE_PAGE = 'archive'
-const EVOLUTION_PAGE = 'evolution'
 
 const SHELL_STYLE = `
 .smp-shell, .smp-console {
@@ -343,7 +342,7 @@ function ShellSidebar(props: {
   const blocks = sidebarBlocks(menuChoices(listed, copy.harness), saved, copy.overview)
   const panelId = props.usePanelInfo?.(info => info.activePanelId)
   const onConversation = panelId === null
-  const harnessOn = current === AGENT_CHAT || current === ARCHIVE_PAGE || current === EVOLUTION_PAGE
+  const harnessOn = current === AGENT_CHAT || current === ARCHIVE_PAGE
   useEffect(() => {
     if (pages.some(page => page.key === current)) return
     const fallback = pages.find(page => page.key === SECURITY_PAGE) ?? pages[0]
@@ -463,7 +462,6 @@ function ConversationChrome(props: {
         <nav className="tabs" aria-label={copy.harness}>
           <button className="tab is-on" type="button" onClick={() => props.openConsole(AGENT_CHAT)}>{copy.chat}</button>
           <button className="tab" type="button" onClick={() => props.openConsole(ARCHIVE_PAGE)}>{copy.archive}</button>
-          <button className="tab" type="button" onClick={() => props.openConsole(EVOLUTION_PAGE)}>{copy.evolution}</button>
         </nav>
       </header>
       <aside className="smp-chat-side" ref={props.chatSide.set} />
@@ -612,7 +610,6 @@ export function apply(ctx: ShellCtx): void {
   const harnessLabel = () => shellCopy(ctx.locale.getSnapshot().active).harness
   registerNested(ctx, AGENT_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, AGENT_GROUP, harnessLabel, 0)
   // The archive plugin registers this page. A second registration of the same key throws.
-  registerNested(ctx, EVOLUTION_PAGE, () => shellCopy(ctx.locale.getSnapshot().active).evolution, AGENT_GROUP, harnessLabel, 2)
 }
 
 function registerNested(ctx: ShellCtx, key: string, label: () => string, group: string, groupLabel: () => string, order: number): void {

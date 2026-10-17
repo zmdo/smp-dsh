@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { sessionIdError, sessionMatches } from '../src/query.ts'
+import { jumpTarget, pageSlice, sessionIdError, sessionMatches, sessionOnDates, sessionStatusMatches, sessionVisible, sessionWorkspaceMatches, workspaceName, workspaceOf } from '../src/query.ts'
 import { removeArchivedSession, type SessionRemoval } from '../src/remove.ts'
 
 test('title search ignores the session id', () => {
@@ -14,6 +14,37 @@ test('id search ignores the title', () => {
   const row = { id: 'session-abc', title: '周报' }
   assert.equal(sessionMatches(row, 'id', 'ABC'), true)
   assert.equal(sessionMatches(row, 'id', '周报'), false)
+})
+
+test('status and date filters combine with the search', () => {
+  const row = { id: 'session-abc', title: '周报', archived: true, updatedAt: Date.parse('2026-10-17T15:00:00') }
+  assert.equal(sessionVisible(row, { by: 'title', query: '周', status: 'archived', from: '2026-10-17', to: '2026-10-17' }), true)
+  assert.equal(sessionStatusMatches(false, 'archived'), false)
+  assert.equal(sessionOnDates(row.updatedAt, '2026-10-18', ''), false)
+  assert.equal(sessionOnDates(row.updatedAt, '', ''), true)
+  assert.equal(sessionOnDates(0, '2026-10-17', ''), false)
+})
+
+test('workspace filter keeps only the selected directory', () => {
+  assert.equal(sessionWorkspaceMatches('/work', ''), true)
+  assert.equal(sessionWorkspaceMatches('/work', '/work'), true)
+  assert.equal(sessionWorkspaceMatches('/other', '/work'), false)
+})
+
+test('a page keeps its own slice and a jump lands inside the list', () => {
+  const rows = ['a', 'b', 'c']
+  assert.deepEqual(pageSlice(rows, 2, 2), ['c'])
+  assert.equal(jumpTarget('2', 3, 2), 2)
+  assert.equal(jumpTarget('9', 3, 2), 2)
+  assert.equal(jumpTarget('0', 3, 2), undefined)
+})
+
+test('a session is attributed to the workspace that lists it', () => {
+  const accounts = [{ title: 'default-workspace', path: '/work', sessionIds: ['session-abc'] }]
+  const owned = workspaceOf('session-abc', '/elsewhere', accounts)
+  assert.equal(owned?.path, '/work')
+  assert.equal(workspaceName('default-workspace', '默认工作区'), '默认工作区')
+  assert.equal(workspaceOf('missing', '/work', accounts)?.title, 'default-workspace')
 })
 
 test('a session id with spaces is rejected', () => {

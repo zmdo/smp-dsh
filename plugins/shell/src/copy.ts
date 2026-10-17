@@ -1,7 +1,6 @@
 const zh = {
   console: '策略控制台',
   harness: 'Harness',
-  evolution: '自进化',
   chat: '会话',
   archive: '档案',
   overview: '概览',
@@ -61,7 +60,6 @@ const zh = {
 const en: typeof zh = {
   console: 'Strategy console',
   harness: 'Harness',
-  evolution: 'Self-evolution',
   chat: 'Chat',
   archive: 'Archive',
   overview: 'Overview',
