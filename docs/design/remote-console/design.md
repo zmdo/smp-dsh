@@ -123,6 +123,10 @@ flowchart LR
 
 `@smp/console-models` 往同一组 `platform` 登记页签「模型」，排在「Harness 设置」前面。它不声明 `settings.section`。这一页的表开始是空的，由用户添加。添加时可以选已有提供商，也可以输入一个新的；同时勾选这个提供商支持的模型。列仍是提供商、API 地址、API 协议（OpenAI、Anthropic）、API Key。地址、协议和模型写回 Harness 设置，密钥走原来的凭据接口。宿主监听 `settings/document-updated`、`llm/adapters-updated` 和 `credentials/reference-updated`。事件之后重读模型目录和去掉密钥字段的设置，把供应商、接入地址、模型名和配置档写入 `console_model_profiles`。API 密钥按引用名再读，加密后放进同一行。Harness 的文件仍是调用时读取的那一份。
 
+### 6.2.3 插件
+
+`@smp/console-plugins` 往同一组登记页签「插件」。它读 `pluginInventory.list()`，只列出全局 Loader 条目：名称、说明和启停状态。会话插件仍留在「Harness 设置」的「内置插件」里。这一页不改启用状态。
+
 ### 6.3 服务器
 
 这个插件承接现在的运维服务。宿主 `inject` 为 `['webServer', 'database', 'secrets']`。

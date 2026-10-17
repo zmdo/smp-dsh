@@ -34,6 +34,7 @@ const STYLE = `
 .smp-settings-item.is-on { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 .smp-settings-body { flex: 1; min-width: 0; overflow: auto; padding: 20px 28px 32px; }
 .smp-console .smp-settings-body [data-slot="settings.section"] > * { max-width: 760px; }
+.smp-console .smp-settings-body [data-plugin-scope="global"] { display: none; }
 .smp-settings-empty { margin: 0; color: var(--muted); }
 `
 
