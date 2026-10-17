@@ -89,7 +89,7 @@ window.__ModuleLoader__.load({ id: '@smp/console-quant', factory: (require) => {
 - 用 `ctx.slots.inject(槽名, () => ctx.slots.register(...))`。`inject` 会等到槽被声明。槽还不存在时直接 `register` 会抛错。
 - 有键的槽必须带 `options.key`。相同的键加相同优先级会抛错。
 - 壳声明 `console.page`。栏目插件只往这个槽登记自己的页面，不占用 `sidebar`。
-- 侧栏是单人座位，只有壳以优先级 `-100` 登记。`conversation` 留给 `dsh` 会话。点「军师」时 `selectPanel(null)`。
+- 侧栏是单人座位，只有壳以优先级 `-100` 登记。`conversation` 留给 `dsh` 会话。点「Harness」时 `selectPanel(null)`。
 - 工厂函数本身不要产生副作用。样式、定时器和监听放进 `apply` 的 effect，或放进会随组件卸载消失的 React 树。
 - 选槽时读该槽的 props 和 options。不要去读另一个插件的 DOM 来猜位置。
 

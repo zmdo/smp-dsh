@@ -1,6 +1,6 @@
 const zh = {
   console: '策略控制台',
-  advisor: 'Harness',
+  harness: 'Harness',
   evolution: '自进化',
   chat: '会话',
   archive: '档案',
@@ -20,7 +20,6 @@ const zh = {
   platform: '平台设置',
   security: '安全',
   general: '通用',
-  harness: 'Harness 设置',
   banner: '当前仍是默认用户名 admin、密码 changeme。请到「平台设置 / 安全」里修改。',
   language: '语言',
   appearance: '外观',
@@ -61,7 +60,7 @@ const zh = {
 
 const en: typeof zh = {
   console: 'Strategy console',
-  advisor: 'Harness',
+  harness: 'Harness',
   evolution: 'Self-evolution',
   chat: 'Chat',
   archive: 'Archive',
@@ -81,7 +80,6 @@ const en: typeof zh = {
   platform: 'Platform settings',
   security: 'Security',
   general: 'General',
-  harness: 'Harness settings',
   banner: 'The username is still admin and the password is still changeme. Change them under Platform settings / Security.',
   language: 'Language',
   appearance: 'Appearance',

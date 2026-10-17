@@ -340,7 +340,7 @@ function ShellSidebar(props: {
   const groups = navGroups(pages)
   const listed = visibleGroups(groups)
   const byId = new Map(listed.nav.concat(listed.footer).map(group => [group.id, group]))
-  const blocks = sidebarBlocks(menuChoices(listed, copy.advisor), saved, copy.overview)
+  const blocks = sidebarBlocks(menuChoices(listed, copy.harness), saved, copy.overview)
   const panelId = props.usePanelInfo?.(info => info.activePanelId)
   const onConversation = panelId === null
   const harnessOn = current === AGENT_CHAT || current === ARCHIVE_PAGE || current === EVOLUTION_PAGE
@@ -460,7 +460,7 @@ function ConversationChrome(props: {
   return (
     <>
       <header className="smp-chat-bar">
-        <nav className="tabs" aria-label={copy.advisor}>
+        <nav className="tabs" aria-label={copy.harness}>
           <button className="tab is-on" type="button" onClick={() => props.openConsole(AGENT_CHAT)}>{copy.chat}</button>
           <button className="tab" type="button" onClick={() => props.openConsole(ARCHIVE_PAGE)}>{copy.archive}</button>
           <button className="tab" type="button" onClick={() => props.openConsole(EVOLUTION_PAGE)}>{copy.evolution}</button>
@@ -609,7 +609,7 @@ export function apply(ctx: ShellCtx): void {
     }),
     order: 2,
   }, () => <MenuView slots={ctx.slots} locale={ctx.locale} menu={menu} />))
-  const harnessLabel = () => shellCopy(ctx.locale.getSnapshot().active).advisor
+  const harnessLabel = () => shellCopy(ctx.locale.getSnapshot().active).harness
   registerNested(ctx, AGENT_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, AGENT_GROUP, harnessLabel, 0)
   registerNested(ctx, ARCHIVE_PAGE, () => shellCopy(ctx.locale.getSnapshot().active).archive, AGENT_GROUP, harnessLabel, 1)
   registerNested(ctx, EVOLUTION_PAGE, () => shellCopy(ctx.locale.getSnapshot().active).evolution, AGENT_GROUP, harnessLabel, 2)

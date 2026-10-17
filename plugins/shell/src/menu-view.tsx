@@ -16,7 +16,7 @@ export function MenuView(props: { slots: PageSlots; locale: LocaleFace; menu: Me
   const locale = useSyncExternalStore(listener => props.locale.subscribe(listener), () => props.locale.getSnapshot())
   const saved = useSyncExternalStore(props.menu.subscribe, props.menu.get)
   const copy = shellCopy(locale.active)
-  const options = menuChoices(visibleGroups(navGroups(pageRoutes(entries))), copy.advisor)
+  const options = menuChoices(visibleGroups(navGroups(pageRoutes(entries))), copy.harness)
   const layout = resolveLayout(saved, copy.overview)
   const list = menuList(options, layout, copy.overview)
   const [name, setName] = useState('')

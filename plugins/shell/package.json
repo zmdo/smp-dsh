@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "侧栏、登录和军师",
+  "description": "侧栏、登录和 Harness",
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
