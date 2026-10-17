@@ -23,7 +23,7 @@
 | `@smp/console-quant` | 概览、行情、交易所、交易策略 |
 | `@smp/console-accounts` | 钱包、信用卡 |
 | `@smp/console-servers` | 服务器、密钥 |
-| `@smp/console-settings` | 登录安全、MCP |
+| `@smp/console-settings` | 安全、MCP |
 
 登录用现有的 `smp_session`。没有会话时打开单独的 `/login`。控制台接口走 `/console-api`，由网站入口转到现在的 Python 网站后台。`dsh` 自己占用 `/api`。
 

@@ -4,7 +4,22 @@ export const LOGIN_PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>登录 · 策略控制台</title>
+<title>DeepSeek Harness</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)">
+<script>
+fetch('/console-api/site').then(function (response) {
+  return response.json()
+}).then(function (site) {
+  if (typeof site.title === 'string' && site.title !== '') document.title = site.title
+  if (typeof site.icon !== 'string' || site.icon.indexOf('data:image/') !== 0) return
+  document.querySelectorAll('link[rel="icon"]').forEach(function (node) { node.remove() })
+  var link = document.createElement('link')
+  link.rel = 'icon'
+  link.href = site.icon
+  document.head.appendChild(link)
+}).catch(function (cause) { void cause })
+</script>
 <style>
   :root {
     --bg: #f4f6f8; --text: #323232; --muted: #8a8f99; --border: #dcdfe6;

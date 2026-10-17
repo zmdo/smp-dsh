@@ -7,6 +7,7 @@ import { clearDshCookieHeaders, dshAuthCookieNames, indexGate, smpSessionValue, 
 import { LOGIN_PAGE } from './login-page.ts'
 import { clearSessionCookie, openSession, sealSession, sessionCookie } from './session.ts'
 import { beginTotp, changePassword, changeUsername, confirmTotp, disableTotp } from './security.ts'
+import { loadSite, saveSite, siteDraft, siteView } from './site.ts'
 
 interface IndexRequest {
   method?: string
@@ -79,6 +80,7 @@ export const Config: Schema<Config> = Schema.object({
 export const inject = ['connection', 'webServer', 'database']
 
 const BODY_LIMIT = 64 * 1024
+const SITE_BODY_LIMIT = 512 * 1024
 
 function cookieHeader(request: { headers: { cookie?: string | string[] } }): string {
   const value = request.headers.cookie
@@ -94,13 +96,13 @@ function expirePageConnection(response: IndexResponse, header: string): void {
   if (clearing.length > 0) response.setHeader?.('set-cookie', clearing)
 }
 
-async function readJson(request: IncomingMessage): Promise<unknown> {
+async function readJson(request: IncomingMessage, limit = BODY_LIMIT): Promise<unknown> {
   const chunks: Buffer[] = []
   let size = 0
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     size += buffer.length
-    if (size > BODY_LIMIT) throw new Error('body')
+    if (size > limit) throw new Error('body')
     chunks.push(buffer)
   }
   if (size === 0) return {}
@@ -247,6 +249,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     },
   })
 
+  yield* siteRoutes(ctx, session)
   yield* securityRoutes(ctx, secret, session)
 
   const connection = ctx.connection
@@ -273,6 +276,49 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   yield () => {
     connection.authorizeIndex = original
   }
+}
+
+async function* siteRoutes(ctx: HostCtx, session: ConsoleSession): AsyncGenerator<() => void> {
+  yield ctx.webServer.register({
+    kind: 'exact',
+    path: '/console-api/site',
+    handler: async (request, response) => {
+      if (request.method === 'GET') {
+        sendJson(response, 200, siteView(await loadSite(ctx.database.pool)))
+        return
+      }
+      if (request.method !== 'POST') {
+        response.writeHead(405, { allow: 'GET, POST', 'cache-control': 'no-store' })
+        response.end()
+        return
+      }
+      if (await session.read(cookieHeader(request)) === undefined) {
+        sendJson(response, 401, { detail: '未登录' })
+        return
+      }
+      let body: unknown
+      try {
+        body = await readJson(request, SITE_BODY_LIMIT)
+      } catch (error) {
+        void error
+        sendJson(response, 400, { detail: '请求无法读取' })
+        return
+      }
+      const title = field(body, 'title')
+      const icon = field(body, 'icon')
+      if (title === undefined || icon === undefined) {
+        sendJson(response, 400, { detail: '请求无法读取' })
+        return
+      }
+      const draft = siteDraft({ title, icon })
+      if (!draft.ok) {
+        sendJson(response, 400, { detail: draft.error === 'title' ? '标题不能超过 80 个字' : '图标需要是 256KB 以内的图片' })
+        return
+      }
+      await saveSite(ctx.database.pool, draft.title, draft.icon)
+      sendJson(response, 200, siteView(draft))
+    },
+  })
 }
 
 async function* securityRoutes(ctx: HostCtx, secret: string, session: ConsoleSession): AsyncGenerator<() => void> {

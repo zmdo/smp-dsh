@@ -94,7 +94,7 @@ plugins/servers/
 | 数字货币 | 数字货币 | 行情、交易所和交易策略 | Markets |
 | 资金账户 | 资金账户 | 钱包和虚拟信用卡 | Accounts |
 | 服务器 | 服务器 | 服务器、密钥和终端 | Servers |
-| 平台设置 | 平台设置 | 登录安全和 MCP | Settings |
+| 平台设置 | 平台设置 | 安全和 MCP | Settings |
 | 设置壳 | 设置壳 | 把已登记的 Harness 设置栏目列在平台设置里 | Settings shell |
 | 模型 | 模型 | 把 Harness 的模型配置同步到数据库 | Models |
 

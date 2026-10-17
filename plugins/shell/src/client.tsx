@@ -5,6 +5,7 @@ import { createSection, type SectionStore } from './section.ts'
 import { shellCopy, type ShellCopy } from './copy.ts'
 import { GeneralView, type LocaleFace, type ThemeFace } from './general-view.tsx'
 import { SecurityView } from './security-view.tsx'
+import { loadSiteChrome } from './site-chrome.ts'
 
 interface Layout {
   selectPanel(id: string | null): void
@@ -372,6 +373,7 @@ export function apply(ctx: ShellCtx): void {
     tag.textContent = SHELL_STYLE + consoleCss
     document.head.appendChild(tag)
     void auth.refresh()
+    loadSiteChrome()
     return () => { tag.remove() }
   })
   const openConsole = (id: string): void => {

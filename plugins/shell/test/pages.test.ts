@@ -45,10 +45,10 @@ test('shell labels are read again when the locale changes', () => {
       order: 0,
     },
   }
-  assert.equal(pageRoutes([page])[0]?.label, '登录安全')
+  assert.equal(pageRoutes([page])[0]?.label, '安全')
   active = 'en'
   const next = pageRoutes([page])
-  assert.equal(next[0]?.label, 'Login security')
+  assert.equal(next[0]?.label, 'Security')
   assert.equal(navGroups(next).footer[0]?.label, 'Platform settings')
 })
 

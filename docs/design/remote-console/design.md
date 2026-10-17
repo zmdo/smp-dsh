@@ -83,7 +83,7 @@ flowchart LR
 | 插件 | 页面 | 宿主端 |
 | --- | --- | --- |
 | `@smp/console-store` | 无 | 连接池、密文、启动时迁移。提供 `database` 和 `secrets` |
-| `@smp/console-shell` | 侧栏、登录页、登录安全、军师 | 签发和校验 `smp_session`，登记 `/login` 和登录安全 |
+| `@smp/console-shell` | 侧栏、登录页、安全、军师 | 签发和校验 `smp_session`，登记 `/login` 和安全 |
 | `@smp/console-settings-shell` | Harness 设置 | 无。列出已登记的栏目，并自己登记通用栏目 |
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
 | `@smp/console-quant` | 概览、行情、交易所、交易策略 | 交易所账户；调用交易所 API 取余额和行情 |
@@ -91,7 +91,7 @@ flowchart LR
 | `@smp/console-servers` | 服务器、详情、登记、终端、密钥 | 服务器、分组、密钥、容器清单、任务、巡检、采指标、组件安装、终端 |
 | `@smp/console-settings` | MCP | MCP 开关和 `/mcp` |
 
-栏目插件只往壳声明的 `console.page` 登记页面，并带上 `label` 和 `order`。同一 `group` 的页面合成侧栏的一项，顶部页签用各页自己的 `label`。没写 `group` 的页面单独成为一项。`placement: 'footer'` 的组固定在侧栏底部。壳自己登记「平台设置」里的「登录安全」和「通用」，放在底部。「Harness 设置」由 `@smp/console-settings-shell` 登记到同一组。其他栏目不在壳里写死。侧栏仍由壳以优先级 `-100` 占用，并停用 harness 自带的 `ui-sidebar`。那条侧栏一旦出现，Harness 自带的设置弹层会声明 `settings.section`，和设置壳抢同一个槽位。`conversation` 留给 `dsh` 会话，点「军师」时 `selectPanel(null)`。槽位只留下 `label` 和 `order`，所以组名、组的标题和位置附在 `label` 函数上。
+栏目插件只往壳声明的 `console.page` 登记页面，并带上 `label` 和 `order`。同一 `group` 的页面合成侧栏的一项，顶部页签用各页自己的 `label`。没写 `group` 的页面单独成为一项。`placement: 'footer'` 的组固定在侧栏底部。壳自己登记「平台设置」里的「安全」和「通用」，放在底部。「Harness 设置」由 `@smp/console-settings-shell` 登记到同一组。其他栏目不在壳里写死。侧栏仍由壳以优先级 `-100` 占用，并停用 harness 自带的 `ui-sidebar`。那条侧栏一旦出现，Harness 自带的设置弹层会声明 `settings.section`，和设置壳抢同一个槽位。`conversation` 留给 `dsh` 会话，点「军师」时 `selectPanel(null)`。槽位只留下 `label` 和 `order`，所以组名、组的标题和位置附在 `label` 函数上。
 
 跨栏目的读取走数据库，不走另一个插件的 HTTP。例如 MCP 要列出服务器时，设置插件读 `servers` 表，不请求服务器插件的路由。
 
@@ -111,9 +111,9 @@ flowchart LR
 - 用 `database` 核对 `accounts`。空表时用配置里的初始用户名和密码插入一行；没配初始密码且表是空的，加载失败。
 - 替换现在壳里为了询问网站后台而拉起的子进程，以及进程内那份会话缓存。一次校验用完即丢，不在模块顶层留缓存。
 - 没有会话时，索引门禁把浏览器送到 `/login`，并清掉 `dsh` 发给浏览器的登录 cookie。有会话时放行页面，军师连接沿用现在的换票方式。启动 token 仍留在进程里。
-- 登录安全在壳里：修改用户名、密码和两步验证。改密码时用同一套口令把钱包助记词重新加密。用户名改掉后重新签发 `smp_session`。
+- 「安全」在壳里：修改用户名、密码和两步验证。改密码时用同一套口令把钱包助记词重新加密。用户名改掉后重新签发 `smp_session`。
 
-客户端 `inject` 为 `['slots']`，另外使用 `layout`、`sessions`、`uiWorkspace`、`workspaces`、`locale`、`theme`。当前选中的页面是这次 `apply` 里的状态，键来自已登记的 `console.page`，不放在模块级变量上。壳登记的页面键是 `settings` 和 `general`，都在底部的「平台设置」里。`settings` 的页签是「登录安全」。`general` 的页签是「通用」，语言调用 `locale.setLocale`，外观调用 `theme.setTheme`。补丁把 `ui-sidebar` 标为停用。
+客户端 `inject` 为 `['slots']`，另外使用 `layout`、`sessions`、`uiWorkspace`、`workspaces`、`locale`、`theme`。当前选中的页面是这次 `apply` 里的状态，键来自已登记的 `console.page`，不放在模块级变量上。壳登记的页面键是 `settings` 和 `general`，都在底部的「平台设置」里。`settings` 的页签是「安全」。`general` 的页签是「通用」，语言调用 `locale.setLocale`，外观调用 `theme.setTheme`。网站标题和图标写在 `console_site`。图标留空时继续用 DeepSeek Harness 的图标。补丁把 `ui-sidebar` 标为停用。
 
 ### 6.2.1 设置壳
 
@@ -168,7 +168,7 @@ flowchart LR
 
 宿主 `inject` 为 `['webServer', 'database', 'consoleSession']`。
 
-登录安全属于壳，已经在「平台设置」里。这个插件只负责 MCP：读写 `mcp_settings`，并登记 `/mcp`。页面登记到同一组 `platform`，页签是「MCP」，因此仍出现在侧栏底部的「平台设置」中。令牌只在生成时返回一次，库里存哈希。`/mcp` 按该行的开关决定是否读出服务器、钱包和信用卡。
+「安全」属于壳，已经在「平台设置」里。这个插件只负责 MCP：读写 `mcp_settings`，并登记 `/mcp`。页面登记到同一组 `platform`，页签是「MCP」，因此仍出现在侧栏底部的「平台设置」中。令牌只在生成时返回一次，库里存哈希。`/mcp` 按该行的开关决定是否读出服务器、钱包和信用卡。
 
 ### 6.7 仪表盘
 
@@ -220,7 +220,7 @@ flowchart LR
 ## 10. 构建顺序
 
 1. 存储插件。连上现有库，提供 `database` 和 `secrets`，启动迁移可用。
-2. 壳。`/login`、`smp_session` 和登录安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，通用、登录安全和模型是其中的页签。设置壳接着登记同一组的「Harness 设置」，模型栏目从那里挪到模型页签。
+2. 壳。`/login`、`smp_session` 和安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，通用、安全和模型是其中的页签。设置壳接着登记同一组的「Harness 设置」，模型栏目从那里挪到模型页签。
 3. 服务器插件。把连接测试、巡检、采指标、组件安装和终端从运维服务搬进来，页面仍轮询 `ops_jobs`。
 4. 资金账户、数字货币、平台设置。按栏目把对应的读写和外部调用搬进宿主端。
 5. 仪表盘维持空宿主。
