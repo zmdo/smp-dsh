@@ -84,6 +84,7 @@ flowchart LR
 | --- | --- | --- |
 | `@smp/console-store` | 无 | 连接池、密文、启动时迁移。提供 `database` 和 `secrets` |
 | `@smp/console-session-log` | 无 | 实现 `sessionPersistence`，把会话日志写入 PostgreSQL，并停用 jsonl 后端 |
+| `@smp/console-storage` | 无 | 提供 `postgres` 存储后端，只把 `workspace` 域指到数据库 |
 | `@smp/console-shell` | 侧栏、登录页、安全、Harness | 签发和校验 `smp_session`，登记 `/login` 和安全 |
 | `@smp/console-settings-shell` | Harness 设置 | 无。列出已登记的栏目，并自己登记通用栏目 |
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
@@ -217,6 +218,7 @@ flowchart LR
 | 远端服务器上的容器 | 还在，由该机器的 Docker 管理 |
 | 进行中的 SSH、终端、采指标 | 随进程结束。任务行在下次启动时标为失败 |
 | Harness 里的会话 | 在 PostgreSQL 的会话日志表里，重启后还在。不再写入 jsonl |
+| 工作区登记 | 在 PostgreSQL 的存储表里。`workspace.json` 只在第一次启动时导入 |
 
 ## 10. 构建顺序
 

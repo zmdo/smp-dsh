@@ -33,6 +33,7 @@ scripts/
 | --- | --- | --- | --- |
 | `plugins/store` | `@smp/console-store` | `console-store` | 无 |
 | `plugins/session-log` | `@smp/console-session-log` | `console-session-log` | 无 |
+| `plugins/storage` | `@smp/console-storage` | `console-storage` | 无 |
 | `plugins/shell` | `@smp/console-shell` | `console-shell` | 有 |
 | `plugins/dashboard` | `@smp/console-dashboard` | `console-dashboard` | 有 |
 | `plugins/quant` | `@smp/console-quant` | `console-quant` | 有 |
@@ -91,6 +92,7 @@ plugins/servers/
 | --- | --- | --- | --- |
 | 存储 | 存储 | 数据库连接和密文 | Store |
 | 会话记录 | 会话记录 | 将会话写入数据库 | Session log |
+| 工作区存储 | 工作区存储 | 把工作区登记写入数据库 | Workspace storage |
 | 壳 | 控制台 | 侧栏、登录和 Harness | Console |
 | 仪表盘 | 仪表盘 | 总览 | Dashboard |
 | 数字货币 | 数字货币 | 行情、交易所和交易策略 | Markets |
