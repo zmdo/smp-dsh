@@ -18,7 +18,7 @@ interface RenderSlot {
 const STYLE = `
 .smp-console .content:has(.smp-settings-shell) { display: flex; flex-direction: column; }
 .smp-settings-shell {
-  flex: 1; min-height: 0; display: flex; background: #fff;
+  flex: 1; min-height: 0; display: flex; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary);
   border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
   font-size: 14px; line-height: 22px;
 }
@@ -28,9 +28,9 @@ const STYLE = `
 }
 .smp-settings-item {
   height: 36px; padding: 0 12px; border: 0; border-radius: 4px; background: transparent;
-  text-align: left; color: #3c4048; cursor: pointer;
+  text-align: left; color: var(--dsw-alias-label-primary); cursor: pointer;
 }
-.smp-settings-item:hover { background: #f5f7fa; }
+.smp-settings-item:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-settings-item.is-on { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 .smp-settings-body { flex: 1; min-width: 0; overflow: auto; padding: 20px 28px 32px; }
 .smp-console .smp-settings-body [data-slot="settings.section"] > * { max-width: 760px; }
@@ -59,13 +59,14 @@ export function GeneralSection(props: { slots: SectionSlots; renderSlot?: Render
 
 export function SettingsShell(props: { slots: SectionSlots; locale: LocaleFace; renderSlot?: RenderSlot }) {
   const entries = useEntries(props.slots, 'settings.section')
-  useSyncExternalStore(listener => props.locale.subscribe(listener), () => props.locale.getSnapshot())
+  const locale = useSyncExternalStore(listener => props.locale.subscribe(listener), () => props.locale.getSnapshot())
   const sections = sectionNav(entries)
   const [picked, setPicked] = useState<string | undefined>(undefined)
   const active = sections.some(section => section.id === picked) ? picked : sections[0]?.id
+  const zh = locale.active === 'zh'
   return (
     <div className="smp-settings-shell">
-      <nav className="smp-settings-nav" aria-label="Harness 设置">
+      <nav className="smp-settings-nav" aria-label={zh ? 'Harness 设置' : 'Harness settings'}>
         {sections.map(section => (
           <button
             key={section.id}
@@ -80,7 +81,7 @@ export function SettingsShell(props: { slots: SectionSlots; locale: LocaleFace; 
       </nav>
       <div className="smp-settings-body">
         {active === undefined
-          ? <p className="smp-settings-empty">没有已登记的设置</p>
+          ? <p className="smp-settings-empty">{zh ? '没有已登记的设置' : 'No settings are registered'}</p>
           : props.renderSlot?.('settings.section', { close: closeSettings }, { only: active })}
       </div>
     </div>

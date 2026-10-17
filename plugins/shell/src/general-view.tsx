@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { shellCopy } from './copy.ts'
 
 interface LocaleChoice {
   id: string
@@ -17,19 +18,19 @@ export interface ThemeFace {
   subscribe(listener: () => void): () => void
 }
 
-const THEMES = [
-  { id: 'light', label: '浅色' },
-  { id: 'dark', label: '深色' },
-  { id: 'system', label: '跟随系统' },
-] as const
-
 export function GeneralView(props: { locale: LocaleFace; theme: ThemeFace }) {
   const locale = useSyncExternalStore(listener => props.locale.subscribe(listener), () => props.locale.getSnapshot())
   const theme = useSyncExternalStore(listener => props.theme.subscribe(listener), () => props.theme.getTheme())
+  const copy = shellCopy(locale.active)
+  const themes = [
+    { id: 'light', label: copy.light },
+    { id: 'dark', label: copy.dark },
+    { id: 'system', label: copy.system },
+  ]
   return (
     <>
       <section className="panel">
-        <header className="panel-head"><h1><i className="mark" />语言</h1></header>
+        <header className="panel-head"><h1><i className="mark" />{copy.language}</h1></header>
         <div className="panel-body">
           <div className="choice-row">
             {locale.locales.map(choice => (
@@ -47,10 +48,10 @@ export function GeneralView(props: { locale: LocaleFace; theme: ThemeFace }) {
         </div>
       </section>
       <section className="panel">
-        <header className="panel-head"><h1><i className="mark" />外观</h1></header>
+        <header className="panel-head"><h1><i className="mark" />{copy.appearance}</h1></header>
         <div className="panel-body">
           <div className="choice-row">
-            {THEMES.map(choice => (
+            {themes.map(choice => (
               <button
                 key={choice.id}
                 className={choice.id === theme.preference ? 'primary' : 'secondary'}

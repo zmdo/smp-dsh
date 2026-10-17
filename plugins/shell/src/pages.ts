@@ -16,7 +16,7 @@ export type PagePlacement = 'nav' | 'footer'
 export interface PageLabel {
   (): string
   group?: string
-  groupLabel?: string
+  groupLabel?: string | (() => string)
   placement?: PagePlacement
 }
 
@@ -38,8 +38,8 @@ export interface NavGroup {
 }
 
 /** Pages that share a group become one sidebar item and a row of tabs. */
-export function pageLabel(text: string, place?: { group: string; groupLabel: string; placement?: PagePlacement }): PageLabel {
-  const label: PageLabel = () => text
+export function pageLabel(text: string | (() => string), place?: { group: string; groupLabel: string | (() => string); placement?: PagePlacement }): PageLabel {
+  const label: PageLabel = () => typeof text === 'function' ? text() : text
   if (place !== undefined) {
     label.group = place.group
     label.groupLabel = place.groupLabel
@@ -53,6 +53,17 @@ function placementOf(label: string | PageLabel): PagePlacement | undefined {
   return label.placement === 'footer' ? 'footer' : label.placement === 'nav' ? 'nav' : undefined
 }
 
+function groupText(raw: string | PageLabel, fallback: string): string {
+  if (typeof raw !== 'function') return fallback
+  const value = raw.groupLabel
+  if (typeof value === 'function') {
+    const text = value()
+    return text === '' ? fallback : text
+  }
+  if (value !== undefined && value !== '') return value
+  return fallback
+}
+
 /** Sidebar groups and their tabs, in registration order. A page without a group is its own item. */
 export function pageRoutes(entries: readonly RegisteredPage[]): PageRoute[] {
   const routes: PageRoute[] = []
@@ -63,7 +74,7 @@ export function pageRoutes(entries: readonly RegisteredPage[]): PageRoute[] {
     const label = typeof raw === 'function' ? raw() : raw
     if (label === '') continue
     const group = typeof raw === 'function' && raw.group !== undefined && raw.group !== '' ? raw.group : key
-    const groupLabel = typeof raw === 'function' && raw.groupLabel !== undefined && raw.groupLabel !== '' ? raw.groupLabel : label
+    const groupLabel = groupText(raw, label)
     routes.push({
       key,
       label,

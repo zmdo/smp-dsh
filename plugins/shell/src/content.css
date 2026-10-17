@@ -1,15 +1,15 @@
 .smp-console .banner {
-  background: #fff8e8;
-  border: 1px solid #f3e2b3;
-  color: #8a5a00;
+  background: var(--warn-bg);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  color: var(--warn);
   padding: 8px 12px;
   border-radius: 4px;
   margin-bottom: 12px;
 }
-.smp-console .banner.error { background: var(--red-bg); border-color: #f6c9c9; color: #c43838; }
-.smp-console .banner.ok { background: var(--green-bg); border-color: #c6ebd4; color: #187942; }
+.smp-console .banner.error { background: var(--red-bg); border-color: color-mix(in srgb, var(--red) 35%, transparent); color: var(--red); }
+.smp-console .banner.ok { background: var(--green-bg); border-color: color-mix(in srgb, var(--green) 35%, transparent); color: var(--green); }
 .smp-console .panel {
-  background: #fff;
+  background: var(--dsw-alias-bg-layer-1);
   border: 1px solid var(--line);
   border-radius: 4px;
   margin-bottom: 16px;
@@ -141,7 +141,8 @@
 .smp-console .search, .smp-console .panel input, .smp-console .panel textarea, .smp-console .panel select {
   height: 32px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--text);
   border-radius: 4px;
   padding: 0 10px;
   outline: none;
@@ -160,14 +161,14 @@
   box-shadow: 0 0 0 2px rgba(0, 94, 235, 0.12);
 }
 .smp-console .panel input:disabled, .smp-console .panel select:disabled, .smp-console .panel textarea:disabled {
-  background: #f4f5f7;
+  background: var(--dsw-alias-bg-layer-2);
   color: var(--muted);
 }
 .smp-console button.secondary {
   height: 32px;
   border-radius: 4px;
-  border: 1px solid #d0d5dd;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--dsw-alias-bg-layer-1);
   color: var(--text);
   padding: 0 14px;
 }
@@ -200,8 +201,8 @@
 .smp-console .choice-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .smp-console .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .smp-console .node-card {
-  background: #fff;
-  border: 1px solid #c9dcff;
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 4px;
   padding: 16px 18px 12px;
   margin-bottom: 16px;
@@ -264,7 +265,7 @@
   width: 100%;
   height: 32px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--dsw-alias-bg-layer-1);
   border-radius: 4px;
   padding: 0 28px 0 10px;
   text-align: left;
@@ -294,7 +295,7 @@
   right: 0;
   max-height: 240px;
   overflow: auto;
-  background: #fff;
+  background: var(--dsw-alias-bg-layer-1);
   border: 1px solid var(--border);
   border-radius: 4px;
   box-shadow: 0 8px 24px rgba(31, 35, 41, 0.12);
@@ -323,7 +324,7 @@
   pointer-events: none;
 }
 .smp-console img.qr { width: 196px; height: 196px; background: #fff; border: 1px solid #e4e7ed; border-radius: 4px; }
-.smp-console form.panel-form label, .smp-console .login-card label { display: grid; gap: 6px; color: #606266; }
+.smp-console form.panel-form label, .smp-console .login-card label { display: grid; gap: 6px; color: var(--dsw-alias-label-secondary); }
 .smp-console form.panel-form label.check {
   display: flex;
   align-items: center;
@@ -361,7 +362,7 @@
 }
 .smp-console .login-card {
   width: min(400px, 100%);
-  background: #fff;
+  background: var(--dsw-alias-bg-layer-1);
   border-radius: 6px;
   box-shadow: 0 8px 28px rgba(31, 35, 41, 0.08);
   padding: 32px 32px 28px;
@@ -385,7 +386,7 @@
 }
 .smp-console .mnemonic li {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--dsw-alias-bg-layer-1);
   padding: 8px 10px;
 }
 .smp-console .mnemonic li span { color: var(--muted); margin-right: 8px; }

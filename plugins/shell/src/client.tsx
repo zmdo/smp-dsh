@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react
 import contentCss from './content.css'
 import { navGroups, pageLabel, pageRoutes, type NavGroup, type RegisteredPage } from './pages.ts'
 import { createSection, type SectionStore } from './section.ts'
+import { shellCopy, type ShellCopy } from './copy.ts'
 import { GeneralView, type LocaleFace, type ThemeFace } from './general-view.tsx'
 import { SecurityView } from './security-view.tsx'
 
@@ -82,15 +83,15 @@ const PLATFORM_GROUP = 'platform'
 
 const SHELL_STYLE = `
 .smp-shell, .smp-console {
-  --smp-text: #323232; --smp-muted: #8a8f99; --smp-line: #e8eaed;
-  --smp-primary: #005eeb; --smp-primary-soft: #eef4ff;
+  --smp-text: var(--dsw-alias-label-primary); --smp-muted: var(--dsw-alias-label-tertiary); --smp-line: var(--dsw-alias-border-l2);
+  --smp-primary: var(--dsw-alias-state-business-primary); --smp-primary-soft: var(--dsw-specific-sidebar-nav-item-active);
   color: var(--smp-text);
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 13px; line-height: 1.5;
 }
-.smp-shell { height: 100%; display: flex; flex-direction: column; background: #fff; overflow: hidden; }
+.smp-shell { height: 100%; display: flex; flex-direction: column; background: var(--dsw-specific-sidebar-fill); overflow: hidden; }
 .smp-shell.is-collapsed { align-items: center; padding-top: 14px; }
-.smp-shell .logo { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 15px; font-weight: 650; color: #1f2329; }
+.smp-shell .logo { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 15px; font-weight: 650; color: var(--smp-text); }
 .smp-shell .logo-mark, .smp-shell .rail-mark {
   width: 28px; height: 28px; border-radius: 6px; background: var(--smp-primary); color: #fff;
   display: grid; place-items: center; font-size: 14px; font-weight: 700; border: 0; padding: 0;
@@ -101,10 +102,10 @@ const SHELL_STYLE = `
 .smp-shell .nav-foot { margin-top: auto; padding: 8px 10px 12px; border-top: 1px solid var(--smp-line); }
 .smp-shell .nav-item, .smp-shell .nav-sub-item, .smp-shell .session-row, .smp-shell .session-new {
   display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent;
-  text-align: left; color: #3c4048; border-radius: 4px; position: relative;
+  text-align: left; color: var(--smp-text); border-radius: 4px; position: relative;
 }
 .smp-shell .nav-item { height: 40px; padding: 0 12px; }
-.smp-shell .nav-item:hover, .smp-shell .nav-sub-item:hover, .smp-shell .session-row:hover { background: #f5f7fa; }
+.smp-shell .nav-item:hover, .smp-shell .nav-sub-item:hover, .smp-shell .session-row:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-shell .nav-item.is-on { background: var(--smp-primary-soft); color: var(--smp-primary); font-weight: 600; }
 .smp-shell .nav-item.is-on::before {
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--smp-primary);
@@ -115,26 +116,27 @@ const SHELL_STYLE = `
 .smp-shell .nav-sub-item { height: 34px; padding: 0 12px; }
 .smp-shell .nav-sub-item.is-on { color: var(--smp-primary); font-weight: 600; background: var(--smp-primary-soft); }
 .smp-shell .sessions { display: flex; flex-direction: column; gap: 2px; padding: 0 0 6px 18px; min-height: 0; }
-.smp-shell .session-new, .smp-shell .session-row { height: 32px; padding: 0 10px; color: #4e5460; }
+.smp-shell .session-new, .smp-shell .session-row { height: 32px; padding: 0 10px; color: var(--dsw-alias-label-secondary); }
 .smp-shell .session-row.is-on { color: var(--smp-primary); font-weight: 600; }
 .smp-shell .session-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .smp-shell .session-empty { margin: 4px 10px; color: var(--smp-muted); font-size: 12px; }
 .smp-console {
-  --text: var(--smp-text); --muted: var(--smp-muted); --line: var(--smp-line); --border: #dcdfe6;
-  --primary: var(--smp-primary); --primary-soft: var(--smp-primary-soft);
-  --green: #1f9d55; --green-bg: #e8f7ee; --red: #e5484d; --red-bg: #fdecec;
-  --warn: #d4880f; --warn-bg: #fff6e5; --bg: #f4f6f8;
+  --text: var(--smp-text); --muted: var(--smp-muted); --line: var(--smp-line); --border: var(--dsw-alias-border-l3);
+  --primary: var(--smp-primary); --primary-soft: var(--dsw-alias-state-business-tertiary);
+  --green: var(--dsw-alias-state-success-primary); --green-bg: var(--dsw-alias-state-success-tertiary);
+  --red: var(--dsw-alias-state-error-primary); --red-bg: color-mix(in srgb, var(--dsw-alias-state-error-primary) 16%, transparent);
+  --warn: var(--dsw-alias-state-warn-label); --warn-bg: var(--dsw-alias-state-warn-tertiary); --bg: var(--dsw-alias-bg-base);
   height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
 }
 .smp-console .topbar {
-  height: 48px; background: #fff; border-bottom: 1px solid var(--smp-line);
+  height: 48px; background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--smp-line);
   display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 20px; flex: none;
 }
 .smp-console .tabs { display: flex; height: 100%; gap: 4px; }
-.smp-console .tab { display: flex; align-items: center; height: 100%; padding: 0 14px; border: 0; background: transparent; color: #4e5460; }
+.smp-console .tab { display: flex; align-items: center; height: 100%; padding: 0 14px; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); }
 .smp-console .tab.is-on { color: var(--smp-primary); box-shadow: inset 0 -2px 0 var(--smp-primary); }
 .smp-console .content { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px 28px; }
-.smp-console .panel { background: #fff; border: 1px solid var(--smp-line); border-radius: 4px; }
+.smp-console .panel { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--smp-line); border-radius: 4px; }
 .smp-console .panel-head { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--smp-line); }
 .smp-console .panel-head h1 { margin: 0; font-size: 14px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
 .smp-console .mark { width: 3px; height: 14px; border-radius: 1px; background: var(--smp-primary); }
@@ -189,18 +191,24 @@ function createAuth(): AuthStore {
   }
 }
 
-function sessionLabel(row: SessionRow): string {
+function useCopy(locale: LocaleFace): ShellCopy {
+  const snap = useSyncExternalStore(listener => locale.subscribe(listener), () => locale.getSnapshot())
+  return shellCopy(snap.active)
+}
+
+function sessionLabel(row: SessionRow, copy: ShellCopy): string {
   if (row.displayTitle !== undefined && row.displayTitle !== '') return row.displayTitle
   if (row.title !== undefined && row.title !== '') return row.title
   if (row.cwd !== undefined && row.cwd !== '') {
     const base = row.cwd.split('/').filter(part => part !== '').pop()
     if (base !== undefined && base !== '') return base
   }
-  return '未命名会话'
+  return copy.untitled
 }
 
 function SessionListView(props: {
   sessions: Sessions
+  copy: ShellCopy
   openSession: (id: string) => void
   startSession: () => void
 }) {
@@ -212,8 +220,8 @@ function SessionListView(props: {
     .sort((a, b) => b.updatedAt - a.updatedAt)
   return (
     <div className="sessions">
-      <button className="session-new" type="button" onClick={props.startSession}>新会话</button>
-      {rows.length === 0 && <p className="session-empty">{snap.phase === 'ready' ? '还没有会话' : '会话加载中'}</p>}
+      <button className="session-new" type="button" onClick={props.startSession}>{props.copy.newSession}</button>
+      {rows.length === 0 && <p className="session-empty">{snap.phase === 'ready' ? props.copy.noSessions : props.copy.loadingSessions}</p>}
       {rows.map(row => (
         <button
           key={row.sessionId}
@@ -221,18 +229,19 @@ function SessionListView(props: {
           type="button"
           onClick={() => { setPicked(row.sessionId); props.openSession(row.sessionId) }}
         >
-          <span>{sessionLabel(row)}</span>
+          <span>{sessionLabel(row, props.copy)}</span>
         </button>
       ))}
     </div>
   )
 }
 
-function usePages(slots: PageSlots): ReturnType<typeof pageRoutes> {
+function usePages(slots: PageSlots, locale: LocaleFace): ReturnType<typeof pageRoutes> {
   const entries = useSyncExternalStore(
     listener => slots.subscribe('console.page', listener),
     () => slots.entries('console.page'),
   )
+  useSyncExternalStore(listener => locale.subscribe(listener), () => locale.getSnapshot())
   return pageRoutes(entries)
 }
 
@@ -243,6 +252,7 @@ function groupOf(pages: ReturnType<typeof pageRoutes>, key: string): NavGroup | 
 
 function ShellSidebar(props: {
   slots: PageSlots
+  locale: LocaleFace
   section: SectionStore
   collapsed: boolean
   openConsole: (id: string) => void
@@ -254,7 +264,8 @@ function ShellSidebar(props: {
   usePanelInfo?: (select: (info: { activePanelId: string | null }) => string | null) => string | null
 }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
-  const pages = usePages(props.slots)
+  const pages = usePages(props.slots, props.locale)
+  const copy = useCopy(props.locale)
   const groups = navGroups(pages)
   const panelId = props.usePanelInfo?.(info => info.activePanelId)
   const onConversation = panelId === null
@@ -267,18 +278,18 @@ function ShellSidebar(props: {
   if (props.collapsed) {
     return (
       <div className="smp-shell is-collapsed">
-        <button className="rail-mark" type="button" aria-label="展开侧栏" onClick={props.toggleSidebar}>策</button>
+        <button className="rail-mark" type="button" aria-label={copy.expand} onClick={props.toggleSidebar}>策</button>
       </div>
     )
   }
 
   return (
     <div className="smp-shell">
-      <div className="logo"><span className="logo-mark">策</span><span>策略控制台</span></div>
+      <div className="logo"><span className="logo-mark">策</span><span>{copy.console}</span></div>
       <nav className="nav">
-        <button className={`nav-item${onConversation ? ' is-on' : ''}`} type="button" onClick={props.openConversation}>军师</button>
+        <button className={`nav-item${onConversation ? ' is-on' : ''}`} type="button" onClick={props.openConversation}>{copy.advisor}</button>
         {onConversation && (
-          <SessionListView sessions={props.sessions} openSession={props.openSession} startSession={props.startSession} />
+          <SessionListView sessions={props.sessions} copy={copy} openSession={props.openSession} startSession={props.startSession} />
         )}
         {groups.nav.map(group => (
           <button
@@ -320,10 +331,11 @@ function LoginRedirect() {
   return null
 }
 
-function ConsolePanel(props: { slots: PageSlots; section: SectionStore; auth: AuthStore; renderSlot?: RenderSlot }) {
+function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: SectionStore; auth: AuthStore; renderSlot?: RenderSlot }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
   const auth = useSyncExternalStore(props.auth.subscribe, props.auth.get)
-  const pages = usePages(props.slots)
+  const pages = usePages(props.slots, props.locale)
+  const copy = useCopy(props.locale)
   const tabs = groupOf(pages, current)?.pages ?? []
   const body = props.renderSlot?.('console.page', {}, { entryKey: current }) ?? null
   return (
@@ -337,13 +349,13 @@ function ConsolePanel(props: { slots: PageSlots; section: SectionStore; auth: Au
               </button>
             ))}
           </nav>
-          <button className="link" type="button" onClick={() => { void props.auth.logout().then(() => { window.location.assign('/login') }) }}>退出</button>
+          <button className="link" type="button" onClick={() => { void props.auth.logout().then(() => { window.location.assign('/login') }) }}>{copy.logout}</button>
         </header>
       )}
       <div className="content">
         {auth.checked && auth.authenticated && (
           <>
-            {auth.passwordIsDefault && <p className="banner">当前仍是默认用户名 admin、密码 changeme。请到「平台设置 / 登录安全」里修改。</p>}
+            {auth.passwordIsDefault && <p className="banner">{copy.banner}</p>}
             {body}
           </>
         )}
@@ -375,6 +387,7 @@ export function apply(ctx: ShellCtx): void {
     priority: -100,
     inject: () => ({
       slots: ctx.slots,
+      locale: ctx.locale,
       section,
       openConsole,
       openConversation: () => { ctx.layout.selectPanel(null) },
@@ -404,7 +417,7 @@ export function apply(ctx: ShellCtx): void {
       children: {
         'console.page': { kind: 'keyed', scope: 'root' },
       },
-    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} section={section} auth={auth} renderSlot={props.renderSlot} />)
+    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} renderSlot={props.renderSlot} />)
     ctx.layout.selectPanel(CONSOLE_PANEL)
     return dispose
   })
@@ -416,13 +429,21 @@ export function apply(ctx: ShellCtx): void {
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: SECURITY_PAGE,
-    label: pageLabel('登录安全', { group: PLATFORM_GROUP, groupLabel: '平台设置', placement: 'footer' }),
+    label: pageLabel(() => shellCopy(ctx.locale.getSnapshot().active).security, {
+      group: PLATFORM_GROUP,
+      groupLabel: () => shellCopy(ctx.locale.getSnapshot().active).platform,
+      placement: 'footer',
+    }),
     order: 0,
-  }, () => <SecurityView auth={auth} />))
+  }, () => <SecurityView auth={auth} locale={ctx.locale} />))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: GENERAL_PAGE,
-    label: pageLabel('通用', { group: PLATFORM_GROUP, groupLabel: '平台设置', placement: 'footer' }),
+    label: pageLabel(() => shellCopy(ctx.locale.getSnapshot().active).general, {
+      group: PLATFORM_GROUP,
+      groupLabel: () => shellCopy(ctx.locale.getSnapshot().active).platform,
+      placement: 'footer',
+    }),
     order: 5,
   }, () => <GeneralView locale={ctx.locale} theme={theme} />))
 }

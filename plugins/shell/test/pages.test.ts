@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { navGroups, pageLabel, pageRoutes } from '../src/pages.ts'
+import { shellCopy } from '../src/copy.ts'
 import { checkNewPassword, cleanUsername } from '../src/security.ts'
 import { newSecret, provisioningUri } from '../src/totp.ts'
 import { decryptMnemonic, encryptMnemonic } from '../src/vault.ts'
@@ -29,6 +30,26 @@ test('sidebar routes follow the pages plugins registered', () => {
   assert.deepEqual(groups.nav.map(group => group.label), ['服务器', '行情'])
   assert.deepEqual(groups.footer.map(group => group.label), ['平台设置'])
   assert.deepEqual(groups.footer[0]?.pages.map(page => page.label), ['登录安全', 'MCP'])
+})
+
+test('shell labels are read again when the locale changes', () => {
+  let active = 'zh'
+  const page = {
+    options: {
+      key: 'settings',
+      label: pageLabel(() => shellCopy(active).security, {
+        group: 'platform',
+        groupLabel: () => shellCopy(active).platform,
+        placement: 'footer' as const,
+      }),
+      order: 0,
+    },
+  }
+  assert.equal(pageRoutes([page])[0]?.label, '登录安全')
+  active = 'en'
+  const next = pageRoutes([page])
+  assert.equal(next[0]?.label, 'Login security')
+  assert.equal(navGroups(next).footer[0]?.label, 'Platform settings')
 })
 
 test('a username with a space is rejected', () => {

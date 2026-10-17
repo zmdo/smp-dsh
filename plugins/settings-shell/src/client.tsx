@@ -38,7 +38,10 @@ export function apply(ctx: SettingsCtx): void {
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: HARNESS_PAGE,
-    label: pageLabel('Harness 设置', { group: 'platform', groupLabel: '平台设置', placement: 'footer' }),
+    label: pageLabel(
+      () => ctx.locale.getSnapshot().active === 'zh' ? 'Harness 设置' : 'Harness settings',
+      { group: 'platform', groupLabel: '平台设置', placement: 'footer' },
+    ),
     order: 10,
     children: {
       'settings.section': { kind: 'list', scope: 'root' },
