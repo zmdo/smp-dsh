@@ -63,7 +63,7 @@ interface Queryable {
 /** Sidebar rows the menu tab can arrange. Footer groups, including platform settings, stay out. */
 export function menuChoices(groups: { nav: readonly NavGroup[]; footer?: readonly NavGroup[] }, conversation: string): MenuOption[] {
   return [
-    { id: CONVERSATION_ID, label: conversation, placement: 'nav', order: -1, icon: 'robot' },
+    { id: CONVERSATION_ID, label: conversation, placement: 'nav', order: -1, icon: 'chat' },
     ...groups.nav.map(group => ({
       id: group.id,
       label: group.label,
