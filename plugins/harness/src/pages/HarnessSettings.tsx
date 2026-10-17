@@ -26,8 +26,14 @@ const STYLE = `
 }
 .smp-harness-item:hover { background: #f5f7fa; }
 .smp-harness-item.is-on { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
-.smp-harness-body { flex: 1; min-width: 0; overflow: auto; }
-.smp-harness-empty { margin: 0; padding: 28px 16px; color: var(--muted); }
+.smp-console .smp-harness {
+  font-size: 14px; line-height: 22px;
+}
+.smp-harness-body { flex: 1; min-width: 0; overflow: auto; padding: 20px 28px 32px; }
+/* General settings has no width of its own, so it stretches across the page.
+   The other sections already stop around 720–760. */
+.smp-console .smp-harness-body [data-slot="settings.section"] > * { max-width: 760px; }
+.smp-harness-empty { margin: 0; color: var(--muted); }
 `
 
 function closeSettings(): void {}

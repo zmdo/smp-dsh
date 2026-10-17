@@ -138,7 +138,7 @@
 .smp-console .pill.online, .smp-console .pill.running, .smp-console .pill.succeeded { background: var(--green-bg); color: var(--green); }
 .smp-console .pill.offline, .smp-console .pill.failed, .smp-console .pill.exited, .smp-console .pill.dead { background: var(--red-bg); color: var(--red); }
 .smp-console .pill.docker_unavailable, .smp-console .pill.restarting, .smp-console .pill.running-job, .smp-console .pill.queued { background: var(--warn-bg); color: var(--warn); }
-.smp-console .search, .smp-console input, .smp-console textarea, .smp-console select {
+.smp-console .search, .smp-console .panel input, .smp-console .panel textarea, .smp-console .panel select {
   height: 32px;
   border: 1px solid var(--border);
   background: #fff;
@@ -146,7 +146,7 @@
   padding: 0 10px;
   outline: none;
 }
-.smp-console input[type="radio"], .smp-console input[type="checkbox"] {
+.smp-console .panel input[type="radio"], .smp-console .panel input[type="checkbox"] {
   width: 14px;
   height: 14px;
   padding: 0;
@@ -154,12 +154,12 @@
   accent-color: var(--primary);
 }
 .smp-console .search { width: 200px; }
-.smp-console textarea { height: auto; min-height: 140px; padding: 8px 10px; resize: vertical; }
-.smp-console input:focus, .smp-console textarea:focus, .smp-console select:focus, .smp-console .search:focus {
+.smp-console .panel textarea { height: auto; min-height: 140px; padding: 8px 10px; resize: vertical; }
+.smp-console .panel input:focus, .smp-console .panel textarea:focus, .smp-console .panel select:focus, .smp-console .search:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(0, 94, 235, 0.12);
 }
-.smp-console input:disabled, .smp-console select:disabled, .smp-console textarea:disabled {
+.smp-console .panel input:disabled, .smp-console .panel select:disabled, .smp-console .panel textarea:disabled {
   background: #f4f5f7;
   color: var(--muted);
 }
@@ -196,7 +196,7 @@
   align-items: center;
 }
 .smp-console button.link.danger { color: var(--red); }
-.smp-console button:disabled { opacity: 0.55; cursor: not-allowed; }
+.smp-console .panel button:disabled { opacity: 0.55; cursor: not-allowed; }
 .smp-console .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .smp-console .node-card {
   background: #fff;
