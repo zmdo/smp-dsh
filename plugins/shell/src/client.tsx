@@ -86,12 +86,9 @@ const GENERAL_PAGE = 'general'
 const MENU_PAGE = 'menu'
 const PLATFORM_GROUP = 'platform'
 const AGENT_GROUP = 'agent'
-const EVOLUTION_GROUP = 'evolution'
 const AGENT_CHAT = 'agent-chat'
-const AGENT_ARCHIVE = 'agent-archive'
-const EVOLUTION_CHAT = 'evolution-chat'
-const EVOLUTION_LINES = 'evolution-lines'
-const EVOLUTION_SETTINGS = 'evolution-settings'
+const ARCHIVE_PAGE = 'archive'
+const EVOLUTION_PAGE = 'evolution'
 
 const SHELL_STYLE = `
 .smp-shell, .smp-console {
@@ -382,14 +379,13 @@ function ShellSidebar(props: {
   const copy = useCopy(props.locale)
   const site = useSyncExternalStore(props.site.subscribe, props.site.get)
   const saved = useSyncExternalStore(props.menu.subscribe, props.menu.get)
-  const [harnessOpen, setHarnessOpen] = useState(true)
   const groups = navGroups(pages)
   const listed = visibleGroups(groups)
   const byId = new Map(listed.nav.concat(listed.footer).map(group => [group.id, group]))
   const blocks = sidebarBlocks(menuChoices(listed, copy.advisor), saved, copy.overview)
   const panelId = props.usePanelInfo?.(info => info.activePanelId)
   const onConversation = panelId === null
-  const harnessOn = current === AGENT_CHAT || current === AGENT_ARCHIVE || current === EVOLUTION_CHAT || current === EVOLUTION_LINES || current === EVOLUTION_SETTINGS
+  const harnessOn = current === AGENT_CHAT || current === ARCHIVE_PAGE || current === EVOLUTION_PAGE
   useEffect(() => {
     if (pages.some(page => page.key === current)) return
     const fallback = pages.find(page => page.key === SECURITY_PAGE) ?? pages[0]
@@ -398,8 +394,8 @@ function ShellSidebar(props: {
 
   const openItem = (item: PlacedOption): void => {
     if (item.id === CONVERSATION_ID) {
-      setHarnessOpen(true)
       props.openConsole(AGENT_CHAT)
+      if (!props.collapsed) props.toggleSidebar()
       return
     }
     const first = byId.get(item.id)?.pages[0]
@@ -442,23 +438,7 @@ function ShellSidebar(props: {
         {blocks.map(block => (
           <div className="menu-block" key={block.id}>
             {block.title !== '' && <div className="nav-title">{block.title}</div>}
-            {block.items.map(item => item.id === CONVERSATION_ID ? (
-              <div className={`nav-group${harnessOpen ? ' is-open' : ''}`} key={item.id}>
-                <div className="nav-head">
-                  <button className="nav-item" type="button" onClick={() => openItem(item)}>
-                    <NavGlyph name={item.icon === '' ? 'box' : item.icon} />
-                    <span>{item.label}</span>
-                  </button>
-                  <button className="nav-caret" type="button" aria-expanded={harnessOpen} aria-label={copy.advisor} onClick={() => setHarnessOpen(open => !open)} />
-                </div>
-                {harnessOpen && (
-                  <div className="nav-sub">
-                    <button className={`nav-sub-item${current === AGENT_CHAT || current === AGENT_ARCHIVE ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole(AGENT_CHAT)}>{copy.agentSessions}</button>
-                    <button className={`nav-sub-item${current === EVOLUTION_CHAT || current === EVOLUTION_LINES || current === EVOLUTION_SETTINGS ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole(EVOLUTION_CHAT)}>{copy.evolution}</button>
-                  </div>
-                )}
-              </div>
-            ) : (
+            {block.items.map(item => (
               <OptionButton key={item.id} item={item} on={itemOn(item)} onOpen={() => openItem(item)} />
             ))}
           </div>
@@ -522,9 +502,10 @@ function ConversationChrome(props: {
   return (
     <>
       <header className="smp-chat-bar">
-        <nav className="tabs" aria-label={copy.agentSessions}>
+        <nav className="tabs" aria-label={copy.advisor}>
           <button className="tab is-on" type="button" onClick={() => props.openConsole(AGENT_CHAT)}>{copy.chat}</button>
-          <button className="tab" type="button" onClick={() => props.openConsole(AGENT_ARCHIVE)}>{copy.archive}</button>
+          <button className="tab" type="button" onClick={() => props.openConsole(ARCHIVE_PAGE)}>{copy.archive}</button>
+          <button className="tab" type="button" onClick={() => props.openConsole(EVOLUTION_PAGE)}>{copy.evolution}</button>
         </nav>
       </header>
       <aside className="smp-chat-side">
@@ -682,11 +663,10 @@ export function apply(ctx: ShellCtx): void {
     }),
     order: 2,
   }, () => <MenuView slots={ctx.slots} locale={ctx.locale} menu={menu} />))
-  registerNested(ctx, AGENT_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, AGENT_GROUP, () => shellCopy(ctx.locale.getSnapshot().active).agentSessions, 0)
-  registerNested(ctx, AGENT_ARCHIVE, () => shellCopy(ctx.locale.getSnapshot().active).archive, AGENT_GROUP, () => shellCopy(ctx.locale.getSnapshot().active).agentSessions, 1)
-  registerNested(ctx, EVOLUTION_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, EVOLUTION_GROUP, () => shellCopy(ctx.locale.getSnapshot().active).evolution, 0)
-  registerNested(ctx, EVOLUTION_LINES, () => shellCopy(ctx.locale.getSnapshot().active).capability, EVOLUTION_GROUP, () => shellCopy(ctx.locale.getSnapshot().active).evolution, 1)
-  registerNested(ctx, EVOLUTION_SETTINGS, () => shellCopy(ctx.locale.getSnapshot().active).settings, EVOLUTION_GROUP, () => shellCopy(ctx.locale.getSnapshot().active).evolution, 2)
+  const harnessLabel = () => shellCopy(ctx.locale.getSnapshot().active).advisor
+  registerNested(ctx, AGENT_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, AGENT_GROUP, harnessLabel, 0)
+  registerNested(ctx, ARCHIVE_PAGE, () => shellCopy(ctx.locale.getSnapshot().active).archive, AGENT_GROUP, harnessLabel, 1)
+  registerNested(ctx, EVOLUTION_PAGE, () => shellCopy(ctx.locale.getSnapshot().active).evolution, AGENT_GROUP, harnessLabel, 2)
 }
 
 function registerNested(ctx: ShellCtx, key: string, label: () => string, group: string, groupLabel: () => string, order: number): void {
