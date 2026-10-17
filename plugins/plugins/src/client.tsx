@@ -1,6 +1,6 @@
 import { pluginsTabLabel } from './label.ts'
 import { pageLabel } from './page-label.ts'
-import { PluginsPage } from './pages/PluginsPage.tsx'
+import { installPluginsStyle, PluginsPage } from './pages/PluginsPage.tsx'
 
 interface LocaleFace {
   getSnapshot(): { active: string }
@@ -16,6 +16,7 @@ interface PluginsClient {
   slots: PageSlots
   locale: LocaleFace
   remote: { pluginInventory: unknown }
+  effect(run: () => (() => void)): void
 }
 
 const PLUGINS_PAGE = 'plugins'
@@ -23,6 +24,7 @@ const PLUGINS_PAGE = 'plugins'
 export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory']
 
 export function apply(ctx: PluginsClient): void {
+  ctx.effect(installPluginsStyle)
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: PLUGINS_PAGE,

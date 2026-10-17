@@ -125,7 +125,7 @@ flowchart LR
 
 ### 6.2.3 插件
 
-`@smp/console-plugins` 往同一组登记页签「插件」。它读 `pluginInventory.list()`，只列出全局 Loader 条目：名称、说明和启停状态。会话插件仍留在「Harness 设置」的「内置插件」里。这一页不改启用状态。
+`@smp/console-plugins` 往同一组登记页签「插件」。它读 `pluginInventory.list()`，只列出全局 Loader 条目：名称、说明和启停状态。列表分页，每页可以选 10、20 或 50 条，也可以直接跳到某一页，并按启停状态筛选。点一行展开模块名、条目标识、启用、运行阶段和预设。会话插件仍留在「Harness 设置」的「内置插件」里。这一页不改启用状态。
 
 ### 6.3 服务器
 
