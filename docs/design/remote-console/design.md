@@ -85,6 +85,7 @@ flowchart LR
 | `@smp/console-store` | 无 | 连接池、密文、启动时迁移。提供 `database` 和 `secrets` |
 | `@smp/console-session-log` | 无 | 实现 `sessionPersistence`，把会话日志写入 PostgreSQL，并停用 jsonl 后端 |
 | `@smp/console-storage` | 无 | 提供 `postgres` 存储后端，只把 `workspace` 域指到数据库 |
+| `@smp/console-install` | 无 | 新的 profile 里启动一次，写入数据库地址和加密密钥，并留下 `install-complete`。标记还在时不再出现 |
 | `@smp/console-shell` | 侧栏、登录页、安全、Harness | 签发和校验 `smp_session`，登记 `/login` 和安全 |
 | `@smp/console-settings-shell` | Harness 设置 | 无。列出已登记的栏目，并自己登记通用栏目 |
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
