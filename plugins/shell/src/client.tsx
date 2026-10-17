@@ -181,19 +181,14 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-shell .session-row.is-on, .smp-chat-side .session-row.is-on { color: var(--dsw-alias-state-business-primary); font-weight: 600; }
 .smp-shell .session-row span, .smp-chat-side .session-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .smp-shell .session-empty, .smp-chat-side .session-empty { margin: 4px 10px; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
-[data-phase]:has(.smp-chat-side) { padding-left: 240px; }
+[data-phase]:has(.smp-chat-side) { padding-left: 240px; padding-top: 49px; }
+.smp-chat-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 6; }
 .smp-chat-side {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 240px; z-index: 4; box-sizing: border-box;
+  position: absolute; left: 0; top: 49px; bottom: 0; width: 240px; z-index: 4; box-sizing: border-box;
   display: flex; flex-direction: column; gap: 4px; padding: 8px; overflow: auto;
   border-right: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-specific-sidebar-fill);
   color: var(--dsw-alias-label-primary);
 }
-.smp-chat-tabs { display: flex; align-items: center; gap: 2px; height: 32px; }
-.smp-chat-tabs button {
-  height: 32px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent;
-  color: var(--dsw-alias-label-secondary); cursor: pointer;
-}
-.smp-chat-tabs button.is-on { color: var(--dsw-alias-state-business-primary); box-shadow: inset 0 -2px 0 var(--dsw-alias-state-business-primary); }
 .smp-console {
   --text: var(--smp-text); --muted: var(--smp-muted); --line: var(--smp-line); --border: var(--dsw-alias-border-l3);
   --primary: var(--smp-primary); --primary-soft: var(--dsw-alias-state-business-tertiary);
@@ -202,13 +197,16 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
   --warn: var(--dsw-alias-state-warn-label); --warn-bg: var(--dsw-alias-state-warn-tertiary); --bg: var(--dsw-alias-bg-base);
   height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
 }
-.smp-console .topbar {
-  height: 48px; background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--smp-line);
+.smp-console .topbar, .smp-chat-bar {
+  height: 48px; background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l2);
   display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 20px; flex: none;
 }
-.smp-console .tabs { display: flex; height: 100%; gap: 4px; }
-.smp-console .tab { display: flex; align-items: center; height: 100%; padding: 0 14px; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); }
-.smp-console .tab.is-on { color: var(--smp-primary); box-shadow: inset 0 -2px 0 var(--smp-primary); }
+.smp-console .tabs, .smp-chat-bar .tabs { display: flex; height: 100%; gap: 4px; }
+.smp-console .tab, .smp-chat-bar .tab {
+  display: flex; align-items: center; height: 100%; padding: 0 14px; border: 0; background: transparent;
+  color: var(--dsw-alias-label-secondary); cursor: pointer;
+}
+.smp-console .tab.is-on, .smp-chat-bar .tab.is-on { color: var(--dsw-alias-state-business-primary); box-shadow: inset 0 -2px 0 var(--dsw-alias-state-business-primary); }
 .smp-console .content { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px 28px; }
 `
 
@@ -523,10 +521,12 @@ function ConversationChrome(props: {
   const copy = useCopy(props.locale)
   return (
     <>
-      <nav className="smp-chat-tabs" aria-label={copy.agentSessions}>
-        <button className="is-on" type="button" onClick={() => props.openConsole(AGENT_CHAT)}>{copy.chat}</button>
-        <button type="button" onClick={() => props.openConsole(AGENT_ARCHIVE)}>{copy.archive}</button>
-      </nav>
+      <header className="smp-chat-bar">
+        <nav className="tabs" aria-label={copy.agentSessions}>
+          <button className="tab is-on" type="button" onClick={() => props.openConsole(AGENT_CHAT)}>{copy.chat}</button>
+          <button className="tab" type="button" onClick={() => props.openConsole(AGENT_ARCHIVE)}>{copy.archive}</button>
+        </nav>
+      </header>
       <aside className="smp-chat-side">
         <SessionListView sessions={props.sessions} copy={copy} openSession={props.openSession} startSession={props.startSession} />
       </aside>
