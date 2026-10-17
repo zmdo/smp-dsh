@@ -1,0 +1,3 @@
+- insert:
+    - id: console-harness
+      name: '@smp/console-harness'

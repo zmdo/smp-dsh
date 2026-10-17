@@ -2,7 +2,6 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react
 import contentCss from './content.css'
 import { navGroups, pageLabel, pageRoutes, type NavGroup, type RegisteredPage } from './pages.ts'
 import { createSection, type SectionStore } from './section.ts'
-import { HARNESS_STYLE, HarnessSettings } from './harness-view.tsx'
 import { SecurityView } from './security-view.tsx'
 
 interface Layout {
@@ -74,7 +73,6 @@ interface RenderSlot {
 
 const CONSOLE_PANEL = 'console'
 const SECURITY_PAGE = 'settings'
-const HARNESS_PAGE = 'harness'
 const PLATFORM_GROUP = 'platform'
 
 const SHELL_STYLE = `
@@ -358,7 +356,7 @@ export function apply(ctx: ShellCtx): void {
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = '@smp/console-shell'
-    tag.textContent = SHELL_STYLE + contentCss + HARNESS_STYLE
+    tag.textContent = SHELL_STYLE + contentCss
     document.head.appendChild(tag)
     void auth.refresh()
     return () => { tag.remove() }
@@ -411,13 +409,4 @@ export function apply(ctx: ShellCtx): void {
     label: pageLabel('登录安全', { group: PLATFORM_GROUP, groupLabel: '平台设置', placement: 'footer' }),
     order: 0,
   }, () => <SecurityView auth={auth} />))
-  ctx.slots.inject('console.page', () => ctx.slots.register({
-    name: 'console.page',
-    key: HARNESS_PAGE,
-    label: pageLabel('Harness 设置', { group: PLATFORM_GROUP, groupLabel: '平台设置', placement: 'footer' }),
-    order: 10,
-    children: {
-      'sidebar.settings': { kind: 'single', scope: 'root' },
-    },
-  }, HarnessSettings))
 }
