@@ -111,8 +111,13 @@ const SHELL_STYLE = `
   width: 28px; height: 28px; border-radius: 6px; background: var(--smp-primary); color: #fff;
   display: grid; place-items: center; font-size: 14px; font-weight: 700; border: 0; padding: 0;
 }
-.smp-shell .logo-mark.has-icon, .smp-shell .rail-mark.has-icon { background: transparent; }
+.smp-shell .logo-mark.has-icon, .smp-shell .rail-mark.has-icon { background: transparent; color: var(--smp-text); }
+.smp-shell .rail-mark { cursor: pointer; }
 .smp-shell .logo-mark img, .smp-shell .rail-mark img { width: 28px; height: 28px; display: block; object-fit: contain; }
+.smp-shell .rail-expand { display: none; }
+.smp-shell .rail-mark:hover, .smp-shell .rail-mark:focus-visible { background: var(--dsw-specific-sidebar-nav-item-hover); }
+.smp-shell .rail-mark:hover .rail-logo, .smp-shell .rail-mark:focus-visible .rail-logo { display: none; }
+.smp-shell .rail-mark:hover .rail-expand, .smp-shell .rail-mark:focus-visible .rail-expand { display: grid; }
 .smp-shell .mark-dark { display: none; }
 body[data-ds-dark-theme] .smp-shell .mark-light { display: none; }
 body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
@@ -357,7 +362,8 @@ function ShellSidebar(props: {
     return (
       <div className="smp-shell is-collapsed">
         <button className="rail-mark has-icon" type="button" aria-label={copy.expand} onClick={props.toggleSidebar}>
-          <BrandMark icon={site.icon} />
+          <span className="rail-logo"><BrandMark icon={site.icon} /></span>
+          <span className="rail-expand"><FoldIcon /></span>
         </button>
         <div className="rail">
           <button
