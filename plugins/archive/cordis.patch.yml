@@ -1,0 +1,3 @@
+- insert:
+    - id: console-archive
+      name: '@smp/console-archive'

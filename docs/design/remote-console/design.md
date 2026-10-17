@@ -87,6 +87,7 @@ flowchart LR
 | `@smp/console-storage` | 无 | 提供 `postgres` 存储后端，只把 `workspace` 域指到数据库 |
 | `@smp/console-install` | 无 | 新的 profile 里启动一次，写入数据库地址和加密密钥，并留下 `install-complete`。标记还在时不再出现 |
 | `@smp/console-data` | 数据 | 在平台设置里查看和更换加密密钥。写入补丁，并让当前进程改用新密钥 |
+| `@smp/console-archive` | 档案 | 列出会话，按标题或会话编号查找。未归档的可以打开，已归档的可以恢复或彻底删除 |
 | `@smp/console-shell` | 侧栏、登录页、安全、Harness | 签发和校验 `smp_session`，登记 `/login` 和安全 |
 | `@smp/console-settings-shell` | Harness 设置 | 无。列出已登记的栏目，并自己登记通用栏目 |
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
@@ -134,6 +135,10 @@ flowchart LR
 ### 6.2.4 数据
 
 `@smp/console-data` 往同一组登记页签「数据」。页面读出存储插件配置里的加密密钥，默认不显示明文，点按钮才看得到。可以改，也可以生成一把新的。保存时写回 `console-store` 的 `encryptionKey`，并让当前进程的 `secrets` 改用这一把。已经用旧密钥加密的内容解不开。数据库地址不在这一页改。
+
+### 6.2.5 档案
+
+`@smp/console-archive` 登记 Harness 的页签「档案」。列表来自会话目录，归档标记来自工作区登记。搜索只比较标题或会话编号，由一个选择框决定比哪一个。未归档的会话点开后回到「会话」并选中它。已归档的可以恢复，也可以彻底删除：先卸掉还留在进程里的代理，再删掉 PostgreSQL 里的会话日志，然后从工作区账上摘掉并清掉归档标记。没有归档的会话不能删。聊天正文不在这一页搜。
 
 ### 6.3 服务器
 
@@ -213,6 +218,7 @@ flowchart LR
 | 资金账户 | `/console-api/wallets`、`/console-api/cards` |
 | 数字货币 | `/console-api/exchanges`、`/console-api/markets` |
 | 平台设置 | `/console-api/mcp`、`/mcp` |
+| 档案 | `/console-api/sessions/delete` |
 
 除登录和 `/login`、`/mcp` 外，路由都要求有效的 `smp_session`。壳把校验做成 `database` 之上的函数，栏目插件调用它，不各自解析 cookie 格式。
 

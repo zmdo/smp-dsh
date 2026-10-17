@@ -611,7 +611,7 @@ export function apply(ctx: ShellCtx): void {
   }, () => <MenuView slots={ctx.slots} locale={ctx.locale} menu={menu} />))
   const harnessLabel = () => shellCopy(ctx.locale.getSnapshot().active).harness
   registerNested(ctx, AGENT_CHAT, () => shellCopy(ctx.locale.getSnapshot().active).chat, AGENT_GROUP, harnessLabel, 0)
-  registerNested(ctx, ARCHIVE_PAGE, () => shellCopy(ctx.locale.getSnapshot().active).archive, AGENT_GROUP, harnessLabel, 1)
+  // The archive plugin registers this page. A second registration of the same key throws.
   registerNested(ctx, EVOLUTION_PAGE, () => shellCopy(ctx.locale.getSnapshot().active).evolution, AGENT_GROUP, harnessLabel, 2)
 }
 
