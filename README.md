@@ -1,8 +1,8 @@
-# CCCS
+# CES
 
-Cyber Central Control System（CCCS）。
+Cyber Evolving System（赛博演进系统）。
 
-CCCS 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harness（`dsh`）里的一组 Cordis 插件，提供登录、侧栏、平台设置、数据库、加密密钥、会话和工作区存储。CCCS 的业务栏目作为插件装到基座上，不另起进程，也不再经过单独的网站后台。
+CES 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harness（`dsh`）里的一组 Cordis 插件，提供登录、侧栏、平台设置、数据库、加密密钥、会话和工作区存储。CES 的业务栏目作为插件装到基座上，不另起进程，也不再经过单独的网站后台。
 
 本进程默认听 `9090`（`http://127.0.0.1:9090/`）。[smp](https://github.com/zmdo/smp) 里原来的控制台继续用 `8080`，两边同时开。
 
@@ -29,4 +29,4 @@ CCCS 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Har
 
 - PostgreSQL。
 - 交易所和模型的 HTTP 接口。模型仍走 `dsh` 自己的接口。
-- 登记过的服务器上的容器。CCCS 不把 Docker 引擎写进本仓库。
+- 登记过的服务器上的容器。CES 不把 Docker 引擎写进本仓库。
