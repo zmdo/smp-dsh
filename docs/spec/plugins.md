@@ -21,7 +21,7 @@ plugins/
   dashboard/
   quant/
   accounts/
-  servers/
+  server-management/
   settings/
 packages/
   console-kit/
@@ -29,7 +29,7 @@ scripts/
   build-plugin.mjs
 ```
 
-`dashboard`、`quant`、`accounts`、`servers`、`settings` 还没有目录，是以后装到基座上的栏目。上面其余目录已经在基座里。
+`dashboard`、`quant`、`accounts`、`server-management`、`settings` 还没有目录，是以后装到基座上的栏目。上面其余目录已经在基座里。
 
 根上有一份 `package.json`，只用来把这些包放进本仓库的 workspace，本身不是插件，没有 `cordis.patch.yml`。workspace 包含 `plugins/*` 和 `packages/*`。全仓库一份 lockfile，放在根上。插件目录里不再各放一份。
 
@@ -37,7 +37,7 @@ scripts/
 
 ## 插件
 
-一个栏目一个包。目录名是包名去掉 `@smp/console-` 的那一段。`dashboard`、`quant`、`accounts`、`servers`、`settings` 还没有放进基座。
+一个栏目一个包。目录名是包名去掉 `@smp/console-` 的那一段。`dashboard`、`quant`、`accounts`、`server-management`、`settings` 还没有放进基座。
 
 | 目录 | 包名 | 补丁 `id` | 页面 |
 | --- | --- | --- | --- |
@@ -50,7 +50,7 @@ scripts/
 | `plugins/dashboard` | `@smp/console-dashboard` | `smp-dashboard` | 有 |
 | `plugins/quant` | `@smp/console-quant` | `smp-quant` | 有 |
 | `plugins/accounts` | `@smp/console-accounts` | `smp-accounts` | 有 |
-| `plugins/servers` | `@smp/console-servers` | `smp-servers` | 有 |
+| `plugins/server-management` | `@smp/console-server-management` | `smp-server-management` | 有 |
 | `plugins/settings` | `@smp/console-settings` | `smp-settings` | 有 |
 | `plugins/harness-settings` | `@smp/console-harness-settings` | `smp-harness-settings` | 有 |
 | `plugins/settings-models` | `@smp/console-settings-models` | `smp-settings-models` | 有 |
@@ -60,7 +60,7 @@ scripts/
 有页面的插件：
 
 ```
-plugins/servers/
+plugins/server-management/
   package.json
   cordis.patch.yml
   icon.svg
@@ -90,11 +90,11 @@ plugins/servers/
 
 ```yaml
 - insert:
-    - id: smp-servers
-      name: '@smp/console-servers'
+    - id: smp-server-management
+      name: '@smp/console-server-management'
 ```
 
-没有页面的插件去掉 `src/client.tsx`、`exports` 里的 `./client`、`files` 里的 `lib/client.js`、`dsh.client`。`locale` 和 `icon.svg` 仍在。存储插件的 SQL 放在 `plugins/database/migrations/`。组件脚本不放进任何插件目录，由服务器插件的配置指向仓库外面的那个目录。
+没有页面的插件去掉 `src/client.tsx`、`exports` 里的 `./client`、`files` 里的 `lib/client.js`、`dsh.client`。`locale` 和 `icon.svg` 仍在。存储插件的 SQL 放在 `plugins/database/migrations/`。组件脚本不放进任何插件目录，由服务器管理插件的配置指向仓库外面的那个目录。
 
 ## 清单
 
@@ -113,7 +113,7 @@ plugins/servers/
 | 仪表盘 | 仪表盘 | 总览 | dashboard |
 | 数字货币 | 数字货币 | 行情、交易所和交易策略 | quant |
 | 资金账户 | 资金账户 | 钱包和虚拟信用卡 | accounts |
-| 服务器 | 服务器 | 服务器、密钥和终端 | servers |
+| 服务器管理 | 服务器管理 | 服务器、密钥和终端 | server-management |
 | 平台设置 | 平台设置 | 安全和 MCP | settings |
 | Harness 设置 | Harness 设置 | 把已登记的 Harness 设置栏目列在平台设置里 | harness-settings |
 | 模型 | 模型 | 把 Harness 的模型配置同步到数据库 | settings-models |

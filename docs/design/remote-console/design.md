@@ -18,9 +18,9 @@
 
 ## 2. 目标
 
-- 浏览器打开的仍是 `dsh web`，本进程默认听 `9090`，地址是 `http://127.0.0.1:9090/`。`smp` 里正在跑的控制台继续用 `8080`，两边同时开。栏目划分保持现在的壳、仪表盘、数字货币、资金账户、服务器、平台设置。
+- 浏览器打开的是 `dsh web`，本进程默认听 `9090`，地址是 `http://127.0.0.1:9090/`。原来 `8080` 上的网站、接口和运维进程已关闭。栏目划分保持现在的壳、仪表盘、数字货币、资金账户、服务器管理、平台设置。
 - 每个栏目插件带上自己的宿主端。宿主端直接读写现有 PostgreSQL，并在需要时调用交易所 API 或 SSH。
-- 原来运维服务做的事改由服务器插件承担：连接测试、安装组件、巡检、采指标、终端。
+- 原来运维服务做的事改由服务器管理插件承担：连接测试、安装组件、巡检、采指标、终端。
 - `dsh` 崩溃后重启即可。数据库里的登记还在，远端容器还在。重启前没做完的 SSH 记为失败，由人再点一次。
 
 ## 3. 非目标
@@ -39,12 +39,12 @@
 | 进程 | 只有 `dsh`。网站后台、运维服务、单独的迁移容器都不再运行 |
 | 数据 | 插件通过 Cordis 服务拿到同一个连接池，直接读写 PostgreSQL |
 | 密钥 | 加密密钥放在存储插件的配置里。SSH 私钥、交易所凭证、钱包助记词、卡号只以密文入库 |
-| 运维动作 | 服务器插件在自己的 effect 里执行。HTTP 请求只写入任务行并返回，不等待 SSH 结束 |
+| 运维动作 | 服务器管理插件在自己的 effect 里执行。HTTP 请求只写入任务行并返回，不等待 SSH 结束 |
 | 第三方 API | 行情和余额由数字货币插件调用交易所 API。Harness 的模型调用仍走 `dsh` |
 | 协议客户端 | SSH、密文、助记词派生是插件依赖的库，在 `dsh` 进程内调用，不另起服务 |
 | 接口 | 浏览器走插件登记的 `/console-api`、`/login`、`/mcp`。`/api` 仍属于 `dsh` |
 | 登录 | 壳插件签发 `smp_session`。没有会话时打开 `/login` |
-| 端口 | 本进程默认 `9090`。`smp` 的控制台留在 `8080`，不共用、不互相代理 |
+| 端口 | 本进程默认 `9090`。原来的 `8080` 控制台已关闭 |
 | 崩溃 | 重启 `dsh`。启动时把上次留下的 `running` 任务标为失败 |
 
 ## 5. 组成
@@ -97,12 +97,12 @@ flowchart LR
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
 | `@smp/console-quant` | 概览、行情、交易所、交易策略 | 交易所账户；调用交易所 API 取余额和行情 |
 | `@smp/console-accounts` | 钱包、钱包详情、虚拟信用卡 | 这些表的读写；进程内派生地址 |
-| `@smp/console-servers` | 服务器、详情、登记、终端、密钥 | 服务器、分组、密钥、容器清单、任务、巡检、采指标、组件安装、终端 |
+| `@smp/console-server-management` | 服务器、详情、登记、终端、密钥 | 服务器、分组、密钥、容器清单、任务、巡检、采指标、组件安装、终端 |
 | `@smp/console-settings` | MCP | MCP 开关和 `/mcp` |
 
 栏目插件只往壳声明的 `console.page` 登记页面，并带上 `label` 和 `order`。同一 `group` 的页面合成侧栏的一项，顶部页签用各页自己的 `label`。没写 `group` 的页面单独成为一项。`placement: 'footer'` 的组固定在侧栏底部。壳自己登记「平台设置」里的「安全」和「通用」，放在底部。「Harness」由 `@smp/console-harness-settings` 登记到同一组。其他栏目不在壳里写死。侧栏仍由壳以优先级 `-100` 占用，并停用 harness 自带的 `ui-sidebar`。那条侧栏一旦出现，Harness 自带的设置弹层会声明 `settings.section`，和 Harness 设置抢同一个槽位。`conversation` 留给 `dsh` 会话，点「Harness」时 `selectPanel(null)`。槽位只留下 `label` 和 `order`，所以组名、组的标题和位置附在 `label` 函数上。
 
-跨栏目的读取走数据库，不走另一个插件的 HTTP。例如 MCP 要列出服务器时，设置插件读 `servers` 表，不请求服务器插件的路由。
+跨栏目的读取走数据库，不走另一个插件的 HTTP。例如 MCP 要列出服务器时，设置插件读 `servers` 表，不请求服务器管理插件的路由。
 
 ### 6.1 存储
 
@@ -144,9 +144,11 @@ flowchart LR
 
 `@smp/console-sessions` 登记 Harness 的页签「档案」。列表来自会话目录，归档标记来自工作区登记。搜索只比较标题或会话编号，由一个选择框决定比哪一个。还可以按更新时间的起止日期、使用中或已归档、以及工作区来缩小列表。会话编号在第一列，过长时省略，鼠标停在上面能看到完整编号，旁边的图标可以把它复制出去。同一行还写出标题、工作区、更新时间，以及是否在跑、是否空白、是否已置顶、是否从别的会话分出来，这些都写在同一行里。列表分页，每页可以选 10、20 或 50 条，也可以直接跳到某一页。未归档的会话点开后回到「会话」并选中它。已归档的可以恢复，也可以彻底删除：先卸掉还留在进程里的代理，再删掉 PostgreSQL 里的会话日志，然后从工作区账上摘掉并清掉归档标记。没有归档的会话不能删。聊天正文不在这一页搜。
 
-### 6.3 服务器
+### 6.3 服务器管理
 
-这个插件承接现在的运维服务。宿主 `inject` 为 `['webServer', 'database', 'secrets']`。
+做法以 `docs/design/server-management/design.md` 为准。
+
+这个插件承接现在的运维服务。宿主 `inject` 为 `['webServer', 'database', 'secrets', 'consoleSession']`。
 
 页面触发的动作只插入 `ops_jobs` 并返回。同一台服务器同时只执行一个动作，这个限制写在该插件的 effect 里。执行的动作只有现在已经实现的三种：
 
@@ -163,7 +165,7 @@ flowchart LR
 - 巡检定时器。对可达服务器按配置间隔插入 `inspect`。默认间隔保持 30 秒。
 - 采指标。对已登记服务器采样 CPU、内存和磁盘，写回 `servers`。默认间隔保持 1 秒。
 
-终端用 `webServer` 登记现在的 WebSocket 路径 `/console-api/servers/:id/terminal`。套接字关闭或插件卸载时断开 SSH。HTTP 与 WebSocket 都先校验 `smp_session`。
+终端用 `webServer.registerUpgrade` 登记精确路径 `/console-api/servers/terminal`，服务器编号放在查询参数里。套接字关闭或插件卸载时断开 SSH。HTTP 与升级都先校验 `smp_session`。
 
 `dsh` 启动时，把状态仍为 `running` 的任务标为失败，摘录写明进程已重启。不尝试接回上一次的 SSH。
 
@@ -199,8 +201,8 @@ flowchart LR
 
 ```yaml
 - insert:
-    - id: smp-servers
-      name: '@smp/console-servers'
+    - id: smp-server-management
+      name: '@smp/console-server-management'
 ```
 
 存储插件的 `id` 用 `smp-database`。一行一个 `id`。先后依赖 `inject`，不依赖补丁里的位置。会随部署变化的地址、间隔、密钥和组件目录写成经过校验的 `Config`。
@@ -211,14 +213,14 @@ flowchart LR
 
 客户端用 `ctx.slots.inject('console.page', () => ctx.slots.register(...))`，带 `options.key`。工厂函数本身不产生副作用。样式挂在壳的 `.smp-console` 上，沿用 `panel`、`panel-head`、`mark`。
 
-浏览器里的请求仍用现在的路径形状，只是对端换成了本进程里的路由：原来的 `/api/servers` 由服务器插件登记为 `/console-api/servers`，其余栏目同样把 `/api` 换成 `/console-api`。`/mcp` 和 `/login` 不带这个前缀。
+浏览器里的请求仍用现在的路径形状，只是对端换成了本进程里的路由：原来的 `/api/servers` 由服务器管理插件登记为 `/console-api/servers`，其余栏目同样把 `/api` 换成 `/console-api`。`/mcp` 和 `/login` 不带这个前缀。
 
 ## 8. 路由归属
 
 | 插件 | 登记的路径 |
 | --- | --- |
 | 壳 | `/login`、索引门禁、`/console-api/auth/login`、`/console-api/auth/logout`、`/console-api/auth/me`、`/console-api/auth/session`、`/console-api/auth/username`、`/console-api/auth/password`、`/console-api/auth/totp/*` |
-| 服务器 | `/console-api/servers`、`/console-api/server-groups`、`/console-api/ssh-keys`、`/console-api/components`、`/console-api/ops-jobs/:id`、终端 WebSocket |
+| 服务器管理 | `/console-api/servers`、`/console-api/server-groups`、`/console-api/ssh-keys`、`/console-api/components`、`/console-api/ops-jobs/:id`、终端 WebSocket |
 | 资金账户 | `/console-api/wallets`、`/console-api/cards` |
 | 数字货币 | `/console-api/exchanges`、`/console-api/markets` |
 | 平台设置 | `/console-api/mcp`、`/mcp` |
@@ -240,9 +242,9 @@ flowchart LR
 
 1. 存储插件。连上现有库，提供 `database` 和 `secrets`，启动迁移可用。
 2. 壳。`/login`、`smp_session` 和安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，通用、安全和模型是其中的页签。Harness 设置接着登记同一组的「Harness」，模型栏目从那里挪到模型页签。
-3. 服务器插件。把连接测试、巡检、采指标、组件安装和终端从运维服务搬进来，页面仍轮询 `ops_jobs`。
+3. 服务器管理插件。把连接测试、巡检、采指标、组件安装和终端从运维服务搬进来，页面仍轮询 `ops_jobs`。
 4. 资金账户、数字货币、平台设置。按栏目把对应的读写和外部调用搬进宿主端。
 5. 仪表盘维持空宿主。
-6. 六个栏目和存储插件都由本进程答完请求之后，去掉 `smp` 在 `8080` 上的网站后台、运维服务和旧入口。本进程仍听 `9090`。
+6. 六个栏目和存储插件都由本进程答完请求。本进程听 `9090`。原来 `8080` 上的网站、接口和运维进程不再启动。
 
 每一步都可以单独对上现有页面：同一条 `/console-api` 路径，先由插件答，应答形状与现在的网站后台一致。
