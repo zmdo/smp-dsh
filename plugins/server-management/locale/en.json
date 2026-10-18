@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "server-management",
+    "description": "Register servers and keys, then run connection tests, inspection, metrics, and a terminal."
+  }
+}

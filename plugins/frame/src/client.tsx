@@ -300,6 +300,16 @@ function NavGlyph(props: { name: string }) {
       </svg>
     )
   }
+  if (props.name === 'server') {
+    return (
+      <svg {...common}>
+        <rect x="2.2" y="2.2" width="11.6" height="4.2" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+        <rect x="2.2" y="9.4" width="11.6" height="4.2" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+        <circle cx="4.3" cy="4.3" r="0.6" fill="currentColor" />
+        <circle cx="4.3" cy="11.5" r="0.6" fill="currentColor" />
+      </svg>
+    )
+  }
   return (
     <svg {...common}>
       <rect x="3" y="3" width="10" height="10" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
