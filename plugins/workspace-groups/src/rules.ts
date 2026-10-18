@@ -2,6 +2,8 @@
 
 export const GENERAL_GROUP_ID = 'general'
 export const GENERAL_GROUP_LABEL = '普通工作区组'
+export const UNASSIGNED_GROUP_ID = 'unassigned'
+export const UNASSIGNED_GROUP_LABEL = '未归属'
 export const DEFAULT_WORKSPACE_TITLE = 'default-workspace'
 
 export interface GroupSpec {
@@ -39,6 +41,7 @@ export function normalizeGroup(input: { id: string; label: string; directory: st
   const label = input.label.trim()
   const directory = input.directory.trim()
   if (id === '' || label === '' || directory === '') throw new Error('工作区组的编号、名称和目录都不能为空')
+  if (id === UNASSIGNED_GROUP_ID) throw new Error('未归属是系统保留的工作区组')
   return { id, label, directory, order: input.order ?? 0 }
 }
 
@@ -108,14 +111,18 @@ export function judgingGroup(sessionGroupId: string | undefined, selectedGroupId
   return sessionGroupId ?? selectedGroupId
 }
 
-/** Undefined when no session is open. A session without a membership row counts as the general group. */
+/** Workspace accounts are authoritative; cwd alone never assigns an orphan to a group. */
 export function sessionWorkspaceGroup(sessions: SessionFace, workspaces: readonly WorkspaceFace[], members: readonly MemberRow[]): string | undefined {
   const main = Object.values(sessions.byId).find(row => (row.retainedBy?.mainView ?? 0) > 0)
   if (main === undefined) return undefined
-  const item = workspaces.find(workspace => workspace.sessionIds.includes(main.id) || (main.cwd !== undefined && main.cwd !== '' && workspace.path === main.cwd))
-  if (item === undefined) return GENERAL_GROUP_ID
+  return groupForSession(main.id, workspaces, members)
+}
+
+export function groupForSession(sessionId: string, workspaces: readonly WorkspaceFace[], members: readonly MemberRow[]): string | undefined {
+  const item = workspaces.find(workspace => workspace.sessionIds.includes(sessionId))
+  if (item === undefined) return UNASSIGNED_GROUP_ID
   const member = members.find(row => row.workspaceId === item.workspaceId)
-  return member?.groupId ?? GENERAL_GROUP_ID
+  return member?.groupId
 }
 
 export function pluginUsable(allows: readonly AllowSpec[], pluginId: string, groupId: string, registered: ReadonlySet<string>): boolean {

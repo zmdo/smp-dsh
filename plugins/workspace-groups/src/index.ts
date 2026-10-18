@@ -1,297 +1,119 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { homedir } from 'node:os'
-import { Context, Service } from '@deepseek-ai/cordis'
-import {
-  DEFAULT_WORKSPACE_TITLE,
-  GENERAL_GROUP_ID,
-  GENERAL_GROUP_LABEL,
-  claimWorkspace,
-  focusedWorkspace,
-  normalizeAllow,
-  normalizeGroup,
-  pagesHidden,
-  planDefault,
-  pluginUsable,
-  rememberAllow,
-  rememberGroup,
-  toolRefusal,
-  ungroupedIds,
-  type AllowSpec,
-  type GroupSpec,
-  type MemberRow,
-} from './rules.ts'
-import { defaultWorkspacePath, ensureDirectory, resolveGroupDirectory } from './paths.ts'
+import { Context } from '@deepseek-ai/cordis'
+import { GroupRegistry, generalGroup, type Queryable, type Registry } from './service.ts'
+import { GroupFailure } from './contract.ts'
+import { UNASSIGNED_GROUP_ID } from './rules.ts'
 
-interface QueryResult<T> {
-  rows: T[]
-}
-
-interface Queryable {
-  query<T extends Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<QueryResult<T>>
-}
-
-interface WorkspaceRecord {
-  id: string
-  path: string
-  title: string
-}
-
-interface WorkspaceRegistry {
-  list(): readonly WorkspaceRecord[]
-  create(path: string, title?: string): Promise<WorkspaceRecord>
-}
-
-interface RegisteredGroup extends GroupSpec {
-  path: string
-}
-
-interface MemberRecord extends Record<string, unknown> {
-  workspace_id: string
-  group_id: string
-  is_default: boolean
-}
-
-interface FocusRecord extends Record<string, unknown> {
-  group_id: string
-  workspace_id: string
-}
-
-export interface WorkspaceGroupView {
-  groups: RegisteredGroup[]
-  members: MemberRow[]
-  focus: { groupId: string; workspaceId: string }[]
-  allows: AllowSpec[]
-}
-
-/** Host-side registry of workspace groups. Browser code uses the client service of the same name. */
-export class WorkspaceGroups extends Service {
-  private readonly db: Queryable
-  private readonly registry: WorkspaceRegistry
-  private groups: GroupSpec[] = []
-  private bound = new Map<string, string>()
-  private allows: AllowSpec[] = []
-
-  constructor(ctx: Context, db: Queryable, registry: WorkspaceRegistry) {
-    super(ctx, 'workspaceGroups')
-    this.db = db
-    this.registry = registry
-  }
-
-  async register(input: { id: string; label: string; directory: string; order?: number }): Promise<void> {
-    const spec = normalizeGroup(input)
-    const path = resolveGroupDirectory(homedir(), spec.directory)
-    await ensureDirectory(path)
-    this.groups = rememberGroup(this.groups, spec)
-    this.bound.set(spec.id, path)
-    await this.ensureDefault(spec.id)
-  }
-
-  allow(input: { id: string; groups: readonly string[]; pages?: readonly string[] }): void {
-    this.allows = rememberAllow(this.allows, normalizeAllow(input))
-  }
-
-  /** True when the plugin did not call allow, or named this registered group. */
-  usable(pluginId: string, groupId: string): boolean {
-    return pluginUsable(this.allows, pluginId, groupId, new Set(this.groups.map(group => group.id)))
-  }
-
-  /** The sentence a tool returns when the session's workspace group is outside its allow list. */
-  refusal(pluginId: string, groupId: string): string | undefined {
-    if (this.usable(pluginId, groupId)) return undefined
-    const label = this.groups.find(group => group.id === groupId)?.label ?? groupId
-    return toolRefusal(label)
-  }
-
-  async adoptUngrouped(groupId: string): Promise<void> {
-    const members = await this.members()
-    for (const workspaceId of ungroupedIds(this.registry.list().map(workspace => workspace.id), members)) {
-      await this.db.query(
-        `insert into workspace_group_members (workspace_id, group_id, is_default) values ($1, $2, false)
-         on conflict (workspace_id) do nothing`,
-        [workspaceId, groupId],
-      )
-    }
-  }
-
-  async claim(workspaceId: string, groupId: string): Promise<{ ok: true } | { ok: false; detail: string }> {
-    if (!this.groups.some(group => group.id === groupId)) return { ok: false, detail: '没有这个工作区组' }
-    if (!this.registry.list().some(workspace => workspace.id === workspaceId)) return { ok: false, detail: '没有这个工作区' }
-    const members = await this.members()
-    const decision = claimWorkspace(members, workspaceId, groupId, this.labelOf(members.find(row => row.workspaceId === workspaceId)?.groupId))
-    if (!decision.ok) return decision
-    if (decision.insert) {
-      await this.db.query(
-        `insert into workspace_group_members (workspace_id, group_id, is_default) values ($1, $2, false)
-         on conflict (workspace_id) do nothing`,
-        [workspaceId, groupId],
-      )
-    }
-    return { ok: true }
-  }
-
-  async focus(groupId: string, workspaceId: string): Promise<void> {
-    const members = await this.members()
-    if (!members.some(row => row.groupId === groupId && row.workspaceId === workspaceId)) return
-    await this.db.query(
-      `insert into workspace_group_focus (group_id, workspace_id) values ($1, $2)
-       on conflict (group_id) do update set workspace_id = excluded.workspace_id`,
-      [groupId, workspaceId],
-    )
-  }
-
-  async entry(groupId: string): Promise<string | undefined> {
-    const members = await this.members()
-    const focus = await this.focusRows()
-    return focusedWorkspace(members, groupId, focus.find(row => row.groupId === groupId)?.workspaceId)
-  }
-
-  async view(): Promise<WorkspaceGroupView> {
-    const [members, focus] = await Promise.all([this.members(), this.focusRows()])
-    const groups = [...this.groups]
-      .sort((left, right) => left.order - right.order || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
-      .map(group => ({ ...group, path: this.bound.get(group.id) ?? '' }))
-    return { groups, members, focus, allows: this.allows }
-  }
-
-  hiddenPages(groupId: string): string[] {
-    return pagesHidden(this.allows, groupId, new Set(this.groups.map(group => group.id)))
-  }
-
-  private labelOf(groupId: string | undefined): string {
-    if (groupId === undefined) return GENERAL_GROUP_LABEL
-    return this.groups.find(group => group.id === groupId)?.label ?? groupId
-  }
-
-  private async members(): Promise<MemberRow[]> {
-    const result = await this.db.query<MemberRecord>('select workspace_id, group_id, is_default from workspace_group_members')
-    return result.rows.map(row => ({ workspaceId: row.workspace_id, groupId: row.group_id, isDefault: row.is_default }))
-  }
-
-  private async focusRows(): Promise<{ groupId: string; workspaceId: string }[]> {
-    const result = await this.db.query<FocusRecord>('select group_id, workspace_id from workspace_group_focus')
-    return result.rows.map(row => ({ groupId: row.group_id, workspaceId: row.workspace_id }))
-  }
-
-  private async ensureDefault(groupId: string): Promise<void> {
-    const bound = this.bound.get(groupId)
-    if (bound === undefined) return
-    const path = defaultWorkspacePath(bound)
-    await ensureDirectory(path)
-    const members = await this.members()
-    const existing = this.registry.list().find(workspace => workspace.path === path)
-    const plan = planDefault(members, groupId, existing?.id)
-    if (plan.action === 'keep') return
-    const workspaceId = plan.action === 'mark'
-      ? plan.workspaceId
-      : (await this.registry.create(path, DEFAULT_WORKSPACE_TITLE)).id
-    await this.db.query('update workspace_group_members set is_default = false where group_id = $1 and is_default = true', [groupId])
-    await this.db.query(
-      `insert into workspace_group_members (workspace_id, group_id, is_default) values ($1, $2, true)
-       on conflict (workspace_id) do update set group_id = excluded.group_id, is_default = true`,
-      [workspaceId, groupId],
-    )
-  }
-}
-
-declare module '@deepseek-ai/cordis' {
-  interface Context {
-    workspaceGroups: WorkspaceGroups
-  }
-}
-
+interface SearchHit { header: { id: string }; bestMatch: { snippet: string } }
 interface HostCtx extends Context {
   database: { pool: Queryable }
-  workspaceRegistry: WorkspaceRegistry
-  webServer: {
-    register(route: {
-      kind: 'exact'
-      path: string
-      handler: (request: IncomingMessage, response: ServerResponse) => void | Promise<void>
-    }): () => void
+  workspaceRegistry: Registry
+  workspaceGroups: GroupRegistry
+  consoleSession: { read(cookie: string): Promise<unknown> }
+  sessionQuery: {
+    listSessions(signal?: AbortSignal): Promise<{ header: { id: string; origin?: string } }[]>
+    searchSessions(request: object, exec?: { signal: AbortSignal }): Promise<{ items: SearchHit[]; nextCursor?: string }>
   }
-  consoleSession: { read(cookieHeader: string): Promise<unknown> }
+  webServer: { register(route: { kind: 'exact'; path: string; handler(request: IncomingMessage, response: ServerResponse): Promise<void> }): () => void }
 }
 
-export const inject = ['database', 'workspaceRegistry', 'webServer', 'consoleSession']
+declare module '@deepseek-ai/cordis' { interface Context { workspaceGroups: GroupRegistry } }
+export { GroupRegistry as WorkspaceGroups } from './service.ts'
+export const inject = ['database', 'workspaceRegistry', 'webServer', 'consoleSession', 'sessionQuery']
+const ROOT = '/console-api/workspace-groups'
+const ACTIONS = ['', '/workspaces', '/rename', '/remove', '/focus', '/claim', '/search']
 
-const GENERAL = { id: GENERAL_GROUP_ID, label: GENERAL_GROUP_LABEL, directory: '.smp/workspaces', order: 0 }
-
-export async function* apply(ctx: HostCtx): AsyncGenerator<() => void> {
-  const groups = new WorkspaceGroups(ctx, ctx.database.pool, ctx.workspaceRegistry)
-  const routes = [
-    ctx.webServer.register({ kind: 'exact', path: '/console-api/workspace-groups', handler: (request, response) => handle(ctx, groups, request, response) }),
-    ctx.webServer.register({ kind: 'exact', path: '/console-api/workspace-groups/claim', handler: (request, response) => handle(ctx, groups, request, response) }),
-    ctx.webServer.register({ kind: 'exact', path: '/console-api/workspace-groups/focus', handler: (request, response) => handle(ctx, groups, request, response) }),
-  ]
-  yield () => { for (const dispose of routes) dispose() }
-  await groups.register(GENERAL)
-  await groups.adoptUngrouped(GENERAL.id)
+export async function apply(ctx: HostCtx): Promise<void> {
+  const groups = new GroupRegistry(ctx.database.pool, ctx.workspaceRegistry, homedir())
+  await groups.register(generalGroup)
+  ctx.effect(function* () {
+    yield () => groups.close()
+    for (const action of ACTIONS) yield ctx.webServer.register({ kind: 'exact', path: ROOT + action, handler: (request, response) => handle(ctx, groups, request, response) })
+    yield ctx.provide('workspaceGroups', groups)
+  })
 }
 
-async function handle(ctx: HostCtx, groups: WorkspaceGroups, request: IncomingMessage, response: ServerResponse): Promise<void> {
-  const account = await ctx.consoleSession.read(cookieOf(request))
-  if (account === undefined) {
-    send(response, 401, { detail: '未登录' })
-    return
-  }
-  const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+async function handle(ctx: HostCtx, groups: GroupRegistry, request: IncomingMessage, response: ServerResponse): Promise<void> {
+  if (await ctx.consoleSession.read(cookieOf(request)) === undefined) { send(response, 401, { code: 'auth/required', detail: '未登录' }); return }
   try {
-    if (request.method === 'GET' && url.pathname === '/console-api/workspace-groups') {
-      send(response, 200, await groups.view())
+    const path = new URL(request.url ?? '/', 'http://localhost').pathname.slice(ROOT.length)
+    if (path === '' && request.method === 'GET') {
+      const snapshot = await groups.view()
+      send(response, 200, { ...snapshot, ...(process.env.SMP_TEST_HISTORY_EPOCH ? { testResetEpoch: process.env.SMP_TEST_HISTORY_EPOCH } : {}) })
       return
     }
-    if (request.method === 'POST' && url.pathname === '/console-api/workspace-groups/claim') {
-      const body = await readJson(request)
-      const workspaceId = textField(body, 'workspaceId')
-      const groupId = textField(body, 'groupId')
-      if (workspaceId === '' || groupId === '') {
-        send(response, 400, { detail: '缺少工作区或工作区组' })
-        return
-      }
-      const result = await groups.claim(workspaceId, groupId)
-      send(response, result.ok ? 200 : 409, result)
-      return
+    if (request.method !== 'POST') { send(response, 405, { code: 'request/method', detail: '需要 POST 请求' }); return }
+    const body = await readJson(request)
+    switch (path) {
+      case '/workspaces': send(response, 200, await groups.add(field(body, 'groupId'), field(body, 'path'), optional(body, 'title'))); return
+      case '/rename': await groups.rename(field(body, 'workspaceId'), field(body, 'title')); break
+      case '/remove': await groups.remove(field(body, 'workspaceId')); break
+      case '/focus': await groups.focus(field(body, 'groupId'), optional(body, 'workspaceId') ?? null, field(body, 'sessionId')); break
+      case '/claim': await groups.claim(field(body, 'workspaceId'), field(body, 'groupId')); break
+      case '/search': send(response, 200, await search(ctx, groups, body, request, response)); return
+      default: send(response, 404, { code: 'request/path', detail: '没有这个接口' }); return
     }
-    if (request.method === 'POST' && url.pathname === '/console-api/workspace-groups/focus') {
-      const body = await readJson(request)
-      const workspaceId = textField(body, 'workspaceId')
-      const groupId = textField(body, 'groupId')
-      if (workspaceId === '' || groupId === '') {
-        send(response, 400, { detail: '缺少工作区或工作区组' })
-        return
-      }
-      await groups.focus(groupId, workspaceId)
-      send(response, 200, { ok: true })
-      return
-    }
-    send(response, 404, { detail: '没有这个接口' })
-  } catch (error) {
-    const detail = error instanceof Error && error.message !== '' ? error.message : '没有完成'
-    send(response, 400, { detail })
+    send(response, 200, { ok: true })
+  } catch (cause) {
+    if (cause instanceof GroupFailure) { send(response, cause.status, { code: cause.code, detail: cause.message, ...(cause.owner === undefined ? {} : { owner: cause.owner }) }); return }
+    ctx.logger.warn(cause)
+    send(response, 500, { code: 'workspace-group/failed', detail: '操作未完成，请重试' })
   }
 }
 
-function cookieOf(request: IncomingMessage): string {
-  const value = request.headers.cookie
-  if (Array.isArray(value)) return value.join('; ')
-  return value ?? ''
+async function search(ctx: HostCtx, groups: GroupRegistry, body: Record<string, unknown>, request: IncomingMessage, response: ServerResponse): Promise<{ items: { sessionId: string; snippet: string }[]; hasMore: boolean }> {
+  const groupId = field(body, 'groupId')
+  const query = field(body, 'query')
+  if (query.length > 512) throw new GroupFailure('workspace-group/search-query', '搜索词过长')
+  const view = await groups.view()
+  if (!view.groups.some(g => g.id === groupId)) throw new GroupFailure('workspace-group/unknown', '没有这个工作区组', 404)
+  const controller = new AbortController()
+  const abort = () => { if (!response.writableEnded) controller.abort() }
+  request.on('aborted', abort)
+  response.on('close', abort)
+  try {
+    const records = await ctx.sessionQuery.listSessions(controller.signal)
+    const owners = new Map(ctx.workspaceRegistry.list().flatMap(w => w.sessionIds.map(id => [id, w.id] as const)))
+    const ids = records.filter(r => {
+      if (r.header.origin === 'subagent') return false
+      const workspaceId = owners.get(r.header.id)
+      return (workspaceId === undefined ? UNASSIGNED_GROUP_ID : view.members.find(m => m.workspaceId === workspaceId)?.groupId) === groupId
+    }).map(r => r.header.id)
+    if (ids.length === 0) return { items: [], hasMore: false }
+    const page = await ctx.sessionQuery.searchSessions({ query, sessionFilters: [{ kind: 'id', values: ids }], eventFilters: [{ kind: 'type', values: ['user/message', 'assistant/message'] }, { kind: 'surface', values: ['current'] }], limit: 50 }, { signal: controller.signal })
+    return { items: page.items.map(hit => ({ sessionId: hit.header.id, snippet: hit.bestMatch.snippet })), hasMore: page.nextCursor !== undefined }
+  } finally { request.off('aborted', abort); response.off('close', abort) }
 }
 
+function cookieOf(request: IncomingMessage): string { const value = request.headers.cookie; return Array.isArray(value) ? value.join('; ') : value ?? '' }
 function send(response: ServerResponse, status: number, body: unknown): void {
+  if (response.destroyed) return
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   response.end(JSON.stringify(body))
 }
-
-async function readJson(request: IncomingMessage): Promise<unknown> {
+async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = []
-  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-  const text = Buffer.concat(chunks).toString('utf8').trim()
-  if (text === '') return {}
-  return JSON.parse(text) as unknown
+  let size = 0
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    size += buffer.length
+    if (size > 65_536) throw new GroupFailure('request/too-large', '请求过大', 413)
+    chunks.push(buffer)
+  }
+  let value: unknown
+  try { value = JSON.parse(Buffer.concat(chunks).toString('utf8')) } catch (cause) { throw new GroupFailure('request/json', '请求不是有效 JSON', 400, undefined, { cause }) }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new GroupFailure('request/json', '请求必须是 JSON 对象')
+  return value as Record<string, unknown>
 }
-
-function textField(body: unknown, key: string): string {
-  if (body === null || typeof body !== 'object' || !(key in body)) return ''
-  const value = (body as Record<string, unknown>)[key]
-  return typeof value === 'string' ? value.trim() : ''
+function optional(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key]
+  if (value == null) return undefined
+  if (typeof value !== 'string') throw new GroupFailure('request/field', `${key} 必须是文字`)
+  return value.trim()
+}
+function field(body: Record<string, unknown>, key: string): string {
+  const value = optional(body, key)
+  if (value === undefined || value === '') throw new GroupFailure('request/field', `缺少 ${key}`)
+  return value
 }

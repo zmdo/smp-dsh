@@ -36,6 +36,7 @@ interface AuthStore {
 interface GroupFace {
   subscribe(listener: () => void): () => void
   hiddenPages(): string[]
+  renderSidebar(renderSlot: RenderSlot): ReactNode
 }
 
 interface ShellCtx {
@@ -266,29 +267,20 @@ function useCopy(locale: LocaleFace): ShellCopy {
 }
 
 function createChatSideMount(): ChatSideMount {
-  let node: HTMLElement | null = null
-  const listeners = new Set<() => void>()
+  const node = document.createElement('aside')
+  node.className = 'smp-chat-side'
   return {
-    subscribe(listener) {
-      listeners.add(listener)
-      return () => { listeners.delete(listener) }
-    },
+    subscribe: () => () => {},
     get: () => node,
-    set(next) {
-      if (node === next) return
-      node = next
-      for (const listener of listeners) listener()
-    },
+    // The root owns this node; session-scoped headers only offer its current attachment point.
+    set(host) { if (host !== null && node.parentElement !== host) host.append(node) },
   }
 }
 
-function OfficialSessions(props: { mount: ChatSideMount; renderSlot?: RenderSlot }) {
+function OfficialSessions(props: { mount: ChatSideMount; groups: GroupFace; renderSlot?: RenderSlot }) {
   const node = useSyncExternalStore(props.mount.subscribe, props.mount.get)
   if (node === null || props.renderSlot === undefined) return null
-  return createPortal(props.renderSlot('sidebar.workspaces', {
-    wide: true,
-    expandSidebar: () => {},
-  }), node)
+  return createPortal(props.groups.renderSidebar(props.renderSlot), node)
 }
 
 function usePages(slots: PageSlots, locale: LocaleFace): ReturnType<typeof pageRoutes> {
@@ -494,7 +486,7 @@ function ShellSidebar(props: {
   return (
     <>
       {column}
-      <OfficialSessions mount={props.chatSide} renderSlot={props.renderSlot} />
+      <OfficialSessions mount={props.chatSide} groups={props.groups} renderSlot={props.renderSlot} />
     </>
   )
 }
@@ -541,7 +533,7 @@ function ConversationChrome(props: {
           <button className="tab" type="button" onClick={() => props.openConsole(ARCHIVE_PAGE)}>{copy.archive}</button>
         </nav>
       </header>
-      <aside className="smp-chat-side" ref={props.chatSide.set} />
+      <div style={{ display: 'contents' }} ref={props.chatSide.set} />
     </>
   )
 }
@@ -595,6 +587,7 @@ export function apply(ctx: ShellCtx): void {
   const menu = createMenuStore()
   const landing = createLandingStore()
   const chatSide = createChatSideMount()
+  ctx.effect(() => () => { chatSide.get()?.remove() })
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = '@smp/console-frame'
@@ -643,6 +636,12 @@ export function apply(ctx: ShellCtx): void {
       chatSide,
     }),
   }, ConversationChrome))
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'workspace-groups-empty' }, () => (
+    <div style={{ position: 'relative', height: '100%', paddingLeft: 280, paddingTop: 49 }}>
+      <ConversationChrome locale={ctx.locale} openConsole={openConsole} chatSide={chatSide} />
+      <p style={{ padding: 32, textAlign: 'center' }}>{ctx.locale.getSnapshot().active === 'zh' ? '未归属组没有可打开的会话' : 'No available unassigned sessions'}</p>
+    </div>
+  )))
   ctx.slots.inject('main', () => {
     const dispose = ctx.slots.register({
       name: 'main',
