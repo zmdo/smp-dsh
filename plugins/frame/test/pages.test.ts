@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { navGroups, pageLabel, pageRoutes, visibleGroups } from '../src/pages.ts'
+import { navGroups, pageLabel, pageRoutes, visibleGroups, withoutPages } from '../src/pages.ts'
 import { shellCopy } from '../src/copy.ts'
 import { checkNewPassword, cleanUsername } from '../src/security.ts'
 import { newSecret, provisioningUri } from '../src/totp.ts'
@@ -106,4 +106,13 @@ test('a wallet mnemonic round-trips through the password vault', async () => {
   const stored = await encryptMnemonic('secret', 'abandon abandon abandon')
   assert.equal(await decryptMnemonic('secret', stored), 'abandon abandon abandon')
   await assert.rejects(() => decryptMnemonic('other', stored))
+})
+
+test('a page hidden for the current workspace group leaves the menu', () => {
+  const routes = pageRoutes([
+    { options: { key: 'markets', label: '行情', order: 30 } },
+    { options: { key: 'workspace-group-gate', label: '临时页面', order: 40 } },
+  ])
+  assert.deepEqual(withoutPages(routes, ['workspace-group-gate']).map(route => route.key), ['markets'])
+  assert.deepEqual(withoutPages(routes, []).map(route => route.key), ['markets', 'workspace-group-gate'])
 })

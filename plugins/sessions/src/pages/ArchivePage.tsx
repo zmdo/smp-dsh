@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Panel } from '@smp/console-kit'
 import { archiveCopy } from '../copy.ts'
-import { clampPage, isPageSize, jumpTarget, pageCount, pageSlice, PAGE_SIZES, sessionMatches, sessionOnDates, sessionStatusMatches, sessionWorkspaceMatches, workspaceName, workspaceOf, type SessionSearchBy, type SessionStatusFilter } from '../query.ts'
+import { clampPage, isPageSize, jumpTarget, pageCount, pageSlice, PAGE_SIZES, sessionMatches, sessionOnDates, sessionStatusMatches, sessionWorkspaceMatches, archiveWorkspaceLabel, workspaceOf, type SessionSearchBy, type SessionStatusFilter } from '../query.ts'
 
 interface LocaleFace {
   getSnapshot(): { active: string }
@@ -36,7 +36,7 @@ interface WorkspaceList {
   getSnapshot(): {
     archivedSessionIds: readonly string[]
     pinnedSessionIds: readonly string[]
-    items: readonly { title: string; path: string; sessionIds: readonly string[] }[]
+    items: readonly { workspaceId?: string; title: string; path: string; sessionIds: readonly string[] }[]
   }
   subscribe(listener: () => void): () => void
 }
@@ -50,6 +50,10 @@ interface ArchivePageProps {
   }
   uiWorkspace: { openSession(sessionId: string): void }
   layout: { selectPanel(id: string | null): void }
+  workspaceGroups: {
+    subscribe(listener: () => void): () => void
+    getSnapshot(): { groups: readonly { id: string; label: string }[]; members: readonly { workspaceId: string; groupId: string }[] }
+  }
 }
 
 const PAGE_STYLE = `
@@ -83,6 +87,11 @@ export function installArchiveStyle(): () => void {
   return () => { tag.remove() }
 }
 
+function groupName(groups: { groups: readonly { id: string; label: string }[]; members: readonly { workspaceId: string; groupId: string }[] }, workspaceId: string | undefined): string | undefined {
+  const groupId = groups.members.find(row => row.workspaceId === workspaceId)?.groupId
+  return groups.groups.find(group => group.id === groupId)?.label
+}
+
 export function ArchivePage(props: ArchivePageProps) {
   const active = useSyncExternalStore(
     (listener) => props.locale.subscribe(listener),
@@ -96,6 +105,10 @@ export function ArchivePage(props: ArchivePageProps) {
   const workspaces = useSyncExternalStore(
     (listener) => props.workspaces.list.subscribe(listener),
     () => props.workspaces.list.getSnapshot(),
+  )
+  const groups = useSyncExternalStore(
+    (listener) => props.workspaceGroups.subscribe(listener),
+    () => props.workspaceGroups.getSnapshot(),
   )
   const [by, setBy] = useState<SessionSearchBy>('title')
   const [query, setQuery] = useState('')
@@ -140,7 +153,7 @@ export function ArchivePage(props: ArchivePageProps) {
       title,
       archived: isArchived,
       pinned: pinned.has(row.id),
-      workspace: account === undefined ? '' : workspaceName(account.title, copy.defaultWorkspace),
+      workspace: account === undefined ? '' : archiveWorkspaceLabel(groupName(groups, account.workspaceId), account.title, copy.defaultWorkspace),
       parentTitle: parent?.displayTitle ?? row.parentId ?? '',
     }]
   })
@@ -232,7 +245,7 @@ export function ArchivePage(props: ArchivePageProps) {
           <select aria-label={copy.workspace} value={workspacePath} onChange={(event) => { setWorkspacePath(event.target.value); setPageIndex(1) }}>
             <option value="">{copy.anyWorkspace}</option>
             {workspaceOptions.map(item => (
-              <option key={item.path} value={item.path}>{workspaceName(item.title, copy.defaultWorkspace)}</option>
+              <option key={item.path} value={item.path}>{archiveWorkspaceLabel(groupName(groups, item.workspaceId), item.title, copy.defaultWorkspace)}</option>
             ))}
           </select>
           <select aria-label={copy.status} value={status} onChange={(event) => { setStatus(event.target.value === 'active' || event.target.value === 'archived' ? event.target.value : 'all'); setPageIndex(1) }}>

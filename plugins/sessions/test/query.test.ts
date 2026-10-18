@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { jumpTarget, pageSlice, sessionIdError, sessionMatches, sessionOnDates, sessionStatusMatches, sessionVisible, sessionWorkspaceMatches, workspaceName, workspaceOf } from '../src/query.ts'
+import { jumpTarget, pageSlice, sessionIdError, sessionMatches, sessionOnDates, sessionStatusMatches, sessionVisible, sessionWorkspaceMatches, archiveWorkspaceLabel, workspaceName, workspaceOf } from '../src/query.ts'
 import { removeArchivedSession, type SessionRemoval } from '../src/remove.ts'
 
 test('title search ignores the session id', () => {
@@ -104,3 +104,8 @@ function removal(overrides: Partial<SessionRemoval> = {}): SessionRemoval {
     ...overrides,
   }
 }
+
+test('archive labels show the workspace group even when the membership row is missing', () => {
+  assert.equal(archiveWorkspaceLabel(undefined, 'default-workspace', '默认工作区'), '普通工作区组/默认工作区')
+  assert.equal(archiveWorkspaceLabel('临时工作区组', '运维', '默认工作区'), '临时工作区组/运维')
+})
