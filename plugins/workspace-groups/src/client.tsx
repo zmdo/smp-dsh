@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { GroupClient, type ClientContext } from './client-api.ts'
 import { GroupSidebar, SIDEBAR_STYLE, type RenderSidebarSlot } from './Sidebar.tsx'
 import type { Slots } from './bridge.ts'
+import { installPicker } from './Picker.tsx'
 
 interface ClientCtx extends ClientContext {
   slots: Slots
@@ -34,4 +35,5 @@ export function apply(ctx: ClientCtx): void {
     document.head.append(style)
     return () => style.remove()
   })
+  installPicker(ctx.slots, client)
 }

@@ -129,6 +129,13 @@ export class GroupClient {
     }
   }
   openSession(id: string): void { this.store.finish(); this.ctx.uiWorkspace.openSession(id); this.ctx.layout.selectPanel(null) }
+  async addWorkspace(groupId: string, path: string): Promise<Workspace> {
+    const result = await request<{ workspaceId: string }>('/workspaces', { groupId, path }, this.lifetime.signal)
+    const workspace = await this.waitWorkspace(result.workspaceId)
+    await this.refresh()
+    this.lifetime.signal.throwIfAborted()
+    return workspace
+  }
   waitWorkspace(id: string): Promise<Workspace> {
     return new Promise((resolve, reject) => {
       const check = () => { const workspace = this.ctx.workspaces.list.getSnapshot().items.find(item => item.workspaceId === id); if (workspace !== undefined) { dispose(); resolve(workspace) } }

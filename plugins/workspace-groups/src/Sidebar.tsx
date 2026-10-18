@@ -82,9 +82,7 @@ class NativeSidebarBinding {
       requestAddWorkspace: () => { addGroup = client.selectedId(); native.requestAddWorkspace() },
       createWorkspace: async (input: { path: string }): Promise<Workspace> => {
         const groupId = addGroup ?? client.selectedId()
-        const result = await request<{ workspaceId: string }>('/workspaces', { ...input, groupId })
-        const workspace = await client.waitWorkspace(result.workspaceId)
-        await client.refresh()
+        const workspace = await client.addWorkspace(groupId, input.path)
         adopted = workspace.workspaceId
         addGroup = undefined
         return workspace
