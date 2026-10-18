@@ -93,6 +93,13 @@ export function pageRoutes(entries: readonly RegisteredPage[]): PageRoute[] {
   return routes
 }
 
+/** Drop pages a workspace group is not allowed to show. The route value used for filters stays unchanged. */
+export function withoutPages(routes: readonly PageRoute[], hidden: readonly string[]): PageRoute[] {
+  if (hidden.length === 0) return [...routes]
+  const skip = new Set(hidden)
+  return routes.filter(route => !skip.has(route.key))
+}
+
 /** Split routes into the scrolling nav and the footer. One footer page keeps the whole group at the bottom. */
 export function navGroups(routes: readonly PageRoute[]): { nav: NavGroup[]; footer: NavGroup[] } {
   const byId = new Map<string, NavGroup>()

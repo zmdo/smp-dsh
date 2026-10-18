@@ -1,0 +1,51 @@
+/** Workspace group browser text. Anything other than Chinese uses English. */
+export function groupCopy(active: string) {
+  if (active === 'zh') {
+    return {
+      group: '工作区组',
+      add: '添加工作区',
+      loading: '正在读取工作区组',
+      empty: '这个组还没有工作区',
+      actions: '操作',
+      open: '打开',
+      pin: '置顶',
+      unpin: '取消置顶',
+      rename: '重命名',
+      fork: '分叉',
+      archive: '归档',
+      save: '保存',
+      cancel: '取消',
+      up: '上一级',
+      here: '使用这个目录',
+      folder: '新建文件夹',
+      folderName: '文件夹名称',
+      create: '创建',
+      failed: '没有完成',
+      hero: '选择工作区',
+      useCurrent: '进入这个组',
+    }
+  }
+  return {
+    group: 'Workspace group',
+    add: 'Add workspace',
+    loading: 'Loading workspace groups',
+    empty: 'This group has no workspaces',
+    actions: 'Actions',
+    open: 'Open',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    rename: 'Rename',
+    fork: 'Fork',
+    archive: 'Archive',
+    save: 'Save',
+    cancel: 'Cancel',
+    up: 'Up',
+    here: 'Use this directory',
+    folder: 'New folder',
+    folderName: 'Folder name',
+    create: 'Create',
+    failed: 'Could not finish',
+    hero: 'Choose a workspace',
+    useCurrent: 'Enter this group',
+  }
+}

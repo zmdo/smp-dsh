@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { consoleCss } from '@smp/console-kit'
-import { navGroups, pageLabel, pageRoutes, visibleGroups, type NavGroup, type RegisteredPage } from './pages.ts'
+import { navGroups, pageLabel, pageRoutes, visibleGroups, withoutPages, type NavGroup, type RegisteredPage } from './pages.ts'
 import { createSection, type SectionStore } from './section.ts'
 import { shellCopy, type ShellCopy } from './copy.ts'
 import { GeneralView, type LocaleFace, type ThemeFace } from './general-view.tsx'
@@ -33,11 +33,17 @@ interface AuthStore {
   logout(): Promise<void>
 }
 
+interface GroupFace {
+  subscribe(listener: () => void): () => void
+  hiddenPages(): string[]
+}
+
 interface ShellCtx {
   slots: PageSlots
   layout: Layout
   locale: LocaleFace
   theme: ThemeFace
+  workspaceGroups: GroupFace
   on(name: 'theme/change', listener: () => void): () => void
   effect(run: () => (() => void)): void
 }
@@ -369,6 +375,7 @@ function ShellSidebar(props: {
   menu: MenuStore
   landing: LandingStore
   chatSide: ChatSideMount
+  groups: GroupFace
   collapsed: boolean
   width: number
   openConsole: (id: string) => void
@@ -377,7 +384,8 @@ function ShellSidebar(props: {
   usePanelInfo?: (select: (info: { activePanelId: string | null }) => string | null) => string | null
 }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
-  const pages = usePages(props.slots, props.locale)
+  const hidden = useSyncExternalStore(props.groups.subscribe, props.groups.hiddenPages)
+  const pages = withoutPages(usePages(props.slots, props.locale), hidden)
   const copy = useCopy(props.locale)
   const site = useSyncExternalStore(props.site.subscribe, props.site.get)
   const saved = useSyncExternalStore(props.menu.subscribe, props.menu.get)
@@ -542,10 +550,11 @@ function EmptyPage() {
   return null
 }
 
-function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: SectionStore; auth: AuthStore; openConsole: (id: string) => void; renderSlot?: RenderSlot }) {
+function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: SectionStore; auth: AuthStore; groups: GroupFace; openConsole: (id: string) => void; renderSlot?: RenderSlot }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
   const auth = useSyncExternalStore(props.auth.subscribe, props.auth.get)
-  const pages = usePages(props.slots, props.locale)
+  const hidden = useSyncExternalStore(props.groups.subscribe, props.groups.hiddenPages)
+  const pages = withoutPages(usePages(props.slots, props.locale), hidden)
   const copy = useCopy(props.locale)
   const tabs = groupOf(pages, current)?.pages ?? []
   const body = props.renderSlot?.('console.page', {}, { entryKey: current }) ?? null
@@ -577,7 +586,7 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
   )
 }
 
-export const inject = ['slots', 'layout', 'locale', 'theme']
+export const inject = ['slots', 'layout', 'locale', 'theme', 'workspaceGroups']
 
 export function apply(ctx: ShellCtx): void {
   const section = createSection(AGENT_CHAT)
@@ -623,6 +632,7 @@ export function apply(ctx: ShellCtx): void {
       menu,
       landing,
       chatSide,
+      groups: ctx.workspaceGroups,
     }),
   }, ShellSidebar))
   ctx.slots.inject('conversation.header.leading', () => ctx.slots.register({
@@ -641,7 +651,7 @@ export function apply(ctx: ShellCtx): void {
         'console.page': { kind: 'keyed', scope: 'root' },
         'console.settings-host': { kind: 'single', scope: 'root' },
       },
-    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} openConsole={openConsole} renderSlot={props.renderSlot} />)
+    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} groups={ctx.workspaceGroups} openConsole={openConsole} renderSlot={props.renderSlot} />)
     void landing.refresh().finally(() => {
       if (!chosen) show(landing.get().page)
     })

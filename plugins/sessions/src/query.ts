@@ -56,6 +56,7 @@ export interface WorkspaceAccount {
   title: string
   path: string
   sessionIds: readonly string[]
+  workspaceId?: string
 }
 
 const DEFAULT_WORKSPACE_TITLE = 'default-workspace'
@@ -70,6 +71,14 @@ export function workspaceOf(sessionId: string, cwd: string | undefined, accounts
 
 export function workspaceName(title: string, fallback: string): string {
   return title === DEFAULT_WORKSPACE_TITLE ? fallback : title
+}
+
+export const GENERAL_GROUP_LABEL = '普通工作区组'
+
+/** Archive column text is 「工作区组/工作区」. A missing group name is the general group. */
+export function archiveWorkspaceLabel(groupLabel: string | undefined, title: string, workspaceFallback: string): string {
+  const group = groupLabel === undefined || groupLabel === '' ? GENERAL_GROUP_LABEL : groupLabel
+  return `${group}/${workspaceName(title, workspaceFallback)}`
 }
 
 export function sessionWorkspaceMatches(path: string, selected: string): boolean {
