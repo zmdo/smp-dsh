@@ -1,12 +1,14 @@
 /** Standalone install document. The shell is not loaded, so this page does not call it. */
+import { DEFAULT_ICON_DARK, DEFAULT_ICON_LIGHT, DEFAULT_TITLE } from '@smp/console-frame/site-mark'
+
 export const INSTALL_PAGE = `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>安装</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)">
-<link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)">
+<title>${DEFAULT_TITLE}</title>
+<link rel="icon" type="image/svg+xml" href="${DEFAULT_ICON_LIGHT}" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="${DEFAULT_ICON_DARK}" media="(prefers-color-scheme: dark)">
 <style>
   :root {
     --bg: #f4f6f8; --text: #323232; --muted: #8a8f99; --border: #dcdfe6;
@@ -27,6 +29,13 @@ export const INSTALL_PAGE = `<!doctype html>
     width: min(640px, 100%); background: #fff; border-radius: 6px;
     box-shadow: 0 8px 28px rgba(31, 35, 41, 0.08); padding: 32px 32px 28px;
   }
+  .login-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 6px; background: transparent;
+    display: grid; place-items: center;
+  }
+  .logo-mark img { width: 28px; height: 28px; display: block; object-fit: contain; }
+  .brand { margin: 0; font-size: 20px; font-weight: 650; color: var(--text); }
   h1 { margin: 0 0 8px; font-size: 20px; font-weight: 650; }
   .muted { margin: 0 0 18px; color: var(--muted); }
   label, .field { display: grid; gap: 6px; margin-bottom: 14px; color: #606266; }
@@ -62,6 +71,7 @@ export const INSTALL_PAGE = `<!doctype html>
 <body>
   <div class="login-wrap">
     <form class="login-card">
+      <div class="login-brand"><span class="logo-mark"><img src="${DEFAULT_ICON_LIGHT}" alt=""></span><p class="brand">${DEFAULT_TITLE}</p></div>
       <h1>安装</h1>
       <p class="muted">填写数据库信息和加密密钥。</p>
       <p class="banner" hidden></p>

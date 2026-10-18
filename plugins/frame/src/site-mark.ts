@@ -8,3 +8,4 @@ function icon(fill: string): string {
 
 export const DEFAULT_ICON_LIGHT = icon('#000000')
 export const DEFAULT_ICON_DARK = icon('#f2f3f5')
+export { DEFAULT_TITLE } from './site.ts'
