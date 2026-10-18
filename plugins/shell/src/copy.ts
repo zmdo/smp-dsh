@@ -16,7 +16,7 @@ const zh = {
   menuEmpty: '把菜单项拖到这里',
   menuDuplicate: '已经有同名分组',
   menuSaved: '菜单已保存',
-  landing: '登录初始面板',
+  landing: '登录后初始面板',
   sidebar: '侧边栏初始状态',
   sidebarCollapsed: '收起',
   sidebarExpanded: '展开',
