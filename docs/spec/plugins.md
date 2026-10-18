@@ -1,6 +1,6 @@
 # 插件目录与包
 
-本文件规定本仓库的目录和包怎么放。插件行为、生命周期和补丁方言以 `.agents/skills/dsh-plugin/` 为准。要做哪些插件、各自负责什么，以 `docs/design/remote-console/design.md` 为准。
+本仓库是 Smart Management Platform（SMP）的基座。本文件规定插件的目录和包怎么放。已经在基座里的插件，和以后装到基座上的栏目，用同一套规则。插件行为、生命周期和补丁方言以 `.agents/skills/dsh-plugin/` 为准。要做哪些插件、各自负责什么，以 `docs/design/remote-console/design.md` 为准。
 
 运行版本是 `dsh` `0.2.1-alpha.5`。
 
@@ -29,13 +29,15 @@ scripts/
   build-plugin.mjs
 ```
 
+`dashboard`、`quant`、`accounts`、`servers`、`settings` 还没有目录，是以后装到基座上的栏目。上面其余目录已经在基座里。
+
 根上有一份 `package.json`，只用来把这些包放进本仓库的 workspace，本身不是插件，没有 `cordis.patch.yml`。workspace 包含 `plugins/*` 和 `packages/*`。全仓库一份 lockfile，放在根上。插件目录里不再各放一份。
 
 这些包不写进 Harness 的 workspace。`tmp/deepseek-harness` 只作对照，不放控制台源码。
 
 ## 插件
 
-一个栏目一个包。目录名是包名去掉 `@smp/console-` 的那一段。
+一个栏目一个包。目录名是包名去掉 `@smp/console-` 的那一段。`dashboard`、`quant`、`accounts`、`servers`、`settings` 还没有放进基座。
 
 | 目录 | 包名 | 补丁 `id` | 页面 |
 | --- | --- | --- | --- |

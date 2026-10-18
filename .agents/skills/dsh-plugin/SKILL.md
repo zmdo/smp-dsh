@@ -37,7 +37,7 @@ export function apply(ctx: Context): void {}
 
 ## 包
 
-控制台插件是独立的 bundle，不放进 Harness 的 pnpm workspace。
+本仓库是 Smart Management Platform（SMP）的基座。基座和以后装上来的栏目都是独立的 bundle，不放进 Harness 的 pnpm workspace。
 
 - `"type": "module"`。包名 `@smp/console-<栏目>`。`"private": true`。
 - `engines.dsh` 钉在 `0.2.1-alpha.5`。

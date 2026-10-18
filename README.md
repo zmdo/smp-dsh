@@ -1,44 +1,32 @@
 # smp-dsh
 
-把策略控制台（[smp](https://github.com/zmdo/smp)）完全改造成 DeepSeek Harness（`dsh`）插件的准备仓库。
+Smart Management Platform（SMP）的基座。
 
-这里先记下边界和现状，还不搬代码。
+基座是 DeepSeek Harness（`dsh`）上的一组 Cordis 插件。它提供登录、侧栏、平台设置、数据库、加密密钥、会话和工作区存储。行情、账户、服务器这些业务栏目作为插件装上来，不另起进程，也不再经过单独的网站后台。
 
-## 要做成什么样
+本进程默认听 `9090`（`http://127.0.0.1:9090/`）。[smp](https://github.com/zmdo/smp) 里原来的控制台继续用 `8080`，两边同时开。
 
-控制台是遥控器。页面和遥控器自己的接口都放进 `dsh` 插件。真正干活的服务留在外面，用接口接进来，和 Harness 调用模型是同一种接法。
+`dsh` 崩了就重启。数据库里的登记和远端容器不受这次重启影响。
 
-本进程默认听 `9090`（`http://127.0.0.1:9090/`）。`smp` 的控制台继续用 `8080`，两边同时开。
+## 基座里有什么
 
-`dsh` 崩了就重启。已经交给运维服务的任务、远端容器和数据库不受这次重启影响。
-
-## 已经在 smp 里完成的
-
-`dsh-frontend-plugins` 分支上，页面已经按栏目拆成客户端插件，嵌在 `dsh web` 里：
-
-| 插件 | 内容 |
+| 插件 | 作用 |
 | --- | --- |
-| `@smp/console-frame` | 侧栏、登录页、Harness |
-| `@smp/console-dashboard` | 仪表盘 |
-| `@smp/console-quant` | 概览、行情、交易所、交易策略 |
-| `@smp/console-accounts` | 钱包、信用卡 |
-| `@smp/console-servers` | 服务器、密钥 |
-| `@smp/console-settings` | 安全、MCP |
+| `@smp/console-database` | 连接池、密文、迁移 |
+| `@smp/console-session-persistence` | 把会话写入 PostgreSQL |
+| `@smp/console-workspace-storage` | 把工作区登记写入数据库 |
+| `@smp/console-install` | 第一次启动时写入数据库地址和加密密钥 |
+| `@smp/console-frame` | 侧栏、登录、网站、菜单、安全 |
+| `@smp/console-encryption-key` | 查看和更换加密密钥 |
+| `@smp/console-sessions` | 档案：查找、恢复、删除会话 |
+| `@smp/console-harness-settings` | Harness 设置 |
+| `@smp/console-settings-models` | 模型 |
+| `@smp/console-plugin-inventory` | 插件清单 |
 
-登录用现有的 `smp_session`。没有会话时打开单独的 `/login`。控制台接口走 `/console-api`，由网站入口转到现在的 Python 网站后台。`dsh` 自己占用 `/api`。
+目录、包名和补丁 id 以 `docs/spec/plugins.md` 为准。各插件负责什么以 `docs/design/remote-console/design.md` 为准。
 
-## 还要搬进插件的
+## 留在基座外面的
 
-现在的网站后台（`apps/web-api`）是遥控器上的按键：登录、读写登记数据、把动作交给运维服务。它会按栏目拆成对应插件的宿主端，用 TypeScript 重写，直接连现有的 PostgreSQL，并继续调用运维服务现有的内部接口。
-
-壳的宿主端签发 `smp_session`。`/console-api` 和 `/mcp` 改由 `dsh` 自己接。
-
-## 留在外面的
-
-- 运维服务：领任务、巡检、采指标、SSH、终端、密钥加解密、行情和余额。
-- PostgreSQL：表和现有的 Alembic 迁移。
-- 交易所和模型：已经是外部接口。
-
-## 源仓库
-
-实现仍以 `smp` 为准，直到这里开始迁宿主端。设计记录在 `smp` 的 `docs/design/dsh-smp-plugin-inventory/`。
+- PostgreSQL。
+- 交易所和模型的 HTTP 接口。模型仍走 `dsh` 自己的接口。
+- 登记过的服务器上的容器。基座不把 Docker 引擎写进本仓库。

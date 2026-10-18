@@ -10,7 +10,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "策略控制台栏目：数字货币",
+  "description": "装到基座上的栏目：数字货币",
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
