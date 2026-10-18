@@ -5,7 +5,7 @@ import { DEFAULT_TITLE, loadSite, saveSite, siteDraft, siteView } from '../src/s
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
 test('an empty record shows the default title and no custom icon', () => {
-  assert.equal(DEFAULT_TITLE, 'Central Control System')
+  assert.equal(DEFAULT_TITLE, 'Cyber Evolving System')
   assert.deepEqual(siteView(undefined), { title: DEFAULT_TITLE, icon: '' })
   assert.deepEqual(siteView({ title: '  ', icon: '' }), { title: DEFAULT_TITLE, icon: '' })
   assert.deepEqual(siteView({ title: '策略控制台', icon: PNG }), { title: '策略控制台', icon: PNG })

@@ -1,4 +1,4 @@
-export const DEFAULT_TITLE = 'Central Control System'
+export const DEFAULT_TITLE = 'Cyber Evolving System'
 export const TITLE_LIMIT = 80
 export const ICON_LIMIT = 256 * 1024
 
