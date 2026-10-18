@@ -1,6 +1,6 @@
 import { pageLabel } from './page-label.ts'
 import { KeysPage } from './pages/KeysPage.tsx'
-import { ServersPage } from './pages/ServersPage.tsx'
+import { installServersStyle, ServersPage } from './pages/ServersPage.tsx'
 
 interface PageSlots {
   inject(name: string, register: () => () => void): void
@@ -9,6 +9,7 @@ interface PageSlots {
 
 interface ClientCtx {
   slots: PageSlots
+  effect(run: () => (() => void)): void
 }
 
 export const inject = ['slots']
@@ -16,6 +17,7 @@ export const inject = ['slots']
 const GROUP = { group: 'server-management', groupLabel: '服务器管理' }
 
 export function apply(ctx: ClientCtx): void {
+  ctx.effect(installServersStyle)
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: 'servers',
