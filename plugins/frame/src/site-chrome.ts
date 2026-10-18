@@ -13,9 +13,29 @@ export interface SiteStore {
   apply(title: string, icon: string): void
 }
 
+/** The layout plugin writes this product name. It is not the saved site title. */
+const HARNESS_TITLE = 'DeepSeek Harness'
+
+/**
+ * Harness writes either its product name or `session — DeepSeek Harness`.
+ * Keep the session prefix and swap in the saved site name.
+ */
+export function nextDocumentTitle(current: string, product: string, previous: string): string {
+  const names = [...new Set([previous, DEFAULT_TITLE, HARNESS_TITLE].filter(name => name !== ''))]
+  for (const name of names) {
+    if (current === name) return product
+    const mark = ` — ${name}`
+    if (current.endsWith(mark)) return `${current.slice(0, -mark.length)} — ${product}`
+  }
+  return current
+}
+
 /** Browser tab title and favicon. An empty icon uses the control hub. */
-export function applySiteChrome(title: string, icon: string): void {
-  document.title = title.trim() === '' ? DEFAULT_TITLE : title
+export function applySiteChrome(title: string, icon: string, previous = title): void {
+  const product = title.trim() === '' ? DEFAULT_TITLE : title
+  const prior = previous.trim() === '' ? DEFAULT_TITLE : previous
+  const next = nextDocumentTitle(document.title, product, prior)
+  if (document.title !== next) document.title = next
   const links = [...document.head.querySelectorAll('link[rel="icon"]')]
   if (icon === '') {
     const hrefs = links.map(link => link.getAttribute('href') ?? '')
@@ -47,13 +67,32 @@ function siteSnap(body: { title?: unknown; icon?: unknown }): SiteSnap {
   }
 }
 
+/** Follow harness when it rewrites the tab, and put the saved name back. */
+function watchDocumentTitle(getProduct: () => string): () => void {
+  if (typeof document === 'undefined') return () => {}
+  const fix = (): void => {
+    const product = getProduct()
+    const next = nextDocumentTitle(document.title, product, product)
+    if (next !== document.title) document.title = next
+  }
+  const title = document.head.querySelector('title') ?? document.head.appendChild(document.createElement('title'))
+  const observer = new MutationObserver(fix)
+  observer.observe(title, { childList: true, characterData: true, subtree: true })
+  return () => { observer.disconnect() }
+}
+
 /** One record for the tab, the sidebar, and the login page. */
 export function createSiteStore(): SiteStore {
   let snap: SiteSnap = { title: DEFAULT_TITLE, icon: '' }
+  let product = DEFAULT_TITLE
   const listeners = new Set<() => void>()
+  watchDocumentTitle(() => product)
   const publish = (next: SiteSnap): void => {
-    snap = next
-    applySiteChrome(next.title, next.icon)
+    const prior = product
+    const title = next.title.trim() === '' ? DEFAULT_TITLE : next.title
+    product = title
+    snap = { title, icon: next.icon }
+    applySiteChrome(title, next.icon, prior)
     for (const listener of listeners) listener()
   }
   return {

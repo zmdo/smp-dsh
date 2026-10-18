@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { consoleCss } from '@smp/console-kit'
 import { navGroups, pageLabel, pageRoutes, visibleGroups, type NavGroup, type RegisteredPage } from './pages.ts'
@@ -60,6 +60,7 @@ interface ChatSideMount {
   set(node: HTMLElement | null): void
 }
 
+const SIDEBAR_MOTION_MS = 300
 const CONSOLE_PANEL = 'console'
 const SECURITY_PAGE = 'settings'
 const GENERAL_PAGE = 'general'
@@ -79,6 +80,25 @@ const SHELL_STYLE = `
 }
 .smp-shell { height: 100%; display: flex; flex-direction: column; background: var(--dsw-specific-sidebar-fill); overflow: hidden; }
 .smp-shell.is-collapsed { align-items: center; padding-top: 14px; }
+.smp-shell .logo-name, .smp-shell .nav-item > span, .smp-shell .nav-title, .smp-shell .fold {
+  transition: opacity var(--ds-transition-duration, .2s) var(--ds-ease-in-out, ease);
+}
+.smp-shell.is-closing .logo-name, .smp-shell.is-closing .nav-item > span, .smp-shell.is-closing .nav-title, .smp-shell.is-closing .fold { opacity: 0; }
+html[data-smp-sidebar] div:has(> div > div > .smp-shell) {
+  transition: grid-template-columns var(--ds-transition-duration-slow, .3s) var(--ds-ease-in-out, cubic-bezier(.4, 0, .2, 1));
+}
+html[data-smp-sidebar] div:has(> div > div > .smp-shell) > [class*="_handle"] {
+  transition: left var(--ds-transition-duration-slow, .3s) var(--ds-ease-in-out, cubic-bezier(.4, 0, .2, 1));
+}
+html[data-smp-sidebar] div[data-dragging]:has(> div > div > .smp-shell),
+html[data-smp-sidebar] div[data-dragging]:has(> div > div > .smp-shell) > [class*="_handle"],
+html[data-smp-sidebar] div[data-rightbar-instant]:has(> div > div > .smp-shell),
+html[data-smp-sidebar] div[data-rightbar-instant]:has(> div > div > .smp-shell) > [class*="_handle"] { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-smp-sidebar] div:has(> div > div > .smp-shell),
+  html[data-smp-sidebar] div:has(> div > div > .smp-shell) > [class*="_handle"] { transition: none; }
+  .smp-shell .logo-name, .smp-shell .nav-item > span, .smp-shell .nav-title, .smp-shell .fold { transition: none; }
+}
 .smp-shell .logo { height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 16px; font-size: 15px; font-weight: 650; color: var(--smp-text); }
 .smp-shell .logo-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .smp-shell .fold {
@@ -335,6 +355,26 @@ function BrandMark(props: { icon: string }) {
   )
 }
 
+/** Keep the wide column until the width transition ends, then show the rail. */
+function useRail(collapsed: boolean): boolean {
+  const [rail, setRail] = useState(collapsed)
+  useEffect(() => {
+    if (!collapsed) {
+      setRail(false)
+      return
+    }
+    const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      || document.documentElement.dataset.smpSidebar !== '1'
+    if (instant) {
+      setRail(true)
+      return
+    }
+    const id = window.setTimeout(() => { setRail(true) }, SIDEBAR_MOTION_MS)
+    return () => { window.clearTimeout(id) }
+  }, [collapsed])
+  return rail
+}
+
 function ShellSidebar(props: {
   slots: PageSlots
   locale: LocaleFace
@@ -344,6 +384,7 @@ function ShellSidebar(props: {
   landing: LandingStore
   chatSide: ChatSideMount
   collapsed: boolean
+  width: number
   openConsole: (id: string) => void
   toggleSidebar: () => void
   renderSlot?: RenderSlot
@@ -356,12 +397,27 @@ function ShellSidebar(props: {
   const saved = useSyncExternalStore(props.menu.subscribe, props.menu.get)
   const chrome = useSyncExternalStore(props.landing.subscribe, props.landing.get)
   const seenSidebar = useRef<string | null>(null)
+  const wide = useRef(props.width >= 200 ? props.width : 280)
+  if (!props.collapsed && props.width >= 200) wide.current = props.width
+  const rail = useRail(props.collapsed)
   useEffect(() => {
     const mode = chrome.loaded ? chrome.sidebar : DEFAULT_SIDEBAR
     if (seenSidebar.current === mode) return
     seenSidebar.current = mode
     if ((mode === 'collapsed') !== props.collapsed) props.toggleSidebar()
   }, [chrome.loaded, chrome.sidebar, props.collapsed, props.toggleSidebar])
+  useEffect(() => {
+    let inner = 0
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        document.documentElement.dataset.smpSidebar = '1'
+      })
+    })
+    return () => {
+      cancelAnimationFrame(outer)
+      cancelAnimationFrame(inner)
+    }
+  }, [])
   const groups = navGroups(pages)
   const listed = visibleGroups(groups)
   const byId = new Map(listed.nav.concat(listed.footer).map(group => [group.id, group]))
@@ -390,7 +446,7 @@ function ShellSidebar(props: {
     return !onConversation && (byId.get(item.id)?.pages.some(page => page.key === current) ?? false)
   }
 
-  const column = props.collapsed ? (
+  const column = rail ? (
       <div className="smp-shell is-collapsed">
         <button className="rail-mark has-icon" type="button" aria-label={copy.expand} onClick={props.toggleSidebar}>
           <span className="rail-logo"><BrandMark icon={site.icon} /></span>
@@ -408,7 +464,7 @@ function ShellSidebar(props: {
         </div>
       </div>
   ) : (
-    <div className="smp-shell">
+    <div className={`smp-shell${props.collapsed ? ' is-closing' : ''}`} style={{ width: wide.current }}>
       <div className="logo">
         <span className="logo-mark has-icon"><BrandMark icon={site.icon} /></span>
         <span className="logo-name">{site.title}</span>
