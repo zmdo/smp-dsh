@@ -4,6 +4,7 @@ import { RESTART_MESSAGE } from './jobs.ts'
 import { excerpt } from './parse.ts'
 import type { ParsedContainer } from './parse.ts'
 import type { MetricSample } from './parse.ts'
+import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
 
 export interface Db {
   query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>
@@ -14,11 +15,11 @@ export interface DbClient extends Db {
   release(): void
 }
 
-export class HttpError extends Error {
+export class HttpError extends ServerError {
   readonly status: number
 
-  constructor(status: number, message: string) {
-    super(message)
+  constructor(status: number, code: ErrorCode, params: MessageParams = {}, options?: ErrorOptions) {
+    super(code, params, options)
     this.name = 'HttpError'
     this.status = status
   }
@@ -57,7 +58,7 @@ export async function enqueue(db: Db, serverId: string, action: string): Promise
     [id, serverId, action],
   )
   const row = inserted.rows[0]
-  if (row === undefined) throw new HttpError(500, '任务没有写入')
+  if (row === undefined) throw new HttpError(500, 'job_not_saved')
   return row
 }
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
-import { api } from './api.ts'
+import { formatDate, serverCopy, ServerError, type LocaleFace } from '../i18n.ts'
+import { api, displayError, requestError } from './api.ts'
+import { useActiveLocale } from './locale.ts'
 
 interface KeyRow {
   id: string
@@ -10,13 +12,15 @@ interface KeyRow {
   created_at: string
 }
 
-export function KeysPage() {
+export function KeysPage(props: { locale: LocaleFace }) {
+  const active = useActiveLocale(props.locale)
+  const copy = serverCopy(active).ui
   const [keys, setKeys] = useState<KeyRow[]>([])
   const [query, setQuery] = useState('')
   const [name, setName] = useState('')
   const [secret, setSecret] = useState('')
-  const [error, setError] = useState('')
-  const [note, setNote] = useState('')
+  const [error, setError] = useState<ServerError | null>(null)
+  const [revision, setRevision] = useState(0)
   const [adding, setAdding] = useState(false)
 
   useEffect(() => {
@@ -24,10 +28,10 @@ export function KeysPage() {
     void api<KeyRow[]>('/console-api/ssh-keys').then(rows => {
       if (!stopped) setKeys(rows)
     }).catch((cause: unknown) => {
-      if (!stopped) setError(cause instanceof Error ? cause.message : '请求没有完成')
+      if (!stopped) setError(requestError(cause))
     })
     return () => { stopped = true }
-  }, [note])
+  }, [revision])
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -37,49 +41,49 @@ export function KeysPage() {
 
   async function create(event: FormEvent): Promise<void> {
     event.preventDefault()
-    setError('')
+    setError(null)
     try {
       await api('/console-api/ssh-keys', { method: 'POST', body: JSON.stringify({ name, secret }) })
       setName('')
       setSecret('')
       setAdding(false)
-      setNote('已保存')
+      setRevision(current => current + 1)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '请求没有完成')
+      setError(requestError(cause))
     }
   }
 
   async function remove(id: string): Promise<void> {
-    setError('')
+    setError(null)
     try {
       await api(`/console-api/ssh-keys/${id}`, { method: 'DELETE' })
       setKeys(current => current.filter(key => key.id !== id))
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '请求没有完成')
+      setError(requestError(cause))
     }
   }
 
   return (
-    <Panel title="服务器密钥" extra={<div className="row"><input className="search" value={query} placeholder="搜索名称或指纹" onChange={event => { setQuery(event.target.value) }} /><button className="primary" type="button" onClick={() => { setAdding(true) }}>添加密钥</button></div>}>
-      {error !== '' ? <p className="banner error">{error}</p> : null}
+    <Panel title={copy.keysTitle} extra={<div className="row"><input className="search" value={query} placeholder={copy.searchKeys} aria-label={copy.searchKeys} onChange={event => { setQuery(event.target.value) }} /><button className="primary" type="button" onClick={() => { setAdding(true) }}>{copy.addKey}</button></div>}>
+      {error !== null ? <p className="banner error" role="alert">{displayError(active, error)}</p> : null}
       {adding ? (
         <form className="panel-form" onSubmit={event => { void create(event) }}>
-          <label className="field">名称<input value={name} onChange={event => { setName(event.target.value) }} /></label>
-          <label className="field">私钥<textarea value={secret} onChange={event => { setSecret(event.target.value) }} placeholder="粘贴 PEM" /></label>
-          <div className="row"><button className="primary" type="submit">保存</button><button className="link" type="button" onClick={() => { setAdding(false) }}>取消</button></div>
+          <label className="field">{copy.name}<input value={name} onChange={event => { setName(event.target.value) }} /></label>
+          <label className="field">{copy.privateKey}<textarea value={secret} onChange={event => { setSecret(event.target.value) }} placeholder={copy.pemHint} /></label>
+          <div className="row"><button className="primary" type="submit">{copy.save}</button><button className="link" type="button" onClick={() => { setAdding(false) }}>{copy.cancel}</button></div>
         </form>
       ) : null}
       <div className="table-wrap">
         <table>
-          <thead><tr><th>名称</th><th>指纹</th><th>服务器</th><th>创建时间</th><th /></tr></thead>
+          <thead><tr><th>{copy.name}</th><th>{copy.fingerprint}</th><th>{copy.servers}</th><th>{copy.createdAt}</th><th /></tr></thead>
           <tbody>
-            {shown.length === 0 ? <tr><td colSpan={5} className="empty">还没有密钥</td></tr> : shown.map(key => (
+            {shown.length === 0 ? <tr><td colSpan={5} className="empty">{query.trim() === '' ? copy.noKeys : copy.noMatchingKeys}</td></tr> : shown.map(key => (
               <tr key={key.id}>
                 <td>{key.name}</td>
                 <td className="mono">{key.fingerprint}</td>
                 <td>{key.server_count}</td>
-                <td>{new Date(key.created_at).toLocaleString()}</td>
-                <td>{key.server_count > 0 ? null : <button className="link danger" type="button" onClick={() => { void remove(key.id) }}>删除</button>}</td>
+                <td>{formatDate(key.created_at, active)}</td>
+                <td>{key.server_count > 0 ? null : <button className="link danger" type="button" onClick={() => { void remove(key.id) }}>{copy.delete}</button>}</td>
               </tr>
             ))}
           </tbody>

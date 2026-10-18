@@ -58,7 +58,7 @@ export async function executeJob(db: Db, secrets: Secrets, componentsDir: string
       await finishJob(db, jobId, 'failed', cause.message)
       return
     }
-    const error = cause instanceof SshError ? cause : new SshError('连接测试失败', undefined, { cause })
+    const error = cause instanceof SshError ? cause : new SshError('connection_failed', undefined, {}, { cause })
     const dockerDown = !(cause instanceof FingerprintMismatch) && isDockerProblem(error.message)
     await saveFailure(
       db,
@@ -103,7 +103,7 @@ async function runInspect(db: Db, jobId: string, server: NonNullable<Awaited<Ret
     const listed = await session.exec(DOCKER_PS, 15_000)
     if (listed.code !== 0) {
       const access = dockerAccessMessage(listed.stderr)
-      throw new SshError(access ?? excerpt(listed.stderr || listed.stdout || '无法读取容器清单'))
+      throw new SshError('containers_failed', undefined, { detail: access ?? excerpt(listed.stderr || listed.stdout) })
     }
     const containers = parsePs(listed.stdout)
     const output = scrub(`巡检完成，${containers.length} 个容器。Docker ${versions.docker}。`, secret)
@@ -132,10 +132,10 @@ async function readVersions(session: SshSession): Promise<{ docker: string; comp
   const docker = await session.exec(DOCKER_VERSION, 15_000)
   if (docker.code !== 0) {
     const access = dockerAccessMessage(docker.stderr)
-    throw new SshError(access ?? '无法读取 Docker 版本')
+    throw new SshError('docker_version_failed', undefined, { detail: access ?? '' })
   }
   const compose = await session.exec(COMPOSE_VERSION, 15_000)
-  if (compose.code !== 0) throw new SshError(dockerAccessMessage(compose.stderr) ?? '无法读取 Docker Compose 版本')
+  if (compose.code !== 0) throw new SshError('compose_version_failed', undefined, { detail: dockerAccessMessage(compose.stderr) ?? '' })
   return { docker: parseDockerVersion(docker.stdout), compose: parseComposeVersion(compose.stdout) }
 }
 
@@ -164,7 +164,7 @@ async function installMissing(session: SshSession, componentsDir: string, ids: s
     const installed = await runScript(session, componentsDir, component.id, 'install', 600_000)
     if (installed.code !== 0) {
       const detail = (installed.stderr || installed.stdout).trim()
-      throw new SshError(`${component.name} 安装失败：${detail.slice(-500) || `退出码 ${installed.code}`}`)
+      throw new SshError('component_install_failed', undefined, { component: component.name, detail: detail.slice(-500), exitCode: installed.code })
     }
     notes.push(`已安装 ${component.name}`)
     changed = true

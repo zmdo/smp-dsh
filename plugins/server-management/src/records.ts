@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { errorPayload, ServerError, type ErrorCode } from './i18n.ts'
 import { CatalogError, normalizeSelection, type Component } from './catalog.ts'
 import { keyInUse, retestAfterEdit, type RetestSnap } from './jobs.ts'
 import { chosenRegion, lookupRegion } from './region.ts'
@@ -26,7 +27,7 @@ export async function routeServers(deps: Deps, request: IncomingMessage, respons
   if (rest === '/test-connection' && request.method === 'POST') return sendJson(response, 200, await preview(deps, await readJson(request)))
   const parts = rest.split('/').filter(Boolean)
   const id = parts[0] ?? ''
-  if (!UUID.test(id)) return sendJson(response, 404, { detail: '服务器不存在' })
+  if (!UUID.test(id)) return sendJson(response, 404, errorPayload(new ServerError('server_not_found')))
   if (parts.length === 1 && request.method === 'GET') return sendJson(response, 200, await serverDetail(deps.db, id))
   if (parts.length === 1 && request.method === 'PATCH') return sendJson(response, 200, await updateServer(deps, id, await readJson(request)))
   if (parts.length === 1 && request.method === 'DELETE') {
@@ -39,7 +40,7 @@ export async function routeServers(deps: Deps, request: IncomingMessage, respons
   if (parts[1] === 'test' && request.method === 'POST') return sendJson(response, 202, await jobView(await enqueueExisting(deps.db, id, 'test_connection')))
   if (parts[1] === 'inspect' && request.method === 'POST') return sendJson(response, 202, await jobView(await enqueueExisting(deps.db, id, 'inspect')))
   if (parts[1] === 'install-components' && request.method === 'POST') return sendJson(response, 202, await jobView(await enqueueExisting(deps.db, id, 'install_components')))
-  sendJson(response, 404, { detail: '服务器不存在' })
+  sendJson(response, 404, errorPayload(new ServerError('server_not_found')))
 }
 
 export async function routeGroups(db: Db, request: IncomingMessage, response: ServerResponse, rest: string): Promise<void> {
@@ -52,7 +53,7 @@ export async function routeGroups(db: Db, request: IncomingMessage, response: Se
     response.end()
     return
   }
-  sendJson(response, 404, { detail: '分组不存在' })
+  sendJson(response, 404, errorPayload(new ServerError('group_not_found')))
 }
 
 export async function routeKeys(deps: Deps, request: IncomingMessage, response: ServerResponse, rest: string): Promise<void> {
@@ -65,21 +66,21 @@ export async function routeKeys(deps: Deps, request: IncomingMessage, response: 
     response.end()
     return
   }
-  sendJson(response, 404, { detail: '密钥不存在' })
+  sendJson(response, 404, errorPayload(new ServerError('key_not_found')))
 }
 
 export async function routeJobs(db: Db, request: IncomingMessage, response: ServerResponse, rest: string): Promise<void> {
   const id = rest.slice(1)
   if (request.method === 'GET' && UUID.test(id)) {
     const row = await loadJobView(db, id)
-    if (row === undefined) return sendJson(response, 404, { detail: '任务不存在' })
+    if (row === undefined) return sendJson(response, 404, errorPayload(new ServerError('job_not_found')))
     return sendJson(response, 200, row)
   }
-  sendJson(response, 404, { detail: '任务不存在' })
+  sendJson(response, 404, errorPayload(new ServerError('job_not_found')))
 }
 
 export function routeComponents(catalog: readonly Component[], request: IncomingMessage, response: ServerResponse): void {
-  if (request.method !== 'GET') return sendJson(response, 405, { detail: '不支持的方法' })
+  if (request.method !== 'GET') return sendJson(response, 405, errorPayload(new ServerError('method_not_allowed')))
   sendJson(response, 200, componentView(catalog))
 }
 
@@ -100,7 +101,7 @@ async function listServers(db: Db): Promise<unknown[]> {
 async function serverDetail(db: Db, id: string): Promise<unknown> {
   const servers = await listServers(db)
   const server = servers.find(item => (item as { id: string }).id === id)
-  if (server === undefined) throw new HttpError(404, '服务器不存在')
+  if (server === undefined) throw new HttpError(404, 'server_not_found')
   const containers = await db.query(
     `select container_id, name, image, status, ports, managed, strategy_slug, observed_at
      from server_containers where server_id = $1 order by name`,
@@ -115,12 +116,12 @@ async function serverDetail(db: Db, id: string): Promise<unknown> {
 }
 
 async function createServer(deps: Deps, body: unknown): Promise<unknown> {
-  const name = required(text(field(body, 'name')), '名称不能为空')
-  const host = required(text(field(body, 'intranet_host')), '地址不能为空')
+  const name = required(text(field(body, 'name')), 'name_required')
+  const host = required(text(field(body, 'intranet_host')), 'host_required')
   const port = portOf(field(body, 'ssh_port'))
-  const user = required(text(field(body, 'ssh_user')), '用户不能为空')
+  const user = required(text(field(body, 'ssh_user')), 'user_required')
   const method = text(field(body, 'auth_method'))
-  if (method !== 'private_key' && method !== 'password') throw new HttpError(422, '请选择私钥或口令')
+  if (method !== 'private_key' && method !== 'password') throw new HttpError(422, 'auth_required')
   const groupId = await groupOrNull(deps.db, field(body, 'group_id'))
   const region = await regionOf(host, field(body, 'region'))
   const auto = field(body, 'auto_install') === true
@@ -130,12 +131,12 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
   let secret = ''
   if (method === 'private_key') {
     keyId = text(field(body, 'ssh_key_id'))
-    if (!UUID.test(keyId)) throw new HttpError(422, '请选择一把密钥')
+    if (!UUID.test(keyId)) throw new HttpError(422, 'key_required')
     const found = await deps.db.query('select id from ssh_keys where id = $1', [keyId])
-    if (found.rows[0] === undefined) throw new HttpError(422, '密钥不存在')
+    if (found.rows[0] === undefined) throw new HttpError(422, 'key_not_found')
   } else {
     secret = text(field(body, 'secret'))
-    if (secret === '') throw new HttpError(422, '口令不能为空')
+    if (secret === '') throw new HttpError(422, 'password_required')
   }
   try {
     await deps.db.query(
@@ -146,7 +147,7 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
       [id, name, host, port, user, method, method === 'password' ? deps.secrets.encrypt(secret) : '', keyId, groupId, region, auto, components],
     )
   } catch (cause) {
-    if (isUnique(cause)) throw new HttpError(409, '这台机器已经登记过')
+    if (isUnique(cause)) throw new HttpError(409, 'server_exists')
     throw cause
   }
   return serverDetail(deps.db, id)
@@ -167,7 +168,7 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
     auto_install: boolean
     install_component_ids: string
   } | undefined
-  if (row === undefined) throw new HttpError(404, '服务器不存在')
+  if (row === undefined) throw new HttpError(404, 'server_not_found')
   const sets: string[] = []
   const params: unknown[] = [id]
   const assign = (column: string, value: unknown) => {
@@ -176,9 +177,9 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
   }
   const before = snapOf(deps.catalog, row)
   const after: RetestSnap = { ...before, secretWritten: false }
-  if (field(body, 'name') !== undefined) assign('name', required(text(field(body, 'name')), '名称不能为空'))
+  if (field(body, 'name') !== undefined) assign('name', required(text(field(body, 'name')), 'name_required'))
   if (field(body, 'intranet_host') !== undefined) {
-    after.host = required(text(field(body, 'intranet_host')), '地址不能为空')
+    after.host = required(text(field(body, 'intranet_host')), 'host_required')
     assign('intranet_host', after.host)
   }
   if (field(body, 'ssh_port') !== undefined) {
@@ -186,7 +187,7 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
     assign('ssh_port', after.port)
   }
   if (field(body, 'ssh_user') !== undefined) {
-    after.user = required(text(field(body, 'ssh_user')), '用户不能为空')
+    after.user = required(text(field(body, 'ssh_user')), 'user_required')
     assign('ssh_user', after.user)
   }
   if (field(body, 'group_id') !== undefined) assign('group_id', await groupOrNull(deps.db, field(body, 'group_id')))
@@ -202,16 +203,16 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
     const method = field(body, 'auth_method') === undefined ? row.auth_method : text(field(body, 'auth_method'))
     if (method === 'private_key') {
       const keyId = field(body, 'ssh_key_id') === undefined ? (row.ssh_key_id ?? '') : text(field(body, 'ssh_key_id'))
-      if (!UUID.test(keyId)) throw new HttpError(422, '请选择一把密钥')
+      if (!UUID.test(keyId)) throw new HttpError(422, 'key_required')
       const found = await deps.db.query('select id from ssh_keys where id = $1', [keyId])
-      if (found.rows[0] === undefined) throw new HttpError(422, '密钥不存在')
+      if (found.rows[0] === undefined) throw new HttpError(422, 'key_not_found')
       after.method = 'private_key'
       after.keyId = keyId
       assign('auth_method', 'private_key')
       assign('ssh_key_id', keyId)
     } else if (method === 'password') {
       const secret = text(field(body, 'secret'))
-      if (secret === '' && row.auth_method !== 'password') throw new HttpError(422, '口令不能为空')
+      if (secret === '' && row.auth_method !== 'password') throw new HttpError(422, 'password_required')
       after.method = 'password'
       after.keyId = null
       after.secretWritten = secret !== ''
@@ -219,14 +220,14 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
       assign('ssh_key_id', null)
       if (secret !== '') assign('secret_ciphertext', deps.secrets.encrypt(secret))
     } else {
-      throw new HttpError(422, '请选择私钥或口令')
+      throw new HttpError(422, 'auth_required')
     }
   }
   if (sets.length === 0) return serverDetail(deps.db, id)
   try {
     await deps.db.query(`update servers set ${sets.join(', ')}, updated_at = now() where id = $1`, params)
   } catch (cause) {
-    if (isUnique(cause)) throw new HttpError(409, '这台机器已经登记过')
+    if (isUnique(cause)) throw new HttpError(409, 'server_exists')
     throw cause
   }
   if (retestAfterEdit(before, after)) await enqueue(deps.db, id, 'test_connection')
@@ -235,31 +236,31 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
 
 async function enqueueExisting(db: Db, id: string, action: string): Promise<JobRecord> {
   const found = await db.query('select id from servers where id = $1', [id])
-  if (found.rows[0] === undefined) throw new HttpError(404, '服务器不存在')
+  if (found.rows[0] === undefined) throw new HttpError(404, 'server_not_found')
   return enqueue(db, id, action)
 }
 
 async function deleteServer(db: Db, id: string): Promise<void> {
   const result = await db.query('delete from servers where id = $1 returning id', [id])
-  if (result.rows[0] === undefined) throw new HttpError(404, '服务器不存在')
+  if (result.rows[0] === undefined) throw new HttpError(404, 'server_not_found')
 }
 
 async function preview(deps: Deps, body: unknown): Promise<unknown> {
-  const host = required(text(field(body, 'intranet_host')), '地址不能为空')
+  const host = required(text(field(body, 'intranet_host')), 'host_required')
   const port = portOf(field(body, 'ssh_port'))
-  const user = required(text(field(body, 'ssh_user')), '用户不能为空')
+  const user = required(text(field(body, 'ssh_user')), 'user_required')
   const method = text(field(body, 'auth_method'))
   const secret = text(field(body, 'secret'))
-  if (method === 'private_key' && secret === '') throw new HttpError(422, '请粘贴私钥')
-  if (method === 'password' && secret === '') throw new HttpError(422, '口令不能为空')
+  if (method === 'private_key' && secret === '') throw new HttpError(422, 'private_key_required')
+  if (method === 'password' && secret === '') throw new HttpError(422, 'password_required')
   try {
     const session = await connectSsh({ host, port, username: user, authMethod: method, secret, expectedFingerprint: null })
     const fingerprint = session.fingerprint
     session.close()
     return { ok: true, fingerprint }
   } catch (cause) {
-    const message = cause instanceof SshError ? cause.message : '连接测试失败'
-    return { ok: false, detail: message }
+    const error = cause instanceof SshError ? cause : new ServerError('connection_failed')
+    return { ok: false, ...errorPayload(error) }
   }
 }
 
@@ -272,8 +273,8 @@ async function listGroups(db: Db): Promise<unknown[]> {
 }
 
 async function createGroup(db: Db, body: unknown): Promise<unknown> {
-  const name = required(text(field(body, 'name')), '分组名不能为空')
-  if (name === '未分组') throw new HttpError(422, '不能使用这个分组名')
+  const name = required(text(field(body, 'name')), 'group_name_required')
+  if (['未分组', '全部服务器', 'ungrouped', 'all servers'].includes(name.toLowerCase())) throw new HttpError(422, 'group_name_reserved')
   try {
     const result = await db.query(
       'insert into server_groups (id, name) values ($1, $2) returning id, name, created_at',
@@ -281,7 +282,7 @@ async function createGroup(db: Db, body: unknown): Promise<unknown> {
     )
     return { ...result.rows[0], server_count: 0 }
   } catch (cause) {
-    if (isUnique(cause)) throw new HttpError(409, '分组名已存在')
+    if (isUnique(cause)) throw new HttpError(409, 'group_exists')
     throw cause
   }
 }
@@ -289,7 +290,7 @@ async function createGroup(db: Db, body: unknown): Promise<unknown> {
 async function deleteGroup(db: Db, id: string): Promise<void> {
   await db.query('update servers set group_id = null, updated_at = now() where group_id = $1', [id])
   const result = await db.query('delete from server_groups where id = $1 returning id', [id])
-  if (result.rows[0] === undefined) throw new HttpError(404, '分组不存在')
+  if (result.rows[0] === undefined) throw new HttpError(404, 'group_not_found')
 }
 
 async function listKeys(db: Db): Promise<unknown[]> {
@@ -302,14 +303,14 @@ async function listKeys(db: Db): Promise<unknown[]> {
 }
 
 async function createKey(deps: Deps, body: unknown): Promise<unknown> {
-  const name = required(text(field(body, 'name')), '名称不能为空')
+  const name = required(text(field(body, 'name')), 'name_required')
   const secret = text(field(body, 'secret'))
-  if (secret === '') throw new HttpError(422, '请粘贴私钥')
+  if (secret === '') throw new HttpError(422, 'private_key_required')
   let fingerprint = ''
   try {
     fingerprint = keyFingerprint(secret)
   } catch (cause) {
-    throw new HttpError(422, cause instanceof SshError ? cause.message : '私钥无法解析')
+    throw new HttpError(422, cause instanceof SshError ? cause.code : 'key_invalid', cause instanceof SshError ? cause.params : {}, { cause })
   }
   try {
     const result = await deps.db.query(
@@ -318,7 +319,7 @@ async function createKey(deps: Deps, body: unknown): Promise<unknown> {
     )
     return { ...result.rows[0], server_count: 0 }
   } catch (cause) {
-    if (isUnique(cause)) throw new HttpError(409, '这把密钥已经保存过')
+    if (isUnique(cause)) throw new HttpError(409, 'key_exists')
     throw cause
   }
 }
@@ -326,9 +327,9 @@ async function createKey(deps: Deps, body: unknown): Promise<unknown> {
 async function deleteKey(db: Db, id: string): Promise<void> {
   const used = await db.query('select count(*)::int as count from servers where ssh_key_id = $1', [id])
   const count = Number((used.rows[0] as { count?: number } | undefined)?.count ?? 0)
-  if (keyInUse(count)) throw new HttpError(409, '这把密钥还被服务器使用')
+  if (keyInUse(count)) throw new HttpError(409, 'key_in_use')
   const result = await db.query('delete from ssh_keys where id = $1 returning id', [id])
-  if (result.rows[0] === undefined) throw new HttpError(404, '密钥不存在')
+  if (result.rows[0] === undefined) throw new HttpError(404, 'key_not_found')
 }
 
 async function loadJobView(db: Db, id: string): Promise<unknown | undefined> {
@@ -372,7 +373,7 @@ function serverRow(row: Record<string, unknown>): unknown {
 
 async function containersOf(db: Db, id: string): Promise<unknown[]> {
   const found = await db.query('select id from servers where id = $1', [id])
-  if (found.rows[0] === undefined) throw new HttpError(404, '服务器不存在')
+  if (found.rows[0] === undefined) throw new HttpError(404, 'server_not_found')
   const containers = await db.query(
     `select container_id, name, image, status, ports, managed, strategy_slug, observed_at
      from server_containers where server_id = $1 order by name`,
@@ -398,9 +399,9 @@ function parseJson(value: unknown, fallback: unknown): unknown {
 async function groupOrNull(db: Db, value: unknown): Promise<string | null> {
   if (value === null || value === undefined || value === '') return null
   const id = text(value)
-  if (!UUID.test(id)) throw new HttpError(422, '分组不存在')
+  if (!UUID.test(id)) throw new HttpError(422, 'group_not_found')
   const found = await db.query('select id from server_groups where id = $1', [id])
-  if (found.rows[0] === undefined) throw new HttpError(422, '分组不存在')
+  if (found.rows[0] === undefined) throw new HttpError(422, 'group_not_found')
   return id
 }
 
@@ -417,10 +418,10 @@ function componentSelection(catalog: readonly Component[], auto: boolean, value:
   try {
     ids = normalizeSelection(catalog, raw)
   } catch (cause) {
-    if (cause instanceof CatalogError) throw new HttpError(422, cause.message)
+    if (cause instanceof CatalogError) throw new HttpError(422, cause.code, cause.params, { cause })
     throw cause
   }
-  if (ids.length === 0) throw new HttpError(422, '请选择要安装的组件')
+  if (ids.length === 0) throw new HttpError(422, 'components_required')
   return JSON.stringify(ids)
 }
 
@@ -448,12 +449,12 @@ function snapOf(catalog: readonly Component[], row: { intranet_host: string; ssh
 
 function portOf(value: unknown): number {
   const port = typeof value === 'number' ? value : Number(value)
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(422, '端口需要在 1 到 65535 之间')
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new HttpError(422, 'port_invalid')
   return port
 }
 
-function required(value: string, message: string): string {
-  if (value === '') throw new HttpError(422, message)
+function required(value: string, code: ErrorCode): string {
+  if (value === '') throw new HttpError(422, code)
   return value
 }
 

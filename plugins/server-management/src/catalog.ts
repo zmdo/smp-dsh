@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
 
 export interface Component {
   id: string
@@ -10,9 +11,9 @@ export interface Component {
   directory: string
 }
 
-export class CatalogError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options)
+export class CatalogError extends ServerError {
+  constructor(code: ErrorCode, params: MessageParams = {}, options?: ErrorOptions) {
+    super(code, params, options)
     this.name = 'CatalogError'
   }
 }
@@ -23,7 +24,7 @@ export async function loadCatalog(root: string): Promise<Component[]> {
   try {
     names = await readdir(root)
   } catch (cause) {
-    throw new CatalogError(`组件目录不存在：${root}`, { cause })
+    throw new CatalogError('component_directory', { directory: root }, { cause })
   }
   const found: Component[] = []
   for (const name of names.sort()) {
@@ -37,7 +38,7 @@ export async function loadCatalog(root: string): Promise<Component[]> {
     }
     const meta = JSON.parse(raw) as { id?: unknown; name?: unknown; summary?: unknown; order?: unknown; requires?: unknown }
     const id = String(meta.id ?? '')
-    if (id !== name) throw new CatalogError(`${name} 的 id 必须和目录名一致`)
+    if (id !== name) throw new CatalogError('component_id', { component: name })
     const requires = Array.isArray(meta.requires) ? meta.requires.map(item => String(item)) : []
     found.push({
       id,
@@ -57,7 +58,7 @@ export function normalizeSelection(catalog: readonly Component[], componentIds: 
   const byId = new Map(catalog.map(item => [item.id, item]))
   const chosen: string[] = []
   for (const id of componentIds) {
-    if (!byId.has(id)) throw new CatalogError('有无法识别的组件')
+    if (!byId.has(id)) throw new CatalogError('component_unknown')
     if (!chosen.includes(id)) chosen.push(id)
   }
   for (const id of chosen) {
@@ -65,8 +66,7 @@ export function normalizeSelection(catalog: readonly Component[], componentIds: 
     if (component === undefined) continue
     for (const required of component.requires) {
       if (!chosen.includes(required)) {
-        const name = byId.get(required)?.name ?? required
-        throw new CatalogError(`${component.name} 需要同时选择 ${name}`)
+        throw new CatalogError('component_dependency', { component: component.id, dependency: required })
       }
     }
   }

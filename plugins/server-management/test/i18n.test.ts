@@ -1,0 +1,99 @@
+import assert from 'node:assert/strict'
+import { IncomingMessage, ServerResponse } from 'node:http'
+import { Socket } from 'node:net'
+import test from 'node:test'
+import { ServerError, componentText, enumLabel, errorPayload, errorText, format, formatDate, serverCopy } from '../src/i18n.ts'
+import { pageLabel } from '../src/page-label.ts'
+import { displayError, responseError } from '../src/pages/api.ts'
+import { routeGroups, routeKeys, routeServers } from '../src/records.ts'
+import { HttpError, type Db } from '../src/store.ts'
+
+test('Chinese and English cover the same messages and placeholders', () => {
+  function compare(left: object, right: object): void {
+    assert.deepEqual(Object.keys(left).sort(), Object.keys(right).sort())
+    for (const [key, value] of Object.entries(left)) {
+      const other = right[key as keyof typeof right]
+      if (typeof value === 'string') {
+        assert.equal(typeof other, 'string')
+        const params = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort()
+        assert.deepEqual(params(value), params(String(other)), key)
+      } else compare(value, other)
+    }
+  }
+  compare(serverCopy('zh'), serverCopy('en'))
+  assert.equal(serverCopy('fr'), serverCopy('en'))
+})
+
+test('an existing error and dynamic navigation labels follow the active language', () => {
+  const error = responseError({ code: 'group_exists', detail: 'Ignore this legacy detail', params: {} })
+  let active = 'zh'
+  const label = pageLabel(() => serverCopy(active).ui.serversTab, {
+    group: 'server-management',
+    groupLabel: () => serverCopy(active).ui.groupTitle,
+  })
+  assert.equal(displayError(active, error), '分组名已存在')
+  assert.equal(label(), '服务器')
+  assert.equal(typeof label.groupLabel === 'function' ? label.groupLabel() : label.groupLabel, '服务器管理')
+  active = 'en'
+  assert.equal(displayError(active, error), 'A group with this name already exists.')
+  assert.equal(label(), 'Servers')
+  assert.equal(typeof label.groupLabel === 'function' ? label.groupLabel() : label.groupLabel, 'Server management')
+})
+
+test('error codes do not rely on Chinese detail and malformed payloads fall back safely', () => {
+  const error = responseError({ code: 'component_dependency', params: { component: 'compose', dependency: 'docker', unexpected: {} } })
+  assert.equal(displayError('en', error), 'Select Docker Compose and its dependency Docker Engine.')
+  assert.equal('unexpected' in error.params, false)
+  assert.equal(responseError(null).code, 'request_failed')
+  assert.equal(responseError({ code: 'constructor' }).code, 'request_failed')
+  assert.equal(responseError({ code: 'group_exists', params: ['bad'] }).code, 'group_exists')
+  assert.match(displayError('en', responseError({ detail: 'remote output' })), /remote output/)
+  assert.equal(errorPayload(new HttpError(404, 'server_not_found')).code, 'server_not_found')
+})
+
+test('dates use the platform locale and external names and output remain intact', () => {
+  const date = '2026-10-19T05:06:07.000Z'
+  assert.equal(formatDate(date, 'en'), new Date(date).toLocaleString('en-US'))
+  assert.equal(formatDate(date, 'zh'), new Date(date).toLocaleString('zh-CN'))
+  assert.equal(formatDate('invalid', 'en'), '—')
+  assert.equal(formatDate(null, 'zh'), '—')
+  assert.equal(format(serverCopy('en').ui.range, { count: 23, from: 11, to: 20 }), 'Showing 11–20 of 23')
+  assert.equal(enumLabel(serverCopy('zh').containerStatus, 'custom state'), 'custom state')
+  const component = { id: 'custom', name: '自定义软件', summary: 'Original description' }
+  assert.equal(componentText('en', component), component)
+  assert.equal(errorText('en', 'ssh_failed', { detail: '原始输出' }), 'Unable to connect to SSH. 原始输出')
+})
+
+const noDb: Db = {
+  async query() { throw new Error('Validation must finish before accessing the database') },
+  async connect() { throw new Error('Validation must finish before accessing the database') },
+}
+
+async function invalidPost(body: object, route: (request: IncomingMessage, response: ServerResponse) => Promise<void>, code: string): Promise<void> {
+  const socket = new Socket()
+  const request = new IncomingMessage(socket)
+  request.method = 'POST'
+  request.push(JSON.stringify(body))
+  request.push(null)
+  const response = new ServerResponse(request)
+  try {
+    await assert.rejects(route(request, response), cause => cause instanceof ServerError && cause.code === code)
+  } finally {
+    request.destroy()
+    response.destroy()
+    socket.destroy()
+  }
+}
+
+test('server and key validation return stable codes without attempting a write', async () => {
+  const deps = { db: noDb, catalog: [], secrets: { encrypt: (value: string) => value, decrypt: (value: string) => value } }
+  await invalidPost({}, (request, response) => routeServers(deps, request, response, ''), 'name_required')
+  await invalidPost({ name: 'demo', intranet_host: '127.0.0.1', ssh_port: 70000 }, (request, response) => routeServers(deps, request, response, ''), 'port_invalid')
+  await invalidPost({ name: 'key', secret: 'invalid PEM' }, (request, response) => routeKeys(deps, request, response, ''), 'key_invalid')
+})
+
+test('virtual group names are reserved in both supported languages', async () => {
+  for (const name of ['未分组', '全部服务器', 'Ungrouped', 'ALL SERVERS']) {
+    await invalidPost({ name }, (request, response) => routeGroups(noDb, request, response, ''), 'group_name_reserved')
+  }
+})

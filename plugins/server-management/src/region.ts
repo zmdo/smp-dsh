@@ -1,5 +1,6 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
+import { ServerError } from './i18n.ts'
 
 export function formatPlace(country: string, region: string, city: string): string {
   const parts: string[] = []
@@ -15,7 +16,7 @@ export function formatPlace(country: string, region: string, city: string): stri
 export function chosenRegion(host: string, written: string | null | undefined, lookedUp: string | null): string | null {
   const text = (written ?? '').trim()
   if (text !== '') {
-    if (text.length > 80) throw new Error('区域需要 1 到 80 个字符')
+    if (text.length > 80) throw new ServerError('region_invalid')
     return text
   }
   return lookedUp

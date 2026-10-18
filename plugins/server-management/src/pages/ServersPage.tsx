@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
-import { api } from './api.ts'
+import { componentName, componentText, enumLabel, format, formatDate, serverCopy, ServerError, type LocaleFace } from '../i18n.ts'
+import { api, displayError, requestError, responseError } from './api.ts'
+import { useActiveLocale } from './locale.ts'
 import serversStyle from './servers.css'
 
 interface ServerRow {
@@ -84,33 +86,29 @@ export function installServersStyle(): () => void {
   return () => { tag.remove() }
 }
 
-const REACH: Record<string, string> = {
-  online: '在线',
-  offline: '离线',
-  docker_unavailable: 'Docker 不可用',
-  unknown: '未知',
-}
-
-export function ServersPage() {
+export function ServersPage(props: { locale: LocaleFace }) {
+  const active = useActiveLocale(props.locale)
   const [screen, setScreen] = useState<Screen>('list')
   const [serverId, setServerId] = useState('')
   const [editing, setEditing] = useState(false)
   const [listView, setListView] = useState<ListView>({ groupId: null, query: '', page: 1, pageSize: 10 })
   if (screen === 'form') {
-    return <ServerForm editing={editing} serverId={serverId} initialGroupId={listView.groupId ?? ''} onDone={(id) => { setServerId(id); setScreen(id === '' ? 'list' : 'detail') }} onCancel={() => { setScreen(serverId === '' ? 'list' : 'detail') }} />
+    return <ServerForm active={active} editing={editing} serverId={serverId} initialGroupId={listView.groupId ?? ''} onDone={(id) => { setServerId(id); setScreen(id === '' ? 'list' : 'detail') }} onCancel={() => { setScreen(serverId === '' ? 'list' : 'detail') }} />
   }
-  if (screen === 'detail') return <ServerDetail id={serverId} onEdit={() => { setEditing(true); setScreen('form') }} onTerminal={() => { setScreen('terminal') }} onBack={() => { setScreen('list') }} />
-  if (screen === 'terminal') return <ServerTerminal id={serverId} onBack={() => { setScreen('detail') }} />
-  return <ServerList view={listView} onView={setListView} onOpen={(id) => { setServerId(id); setEditing(false); setScreen('detail') }} onCreate={() => { setServerId(''); setEditing(false); setScreen('form') }} />
+  if (screen === 'detail') return <ServerDetail active={active} id={serverId} onEdit={() => { setEditing(true); setScreen('form') }} onTerminal={() => { setScreen('terminal') }} onBack={() => { setScreen('list') }} />
+  if (screen === 'terminal') return <ServerTerminal active={active} id={serverId} onBack={() => { setScreen('detail') }} />
+  return <ServerList active={active} view={listView} onView={setListView} onOpen={(id) => { setServerId(id); setEditing(false); setScreen('detail') }} onCreate={() => { setServerId(''); setEditing(false); setScreen('form') }} />
 }
 
-function ServerList(props: { view: ListView; onView: (view: ListView) => void; onOpen: (id: string) => void; onCreate: () => void }) {
+function ServerList(props: { active: string; view: ListView; onView: (view: ListView) => void; onOpen: (id: string) => void; onCreate: () => void }) {
+  const { active } = props
+  const copy = serverCopy(active).ui
   const [servers, setServers] = useState<ServerRow[]>([])
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [loadError, setLoadError] = useState('')
-  const [actionError, setActionError] = useState('')
-  const [groupError, setGroupError] = useState('')
+  const [loadError, setLoadError] = useState<ServerError | null>(null)
+  const [actionError, setActionError] = useState<ServerError | null>(null)
+  const [groupError, setGroupError] = useState<ServerError | null>(null)
   const [groupName, setGroupName] = useState('')
   const [addingGroup, setAddingGroup] = useState(false)
   const [creatingGroup, setCreatingGroup] = useState(false)
@@ -132,9 +130,9 @@ function ServerList(props: { view: ListView; onView: (view: ListView) => void; o
         setServers(nextServers)
         setGroups(nextGroups)
         setLoaded(true)
-        setLoadError('')
+        setLoadError(null)
       }).catch((cause: unknown) => {
-        if (!stopped && version === dataVersion.current) setLoadError(cause instanceof Error ? cause.message : '请求没有完成')
+        if (!stopped && version === dataVersion.current) setLoadError(requestError(cause))
       }).finally(() => { loading = false })
     }
     load()
@@ -144,7 +142,7 @@ function ServerList(props: { view: ListView; onView: (view: ListView) => void; o
 
   const { view, onView } = props
   const groupId = loaded && view.groupId && !groups.some(group => group.id === view.groupId) ? null : view.groupId
-  const groupLabel = groupId === null ? '全部服务器' : groupId === '' ? '未分组' : groups.find(group => group.id === groupId)?.name ?? ''
+  const groupLabel = groupId === null ? copy.allServers : groupId === '' ? copy.ungrouped : groups.find(group => group.id === groupId)?.name ?? ''
   const filtered = useMemo(() => {
     const needle = view.query.trim().toLowerCase()
     return servers.filter(server => (groupId === null || (server.group_id ?? '') === groupId)
@@ -164,14 +162,14 @@ function ServerList(props: { view: ListView; onView: (view: ListView) => void; o
 
   function selectGroup(id: string | null): void {
     onView({ ...view, groupId: id, page: 1 })
-    setActionError('')
+    setActionError(null)
   }
 
   async function createGroup(event: FormEvent): Promise<void> {
     event.preventDefault()
     if (creatingGroup) return
     setCreatingGroup(true)
-    setGroupError('')
+    setGroupError(null)
     try {
       const group = await api<GroupRow>('/console-api/server-groups', { method: 'POST', body: JSON.stringify({ name: groupName }) })
       dataVersion.current += 1
@@ -180,14 +178,14 @@ function ServerList(props: { view: ListView; onView: (view: ListView) => void; o
       setGroupName('')
       setAddingGroup(false)
     } catch (cause) {
-      setGroupError(cause instanceof Error ? cause.message : '请求没有完成')
+      setGroupError(requestError(cause))
     } finally {
       setCreatingGroup(false)
     }
   }
 
   async function removeGroup(id: string): Promise<void> {
-    setActionError('')
+    setActionError(null)
     try {
       await api(`/console-api/server-groups/${id}`, { method: 'DELETE' })
       dataVersion.current += 1
@@ -195,18 +193,18 @@ function ServerList(props: { view: ListView; onView: (view: ListView) => void; o
       setServers(current => current.map(server => server.group_id === id ? { ...server, group_id: null, group_name: null } : server))
       if (groupId === id) selectGroup('')
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : '请求没有完成')
+      setActionError(requestError(cause))
     }
   }
 
   async function move(id: string, groupId: string): Promise<void> {
-    setActionError('')
+    setActionError(null)
     try {
       const saved = await api<ServerRow>(`/console-api/servers/${id}`, { method: 'PATCH', body: JSON.stringify({ group_id: groupId === '' ? null : groupId }) })
       dataVersion.current += 1
       setServers(current => current.map(server => server.id === id ? saved : server))
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : '请求没有完成')
+      setActionError(requestError(cause))
     }
   }
 
@@ -214,53 +212,53 @@ function ServerList(props: { view: ListView; onView: (view: ListView) => void; o
     <div className="smp-server-shell">
       <aside className="smp-server-sidebar">
         <header className="smp-server-group-head">
-          <h2>分组</h2>
-          <button className="link" type="button" aria-expanded={addingGroup} onClick={() => { setAddingGroup(!addingGroup); setGroupError('') }}>＋ 新建分组</button>
+          <h2>{copy.groups}</h2>
+          <button className="link" type="button" aria-expanded={addingGroup} onClick={() => { setAddingGroup(!addingGroup); setGroupError(null) }}>{copy.newGroup}</button>
         </header>
         {addingGroup && (
           <form className="smp-server-group-form" onSubmit={event => { void createGroup(event) }}>
-            <input aria-label="分组名" placeholder="分组名" value={groupName} maxLength={80} required autoFocus disabled={creatingGroup} onChange={event => { setGroupName(event.target.value) }} />
-            {groupError !== '' && <p className="smp-server-group-error" role="alert">{groupError}</p>}
+            <input aria-label={copy.groupName} placeholder={copy.groupName} value={groupName} maxLength={80} required autoFocus disabled={creatingGroup} onChange={event => { setGroupName(event.target.value) }} />
+            {groupError !== null && <p className="smp-server-group-error" role="alert">{displayError(active, groupError)}</p>}
             <div className="row">
-              <button className="primary" type="submit" disabled={creatingGroup || groupName.trim() === ''}>创建</button>
-              <button className="secondary" type="button" disabled={creatingGroup} onClick={() => { setAddingGroup(false); setGroupName(''); setGroupError('') }}>取消</button>
+              <button className="primary" type="submit" disabled={creatingGroup || groupName.trim() === ''}>{copy.create}</button>
+              <button className="secondary" type="button" disabled={creatingGroup} onClick={() => { setAddingGroup(false); setGroupName(''); setGroupError(null) }}>{copy.cancel}</button>
             </div>
           </form>
         )}
-        <nav className="smp-server-groups" aria-label="服务器分组">
-          <GroupChoice label="全部服务器" count={servers.length} selected={groupId === null} onSelect={() => selectGroup(null)} />
+        <nav className="smp-server-groups" aria-label={copy.serverGroups}>
+          <GroupChoice active={active} label={copy.allServers} count={servers.length} selected={groupId === null} onSelect={() => selectGroup(null)} />
           {groups.map(group => (
-            <GroupChoice key={group.id} label={group.name} count={servers.filter(server => server.group_id === group.id).length} selected={groupId === group.id} onSelect={() => selectGroup(group.id)} onDelete={() => { void removeGroup(group.id) }} />
+            <GroupChoice active={active} key={group.id} label={group.name} count={servers.filter(server => server.group_id === group.id).length} selected={groupId === group.id} onSelect={() => selectGroup(group.id)} onDelete={() => { void removeGroup(group.id) }} />
           ))}
-          <GroupChoice label="未分组" count={servers.filter(server => server.group_id === null).length} selected={groupId === ''} onSelect={() => selectGroup('')} />
+          <GroupChoice active={active} label={copy.ungrouped} count={servers.filter(server => server.group_id === null).length} selected={groupId === ''} onSelect={() => selectGroup('')} />
         </nav>
       </aside>
       <div className="smp-server-main">
-        <Panel title={<>服务器实例<span className="smp-server-current-group">{groupLabel}</span></>} extra={
+        <Panel title={<>{copy.instances}<span className="smp-server-current-group">{groupLabel}</span></>} extra={
           <div className="row smp-server-tools">
-            <input type="search" className="search" aria-label="搜索服务器" value={view.query} placeholder="搜索服务器" onChange={event => { onView({ ...view, query: event.target.value, page: 1 }) }} />
-            <button className="primary" type="button" onClick={props.onCreate}>登记服务器</button>
+            <input type="search" className="search" aria-label={copy.searchServers} value={view.query} placeholder={copy.searchServers} onChange={event => { onView({ ...view, query: event.target.value, page: 1 }) }} />
+            <button className="primary" type="button" onClick={props.onCreate}>{copy.registerServer}</button>
           </div>
         }>
-          {(actionError || loadError) !== '' && <p className="banner error" role="alert">{actionError || loadError}</p>}
+          {(actionError ?? loadError) !== null && <p className="banner error" role="alert">{displayError(active, actionError ?? loadError)}</p>}
           <div className="table-wrap smp-server-table-scroll" ref={tableScroll}>
-            <table className="clickable smp-server-table" aria-label="服务器实例">
+            <table className="clickable smp-server-table" aria-label={copy.instances}>
               <thead>
-                <tr><th>名称</th><th>地址</th><th>区域</th><th>可达状态</th><th>CPU</th><th>内存</th><th>硬盘</th><th>Docker</th><th>容器数</th><th>最近检查</th><th>分组</th></tr>
+                <tr><th>{copy.name}</th><th>{copy.address}</th><th>{copy.region}</th><th>{copy.reachability}</th><th>CPU</th><th>{copy.memory}</th><th>{copy.disk}</th><th>Docker</th><th>{copy.containersCount}</th><th>{copy.lastCheck}</th><th>{copy.group}</th></tr>
               </thead>
               <tbody>
-                {rows.map(server => <ServerLine key={server.id} server={server} groups={groups} onOpen={props.onOpen} onMove={(id, groupId) => { void move(id, groupId) }} />)}
+                {rows.map(server => <ServerLine active={active} key={server.id} server={server} groups={groups} onOpen={props.onOpen} onMove={(id, groupId) => { void move(id, groupId) }} />)}
               </tbody>
             </table>
-            {rows.length === 0 && <p className="smp-server-empty">{!loaded ? loadError ? '暂时无法读取服务器' : '正在读取服务器' : view.query.trim() !== '' ? '没有匹配的服务器' : groupId === null ? '还没有登记服务器' : '这一组还没有服务器'}</p>}
+            {rows.length === 0 && <p className="smp-server-empty">{!loaded ? loadError ? copy.cannotLoadServers : copy.loadingServers : view.query.trim() !== '' ? copy.noMatches : groupId === null ? copy.noServers : copy.emptyGroup}</p>}
           </div>
-          <footer className="smp-server-pager" aria-label="服务器分页">
-            <span>共 {filtered.length} 台{filtered.length > 0 ? `，第 ${(page - 1) * view.pageSize + 1}–${Math.min(page * view.pageSize, filtered.length)} 台` : ''}</span>
+          <footer className="smp-server-pager" aria-label={copy.pagination}>
+            <span>{format(filtered.length > 0 ? copy.range : copy.total, { count: filtered.length, from: (page - 1) * view.pageSize + 1, to: Math.min(page * view.pageSize, filtered.length) })}</span>
             <div className="row">
-              <label>每页 <select aria-label="每页服务器数量" value={view.pageSize} onChange={event => { onView({ ...view, pageSize: Number(event.target.value), page: 1 }) }}>{[10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}</select> 台</label>
-              <button className="secondary" type="button" disabled={page === 1} onClick={() => { onView({ ...view, page: page - 1 }) }}>上一页</button>
-              <span aria-live="polite">第 {page} / {pages} 页</span>
-              <button className="secondary" type="button" disabled={page === pages} onClick={() => { onView({ ...view, page: page + 1 }) }}>下一页</button>
+              <label>{copy.perPage} <select aria-label={copy.pageSize} value={view.pageSize} onChange={event => { onView({ ...view, pageSize: Number(event.target.value), page: 1 }) }}>{[10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+              <button className="secondary" type="button" disabled={page === 1} onClick={() => { onView({ ...view, page: page - 1 }) }}>{copy.previous}</button>
+              <span aria-live="polite">{format(copy.page, { page, pages })}</span>
+              <button className="secondary" type="button" disabled={page === pages} onClick={() => { onView({ ...view, page: page + 1 }) }}>{copy.next}</button>
             </div>
           </footer>
         </Panel>
@@ -269,36 +267,38 @@ function ServerList(props: { view: ListView; onView: (view: ListView) => void; o
   )
 }
 
-function GroupChoice(props: { label: string; count: number; selected: boolean; onSelect: () => void; onDelete?: () => void }) {
+function GroupChoice(props: { active: string; label: string; count: number; selected: boolean; onSelect: () => void; onDelete?: () => void }) {
+  const copy = serverCopy(props.active).ui
   return (
     <div className={`smp-server-group${props.selected ? ' is-on' : ''}`}>
       <button className="smp-server-group-choice" type="button" aria-current={props.selected ? 'true' : undefined} onClick={props.onSelect} title={props.label}>
         <span>{props.label}</span><span className="smp-server-group-count">{props.count}</span>
       </button>
-      {props.onDelete && <button className="smp-server-group-delete" type="button" aria-label={`删除分组「${props.label}」`} title="删除分组" onClick={props.onDelete}>
+      {props.onDelete && <button className="smp-server-group-delete" type="button" aria-label={format(copy.deleteNamedGroup, { name: props.label })} title={copy.deleteGroup} onClick={props.onDelete}>
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 4.5h10M6 4.5V2.8h4v1.7M4.5 4.5l.6 9h5.8l.6-9M6.5 7v4M9.5 7v4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>}
     </div>
   )
 }
 
-function ServerLine(props: { server: ServerRow; groups: GroupRow[]; onOpen: (id: string) => void; onMove: (id: string, groupId: string) => void }) {
-  const { server } = props
+function ServerLine(props: { active: string; server: ServerRow; groups: GroupRow[]; onOpen: (id: string) => void; onMove: (id: string, groupId: string) => void }) {
+  const { server, active } = props
+  const copy = serverCopy(active).ui
   return (
     <tr onClick={() => { props.onOpen(server.id) }}>
       <td><button className="smp-server-open" type="button" onClick={event => { event.stopPropagation(); props.onOpen(server.id) }}>{server.name}</button></td>
       <td className="mono">{server.intranet_host}:{server.ssh_port}</td>
       <td>{server.region || '—'}</td>
-      <td><span className={`pill ${server.reachability}`}>{REACH[server.reachability] ?? server.reachability}</span></td>
+      <td><span className={`pill ${server.reachability}`}>{enumLabel(serverCopy(active).reach, server.reachability)}</span></td>
       <td>{meter(server.cpu_percent, '%')}</td>
       <td>{meter(ratio(server.mem_used_bytes, server.mem_total_bytes), bytes(server.mem_used_bytes))}</td>
       <td>{meter(ratio(server.disk_used_bytes, server.disk_total_bytes), bytes(server.disk_used_bytes))}</td>
       <td>{server.docker_version || '—'}</td>
       <td>{server.container_count}</td>
-      <td className="nowrap">{when(server.last_checked_at)}</td>
+      <td className="nowrap">{formatDate(server.last_checked_at, active)}</td>
       <td onClick={event => { event.stopPropagation() }}>
-        <select className="group-pick" aria-label={`${server.name} 的分组`} value={server.group_id ?? ''} onChange={event => { props.onMove(server.id, event.target.value) }}>
-          <option value="">未分组</option>
+        <select className="group-pick" aria-label={format(copy.serverGroup, { name: server.name })} value={server.group_id ?? ''} onChange={event => { props.onMove(server.id, event.target.value) }}>
+          <option value="">{copy.ungrouped}</option>
           {props.groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
         </select>
       </td>
@@ -306,7 +306,9 @@ function ServerLine(props: { server: ServerRow; groups: GroupRow[]; onOpen: (id:
   )
 }
 
-function ServerForm(props: { editing: boolean; serverId: string; initialGroupId: string; onDone: (id: string) => void; onCancel: () => void }) {
+function ServerForm(props: { active: string; editing: boolean; serverId: string; initialGroupId: string; onDone: (id: string) => void; onCancel: () => void }) {
+  const { active } = props
+  const copy = serverCopy(active).ui
   const [name, setName] = useState('')
   const [host, setHost] = useState('')
   const [port, setPort] = useState('22')
@@ -322,8 +324,8 @@ function ServerForm(props: { editing: boolean; serverId: string; initialGroupId:
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [keys, setKeys] = useState<KeyRow[]>([])
   const [components, setComponents] = useState<ComponentRow[]>([])
-  const [error, setError] = useState('')
-  const [note, setNote] = useState('')
+  const [error, setError] = useState<ServerError | null>(null)
+  const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -335,7 +337,7 @@ function ServerForm(props: { editing: boolean; serverId: string; initialGroupId:
       setGroups(nextGroups)
       setKeys(nextKeys)
       setComponents(nextComponents)
-    }).catch((cause: unknown) => { setError(cause instanceof Error ? cause.message : '请求没有完成') })
+    }).catch((cause: unknown) => { setError(requestError(cause)) })
   }, [])
 
   useEffect(() => {
@@ -351,27 +353,28 @@ function ServerForm(props: { editing: boolean; serverId: string; initialGroupId:
       setRegion(server.region ?? '')
       setAuto(server.auto_install)
       setPicked(server.install_component_ids)
-    }).catch((cause: unknown) => { setError(cause instanceof Error ? cause.message : '请求没有完成') })
+    }).catch((cause: unknown) => { setError(requestError(cause)) })
   }, [props.editing, props.serverId])
 
   async function preview(): Promise<void> {
-    setError('')
-    setNote('')
+    setError(null)
+    setFingerprint(null)
     try {
-      const result = await api<{ ok: boolean; fingerprint?: string; detail?: string }>('/console-api/servers/test-connection', {
+      const result = await api<{ ok: boolean; fingerprint?: string }>('/console-api/servers/test-connection', {
         method: 'POST',
         body: JSON.stringify({ intranet_host: host, ssh_port: Number(port), ssh_user: user, auth_method: method, secret }),
       })
-      setNote(result.ok ? `已连通。指纹 ${result.fingerprint}` : (result.detail ?? '连接测试失败'))
+      if (result.ok) setFingerprint(result.fingerprint ?? '')
+      else setError(responseError(result))
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '请求没有完成')
+      setError(requestError(cause))
     }
   }
 
   async function save(event: FormEvent): Promise<void> {
     event.preventDefault()
     setBusy(true)
-    setError('')
+    setError(null)
     try {
       let nextKey = keyId
       if (method === 'private_key' && secret.trim() !== '') {
@@ -396,72 +399,74 @@ function ServerForm(props: { editing: boolean; serverId: string; initialGroupId:
         : await api<ServerRow>('/console-api/servers', { method: 'POST', body: JSON.stringify(body) })
       props.onDone(saved.id)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '请求没有完成')
+      setError(requestError(cause))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Panel title={props.editing ? '编辑服务器' : '登记服务器'} extra={<button className="link" type="button" onClick={props.onCancel}>返回</button>}>
-      {error !== '' ? <p className="banner error">{error}</p> : null}
-      {note !== '' ? <p className="banner ok">{note}</p> : null}
+    <Panel title={props.editing ? copy.editServer : copy.registerServer} extra={<button className="link" type="button" onClick={props.onCancel}>{copy.back}</button>}>
+      {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
+      {fingerprint !== null ? <p className="banner ok">{format(copy.connected, { fingerprint })}</p> : null}
       <form className="panel-form" onSubmit={event => { void save(event) }}>
-        <label className="field">名称<input value={name} onChange={event => { setName(event.target.value) }} /></label>
+        <label className="field">{copy.name}<input value={name} onChange={event => { setName(event.target.value) }} /></label>
         <div className="triple">
-          <label className="field">内网地址<input value={host} onChange={event => { setHost(event.target.value) }} /></label>
-          <label className="field">端口<input value={port} onChange={event => { setPort(event.target.value) }} /></label>
-          <label className="field">用户<input value={user} onChange={event => { setUser(event.target.value) }} /></label>
+          <label className="field">{copy.privateAddress}<input value={host} onChange={event => { setHost(event.target.value) }} /></label>
+          <label className="field">{copy.port}<input value={port} onChange={event => { setPort(event.target.value) }} /></label>
+          <label className="field">{copy.user}<input value={user} onChange={event => { setUser(event.target.value) }} /></label>
         </div>
-        <label className="field">认证方式
+        <label className="field">{copy.authMethod}
           <select value={method} onChange={event => { setMethod(event.target.value) }}>
-            <option value="private_key">私钥</option>
-            <option value="password">口令</option>
+            <option value="private_key">{copy.privateKey}</option>
+            <option value="password">{copy.password}</option>
           </select>
         </label>
         {method === 'private_key' ? (
           <>
-            <label className="field">已有密钥
+            <label className="field">{copy.existingKey}
               <select value={keyId} onChange={event => { setKeyId(event.target.value) }}>
-                <option value="">不选择</option>
+                <option value="">{copy.noKey}</option>
                 {keys.map(key => <option key={key.id} value={key.id}>{key.name}</option>)}
               </select>
             </label>
-            <label className="field">新密钥名称<input value={keyName} onChange={event => { setKeyName(event.target.value) }} /></label>
-            <label className="field">粘贴私钥<textarea value={secret} onChange={event => { setSecret(event.target.value) }} placeholder="只在提交时发送" /></label>
+            <label className="field">{copy.newKeyName}<input value={keyName} onChange={event => { setKeyName(event.target.value) }} /></label>
+            <label className="field">{copy.pasteKey}<textarea value={secret} onChange={event => { setSecret(event.target.value) }} placeholder={copy.secretHint} /></label>
           </>
-        ) : <label className="field">口令<input type="password" value={secret} onChange={event => { setSecret(event.target.value) }} /></label>}
+        ) : <label className="field">{copy.password}<input type="password" value={secret} onChange={event => { setSecret(event.target.value) }} /></label>}
         <div className="triple">
-          <label className="field">分组
+          <label className="field">{copy.group}
             <select value={groupId} onChange={event => { setGroupId(event.target.value) }}>
-              <option value="">未分组</option>
+              <option value="">{copy.ungrouped}</option>
               {groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
             </select>
           </label>
-          <label className="field">区域<input value={region} onChange={event => { setRegion(event.target.value) }} placeholder="留空则自动填写" /></label>
+          <label className="field">{copy.region}<input value={region} onChange={event => { setRegion(event.target.value) }} placeholder={copy.autoRegion} /></label>
         </div>
-        <label><input type="checkbox" checked={auto} onChange={event => { setAuto(event.target.checked) }} /> 自动安装所选组件</label>
+        <label><input type="checkbox" checked={auto} onChange={event => { setAuto(event.target.checked) }} /> {copy.autoInstall}</label>
         <div className="component-picks">
           {components.map(component => (
             <label key={component.id}>
               <input type="checkbox" checked={picked.includes(component.id)} onChange={event => { setPicked(event.target.checked ? [...picked, component.id] : picked.filter(id => id !== component.id)) }} />
-              <span><strong>{component.name}</strong><em className="muted">{component.summary}</em></span>
+              <span><strong>{componentText(active, component).name}</strong><em className="muted">{componentText(active, component).summary}</em></span>
             </label>
           ))}
         </div>
         <div className="row">
-          <button className="secondary" type="button" disabled={secret.trim() === ''} onClick={() => { void preview() }}>连接测试</button>
-          <button className="primary" type="submit" disabled={busy}>保存</button>
+          <button className="secondary" type="button" disabled={secret.trim() === ''} onClick={() => { void preview() }}>{copy.testConnection}</button>
+          <button className="primary" type="submit" disabled={busy}>{copy.save}</button>
         </div>
       </form>
     </Panel>
   )
 }
 
-function ServerDetail(props: { id: string; onEdit: () => void; onTerminal: () => void; onBack: () => void }) {
+function ServerDetail(props: { active: string; id: string; onEdit: () => void; onTerminal: () => void; onBack: () => void }) {
+  const { active } = props
+  const copy = serverCopy(active).ui
   const [server, setServer] = useState<ServerRow | undefined>()
-  const [error, setError] = useState('')
-  const [note, setNote] = useState('')
+  const [error, setError] = useState<ServerError | null>(null)
+  const [queued, setQueued] = useState(false)
 
   useEffect(() => {
     let stopped = false
@@ -469,7 +474,7 @@ function ServerDetail(props: { id: string; onEdit: () => void; onTerminal: () =>
       void api<ServerRow>(`/console-api/servers/${props.id}`).then(next => {
         if (!stopped) setServer(next)
       }).catch((cause: unknown) => {
-        if (!stopped) setError(cause instanceof Error ? cause.message : '请求没有完成')
+        if (!stopped) setError(requestError(cause))
       })
     }
     load()
@@ -478,13 +483,13 @@ function ServerDetail(props: { id: string; onEdit: () => void; onTerminal: () =>
   }, [props.id])
 
   async function act(path: string): Promise<void> {
-    setError('')
-    setNote('')
+    setError(null)
+    setQueued(false)
     try {
       await api(path, { method: 'POST' })
-      setNote('任务已排上')
+      setQueued(true)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '请求没有完成')
+      setError(requestError(cause))
     }
   }
 
@@ -493,54 +498,56 @@ function ServerDetail(props: { id: string; onEdit: () => void; onTerminal: () =>
       await api(`/console-api/servers/${props.id}`, { method: 'DELETE' })
       props.onBack()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '请求没有完成')
+      setError(requestError(cause))
     }
   }
 
-  if (server === undefined) return <Panel title="服务器"><p className="muted">{error || '正在读取'}</p></Panel>
+  if (server === undefined) return <Panel title={copy.server}><p className="muted">{error === null ? copy.loading : displayError(active, error)}</p></Panel>
   const missing = Object.values(server.component_status).some(item => item.installed === false)
   const containers = server.containers ?? []
-  const containerNote = server.reachability === 'unknown' ? '尚未测试连接' : containers.length === 0 ? '在线后每 30 秒自动刷新' : ''
+  const containerNote = server.reachability === 'unknown' ? copy.notTested : containers.length === 0 ? copy.containerRefresh : ''
   return (
-    <Panel title={server.name} extra={<button className="link" type="button" onClick={props.onBack}>返回</button>}>
-      {error !== '' ? <p className="banner error">{error}</p> : null}
-      {note !== '' ? <p className="banner ok">{note}</p> : null}
+    <Panel title={server.name} extra={<button className="link" type="button" onClick={props.onBack}>{copy.back}</button>}>
+      {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
+      {queued ? <p className="banner ok">{copy.jobQueued}</p> : null}
       <div className="node-card">
-        <div className="node-title"><span className="name-text">{server.intranet_host}:{server.ssh_port}</span><span className={`pill ${server.reachability}`}>{REACH[server.reachability] ?? server.reachability}</span></div>
+        <div className="node-title"><span className="name-text">{server.intranet_host}:{server.ssh_port}</span><span className={`pill ${server.reachability}`}>{enumLabel(serverCopy(active).reach, server.reachability)}</span></div>
         <div className="node-grid">
-          <div><span>用户</span>{server.ssh_user}</div>
-          <div><span>区域</span>{server.region || '—'}</div>
+          <div><span>{copy.user}</span>{server.ssh_user}</div>
+          <div><span>{copy.region}</span>{server.region || '—'}</div>
           <div><span>Docker</span>{server.docker_version || '—'}</div>
           <div><span>Compose</span>{server.compose_version || '—'}</div>
-          <div><span>主机指纹</span><b className="mono">{server.host_key_fingerprint || '尚未钉住'}</b></div>
+          <div><span>{copy.hostFingerprint}</span><b className="mono">{server.host_key_fingerprint || copy.notPinned}</b></div>
         </div>
         <div className="node-actions">
-          <button className="secondary" type="button" onClick={() => { void act(`/console-api/servers/${server.id}/test`) }}>测试连接</button>
-          <button className="secondary" type="button" onClick={() => { void act(`/console-api/servers/${server.id}/inspect`) }}>立即刷新</button>
-          {missing ? <button className="secondary" type="button" onClick={() => { void act(`/console-api/servers/${server.id}/install-components`) }}>安装必要组件</button> : null}
-          <button className="secondary" type="button" onClick={props.onTerminal}>终端</button>
-          <button className="secondary" type="button" onClick={props.onEdit}>编辑</button>
-          <button className="link danger" type="button" onClick={() => { void remove() }}>删除</button>
+          <button className="secondary" type="button" onClick={() => { void act(`/console-api/servers/${server.id}/test`) }}>{copy.testConnection}</button>
+          <button className="secondary" type="button" onClick={() => { void act(`/console-api/servers/${server.id}/inspect`) }}>{copy.refresh}</button>
+          {missing ? <button className="secondary" type="button" onClick={() => { void act(`/console-api/servers/${server.id}/install-components`) }}>{copy.installComponents}</button> : null}
+          <button className="secondary" type="button" onClick={props.onTerminal}>{copy.terminal}</button>
+          <button className="secondary" type="button" onClick={props.onEdit}>{copy.edit}</button>
+          <button className="link danger" type="button" onClick={() => { void remove() }}>{copy.delete}</button>
         </div>
       </div>
-      <h2>组件</h2>
-      <ul>{Object.entries(server.component_status).map(([id, item]) => <li key={id}>{id}：{item.installed ? '已安装' : '未安装'} {item.detail ?? ''}</li>)}</ul>
-      <h2>容器</h2>
+      <h2>{copy.components}</h2>
+      <ul>{Object.entries(server.component_status).map(([id, item]) => <li key={id}>{componentName(active, id)}: {item.installed ? copy.installed : copy.notInstalled} {item.detail ?? ''}</li>)}</ul>
+      <h2>{copy.containers}</h2>
       {containerNote !== '' ? <p className="empty">{containerNote}</p> : (
         <table>
-          <thead><tr><th>名称</th><th>镜像</th><th>状态</th><th>端口</th></tr></thead>
-          <tbody>{containers.map(item => <tr key={item.container_id}><td>{item.name}</td><td>{item.image}</td><td><span className={`pill ${item.status}`}>{item.status}</span></td><td>{item.ports}</td></tr>)}</tbody>
+          <thead><tr><th>{copy.name}</th><th>{copy.image}</th><th>{copy.status}</th><th>{copy.ports}</th></tr></thead>
+          <tbody>{containers.map(item => <tr key={item.container_id}><td>{item.name}</td><td>{item.image}</td><td><span className={`pill ${item.status}`}>{enumLabel(serverCopy(active).containerStatus, item.status)}</span></td><td>{item.ports}</td></tr>)}</tbody>
         </table>
       )}
-      <h2>任务</h2>
-      <ul>{(server.jobs ?? []).map(job => <li key={job.id}>{job.action} <span className={`pill ${job.status}`}>{job.status}</span> {job.output_excerpt}</li>)}</ul>
+      <h2>{copy.jobs}</h2>
+      <ul>{(server.jobs ?? []).map(job => <li key={job.id}>{enumLabel(serverCopy(active).actions, job.action)} <span className={`pill ${job.status}`}>{enumLabel(serverCopy(active).jobStatus, job.status)}</span> {job.output_excerpt}</li>)}</ul>
     </Panel>
   )
 }
 
-function ServerTerminal(props: { id: string; onBack: () => void }) {
+function ServerTerminal(props: { active: string; id: string; onBack: () => void }) {
+  const { active } = props
+  const copy = serverCopy(active).ui
   const [text, setText] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState<ServerError | null>(null)
   useEffect(() => {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const socket = new WebSocket(`${proto}//${location.host}/console-api/servers/terminal?id=${encodeURIComponent(props.id)}`)
@@ -549,7 +556,7 @@ function ServerTerminal(props: { id: string; onBack: () => void }) {
       const chunk = typeof event.data === 'string' ? event.data : new TextDecoder().decode(event.data as ArrayBuffer)
       setText(current => `${current}${chunk}`.slice(-20000))
     }
-    socket.onerror = () => { setError('终端没有连上') }
+    socket.onerror = () => { setError(new ServerError('terminal_failed')) }
     const host = document.querySelector('.terminal-host')
     const sendResize = () => {
       if (socket.readyState !== WebSocket.OPEN || host === null) return
@@ -575,10 +582,10 @@ function ServerTerminal(props: { id: string; onBack: () => void }) {
     }
   }, [props.id])
   return (
-    <Panel title="终端" extra={<button className="link" type="button" onClick={props.onBack}>返回</button>}>
-      {error !== '' ? <p className="banner error">{error}</p> : null}
+    <Panel title={copy.terminal} extra={<button className="link" type="button" onClick={props.onBack}>{copy.back}</button>}>
+      {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       <div className="terminal-page">
-        <pre className="terminal-host" tabIndex={0} style={{ color: '#f2f3f5', whiteSpace: 'pre-wrap', margin: 0 }}>{text || '点击这里，然后输入。'}</pre>
+        <pre className="terminal-host" tabIndex={0} style={{ color: '#f2f3f5', whiteSpace: 'pre-wrap', margin: 0 }}>{text || copy.terminalHint}</pre>
       </div>
     </Panel>
   )
@@ -607,10 +614,4 @@ function bytes(value: number | string | null): string {
     index += 1
   }
   return `${index === 0 ? next.toFixed(0) : next.toFixed(1)} ${units[index]}`
-}
-
-function when(value: string | null): string {
-  if (value === null || value === '') return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 }

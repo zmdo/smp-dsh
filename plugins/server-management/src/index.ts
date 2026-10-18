@@ -10,6 +10,7 @@ import { cookieHeader, sendJson } from './reply.ts'
 import { executeJob } from './runner.ts'
 import { claimNext, dueInspects, enqueue, HttpError, recoverRunning, type Db } from './store.ts'
 import { terminalRoute } from './terminal.ts'
+import { errorPayload, ServerError } from './i18n.ts'
 
 interface SessionService {
   read(cookieHeader: string): Promise<unknown>
@@ -157,22 +158,26 @@ function startJobs(ctx: HostCtx, db: Db, config: Config): () => Promise<void> {
 
 async function guard(ctx: HostCtx, request: IncomingMessage, response: ServerResponse, run: () => Promise<void>): Promise<void> {
   if (await ctx.consoleSession.read(cookieHeader(request)) === undefined) {
-    sendJson(response, 401, { detail: '未登录' })
+    sendJson(response, 401, errorPayload(new ServerError('unauthorized')))
     return
   }
   try {
     await run()
   } catch (cause) {
     if (cause instanceof HttpError) {
-      sendJson(response, cause.status, { detail: cause.message })
+      sendJson(response, cause.status, errorPayload(cause))
       return
     }
-    if (cause instanceof SyntaxError || (cause instanceof Error && cause.message === 'too large')) {
-      sendJson(response, 400, { detail: '请求无法读取' })
+    if (cause instanceof ServerError) {
+      sendJson(response, 422, errorPayload(cause))
+      return
+    }
+    if (cause instanceof SyntaxError) {
+      sendJson(response, 400, errorPayload(new ServerError('invalid_request')))
       return
     }
     ctx.logger.error(cause)
-    if (!response.headersSent) sendJson(response, 500, { detail: '请求没有完成' })
+    if (!response.headersSent) sendJson(response, 500, errorPayload(new ServerError('request_failed')))
   }
 }
 

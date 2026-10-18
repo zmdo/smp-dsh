@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { HttpError } from './store.ts'
 
 export function sendJson(response: ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
@@ -16,7 +17,7 @@ export async function readJson(request: IncomingMessage): Promise<unknown> {
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     size += buffer.length
-    if (size > 256 * 1024) throw new Error('too large')
+    if (size > 256 * 1024) throw new HttpError(400, 'invalid_request')
     chunks.push(buffer)
   }
   if (chunks.length === 0) return {}

@@ -1,4 +1,5 @@
 import { pageLabel } from './page-label.ts'
+import { serverCopy, type LocaleFace } from './i18n.ts'
 import { KeysPage } from './pages/KeysPage.tsx'
 import { installServersStyle, ServersPage } from './pages/ServersPage.tsx'
 
@@ -9,27 +10,28 @@ interface PageSlots {
 
 interface ClientCtx {
   slots: PageSlots
+  locale: LocaleFace
   effect(run: () => (() => void)): void
 }
 
-export const inject = ['slots']
-
-const GROUP = { group: 'server-management', groupLabel: '服务器管理' }
+export const inject = ['slots', 'locale']
 
 export function apply(ctx: ClientCtx): void {
+  const copy = () => serverCopy(ctx.locale.getSnapshot().active).ui
+  const group = { group: 'server-management', groupLabel: () => copy().groupTitle }
   ctx.effect(installServersStyle)
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: 'servers',
-    label: pageLabel(() => '服务器', { ...GROUP, icon: 'server' }),
+    label: pageLabel(() => copy().serversTab, { ...group, icon: 'server' }),
     order: 0,
-    inject: () => ({}),
+    inject: () => ({ locale: ctx.locale }),
   }, ServersPage))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: 'ssh-keys',
-    label: pageLabel(() => '密钥', GROUP),
+    label: pageLabel(() => copy().keysTab, group),
     order: 1,
-    inject: () => ({}),
+    inject: () => ({ locale: ctx.locale }),
   }, KeysPage))
 }

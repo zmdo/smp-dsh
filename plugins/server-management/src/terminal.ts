@@ -3,6 +3,7 @@ import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData } from 'ws'
 import { connectSsh, type ShellChannel, type SshSession } from './ssh.ts'
 import { serverSecret, type Db } from './store.ts'
+import { errorPayload, ServerError, type ErrorCode } from './i18n.ts'
 
 interface Secrets {
   decrypt(ciphertext: string): string
@@ -26,17 +27,17 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService)
       const header = request.headers.cookie
       const cookie = Array.isArray(header) ? header.join('; ') : header ?? ''
       if (await session.read(cookie) === undefined) {
-        refuse(socket, 401, '未登录')
+        refuse(socket, 401, 'unauthorized')
         return
       }
       const id = new URL(request.url ?? '/', 'http://127.0.0.1').searchParams.get('id') ?? ''
       if (!UUID.test(id)) {
-        refuse(socket, 404, '服务器不存在')
+        refuse(socket, 404, 'server_not_found')
         return
       }
       const server = await serverSecret(db, id)
       if (server === undefined) {
-        refuse(socket, 404, '服务器不存在')
+        refuse(socket, 404, 'server_not_found')
         return
       }
       wss.handleUpgrade(request, socket, head, (ws) => {
@@ -120,8 +121,8 @@ function readResize(text: string): { cols: number; rows: number } | 'ignore' | u
   return { cols, rows }
 }
 
-function refuse(socket: Duplex, status: number, detail: string): void {
-  const body = JSON.stringify({ detail })
+function refuse(socket: Duplex, status: number, code: ErrorCode): void {
+  const body = JSON.stringify(errorPayload(new ServerError(code)))
   const reason = status === 401 ? 'Unauthorized' : 'Not Found'
   socket.write(`HTTP/1.1 ${status} ${reason}\r\ncontent-type: application/json; charset=utf-8\r\ncontent-length: ${Buffer.byteLength(body)}\r\nconnection: close\r\n\r\n${body}`)
   socket.destroy()

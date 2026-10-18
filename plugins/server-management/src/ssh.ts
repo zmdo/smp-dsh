@@ -1,14 +1,15 @@
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import type { Client, ConnectConfig } from 'ssh2'
+import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
 
 const { Client: SshClient, utils } = createRequire(import.meta.url)('ssh2') as typeof import('ssh2')
 
-export class SshError extends Error {
+export class SshError extends ServerError {
   readonly fingerprint?: string
 
-  constructor(message: string, fingerprint?: string, options?: { cause?: unknown }) {
-    super(message, options)
+  constructor(code: ErrorCode, fingerprint?: string, params: MessageParams = {}, options?: ErrorOptions) {
+    super(code, params, options)
     this.name = 'SshError'
     this.fingerprint = fingerprint
   }
@@ -16,7 +17,7 @@ export class SshError extends Error {
 
 export class FingerprintMismatch extends SshError {
   constructor(actual: string) {
-    super(`主机密钥指纹不符，连接已拒绝。当前指纹是 ${actual}`, actual)
+    super('fingerprint_mismatch', actual, { fingerprint: actual })
     this.name = 'FingerprintMismatch'
   }
 }
@@ -58,17 +59,17 @@ export function keyFingerprint(secret: string): string {
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : ''
     if (message.toLowerCase().includes('passphrase') || message.toLowerCase().includes('encrypted')) {
-      throw new SshError('私钥带有口令。请先去掉口令，再保存到控制台。', undefined, { cause })
+      throw new SshError('key_encrypted', undefined, {}, { cause })
     }
-    throw new SshError('私钥无法解析，请确认粘贴的是完整的私钥文件。', undefined, { cause })
+    throw new SshError('key_invalid', undefined, {}, { cause })
   }
   const key = Array.isArray(parsed) ? parsed[0] : parsed
   if (key instanceof Error || key === undefined || typeof key.getPublicSSH !== 'function') {
     const message = key instanceof Error ? key.message : ''
     if (message.toLowerCase().includes('passphrase') || message.toLowerCase().includes('encrypted')) {
-      throw new SshError('私钥带有口令。请先去掉口令，再保存到控制台。', undefined, { cause: key })
+      throw new SshError('key_encrypted', undefined, {}, { cause: key })
     }
-    throw new SshError('私钥无法解析，请确认粘贴的是完整的私钥文件。', undefined, { cause: key instanceof Error ? key : undefined })
+    throw new SshError('key_invalid', undefined, {}, { cause: key instanceof Error ? key : undefined })
   }
   return fingerprintOf(key.getPublicSSH())
 }
@@ -110,13 +111,13 @@ export function connectSsh(input: {
     if (input.authMethod === 'password') config.password = input.secret
     else if (input.authMethod === 'private_key') config.privateKey = normalizePem(input.secret)
     else {
-      fail(new SshError('不支持的认证方式'))
+      fail(new SshError('auth_unsupported'))
       return
     }
     client.on('ready', () => {
       if (settled) return
       if (seen === '') {
-        fail(new SshError('没有读到主机密钥指纹'))
+        fail(new SshError('fingerprint_missing'))
         return
       }
       settled = true
@@ -156,7 +157,7 @@ function execCommand(client: Client, command: string, timeoutMs: number): Promis
     // ssh2 ignores a timeout on exec. Close the channel ourselves.
     const timer = setTimeout(() => {
       channel?.close()
-      finish(() => reject(new SshError('命令执行超时')))
+      finish(() => reject(new SshError('command_timeout')))
     }, timeoutMs)
     try {
       client.exec(command, (cause, stream) => {
@@ -165,7 +166,7 @@ function execCommand(client: Client, command: string, timeoutMs: number): Promis
           return
         }
         if (cause) {
-          finish(() => reject(new SshError(`无法执行命令：${cause.message}`, undefined, { cause })))
+          finish(() => reject(new SshError('command_failed', undefined, { detail: cause.message }, { cause })))
           return
         }
         channel = stream
@@ -182,7 +183,7 @@ function execCommand(client: Client, command: string, timeoutMs: number): Promis
         })
       })
     } catch (cause) {
-      finish(() => reject(new SshError('无法执行命令', undefined, { cause })))
+      finish(() => reject(new SshError('command_failed', undefined, {}, { cause })))
     }
   })
 }
@@ -191,7 +192,7 @@ function uploadScript(client: Client, name: string, body: Buffer): Promise<void>
   return new Promise((resolve, reject) => {
     client.sftp((cause, sftp) => {
       if (cause) {
-        reject(new SshError(`无法把安装脚本传到服务器：${cause.message}`, undefined, { cause }))
+        reject(new SshError('upload_failed', undefined, { detail: cause.message }, { cause }))
         return
       }
       sftp.mkdir(REMOTE_DIR, (mkdirCause) => {
@@ -200,7 +201,7 @@ function uploadScript(client: Client, name: string, body: Buffer): Promise<void>
         const handle = sftp.createWriteStream(remote, { mode: 0o700 })
         handle.on('error', (error: Error) => {
           sftp.end()
-          reject(new SshError(`无法把安装脚本传到服务器：${error.message}`, undefined, { cause: error }))
+          reject(new SshError('upload_failed', undefined, { detail: error.message }, { cause: error }))
         })
         handle.on('close', () => {
           sftp.end()
@@ -216,7 +217,7 @@ function openShell(client: Client, cols: number, rows: number): Promise<ShellCha
   return new Promise((resolve, reject) => {
     client.shell({ term: 'xterm-256color', cols, rows }, (cause, stream) => {
       if (cause) {
-        reject(new SshError(`无法打开终端：${cause.message}`, undefined, { cause }))
+        reject(new SshError('shell_failed', undefined, { detail: cause.message }, { cause }))
         return
       }
       resolve({
@@ -233,18 +234,18 @@ function openShell(client: Client, cols: number, rows: number): Promise<ShellCha
 function mapConnectError(cause: Error, fingerprint: string): SshError {
   const message = cause.message.toLowerCase()
   if (message.includes('authentication') || message.includes('all configured authentication')) {
-    return new SshError('SSH 认证失败，请检查用户名、私钥或口令。', fingerprint || undefined, { cause })
+    return new SshError('ssh_auth_failed', fingerprint || undefined, {}, { cause })
   }
   if (message.includes('timed out') || message.includes('timeout')) {
-    return new SshError('连接超时。确认地址、端口，以及控制机能访问这台机器。', fingerprint || undefined, { cause })
+    return new SshError('ssh_timeout', fingerprint || undefined, {}, { cause })
   }
   if (message.includes('econnrefused')) {
-    return new SshError('连接被拒绝。确认这台机器的 SSH 已启动，端口填写正确。', fingerprint || undefined, { cause })
+    return new SshError('ssh_refused', fingerprint || undefined, {}, { cause })
   }
   if (message.includes('passphrase') || message.includes('encrypted')) {
-    return new SshError('私钥带有口令。请先去掉口令，再保存到控制台。', undefined, { cause })
+    return new SshError('key_encrypted', undefined, {}, { cause })
   }
-  return new SshError(`无法连接 SSH：${cause.message}`, fingerprint || undefined, { cause })
+  return new SshError('ssh_failed', fingerprint || undefined, { detail: cause.message }, { cause })
 }
 
 function normalizePem(secret: string): string {

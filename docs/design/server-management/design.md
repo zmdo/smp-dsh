@@ -37,7 +37,7 @@
 
 `locale/zh.json` 的 `meta.title` 是「服务器管理」。说明写成完整句子：登记服务器和密钥，并执行连接测试、巡检、采指标和终端。`locale/en.json` 的 `meta.title` 是 `server-management`，说明同样是完整句子。
 
-宿主 `inject` 为 `['webServer', 'database', 'secrets', 'consoleSession']`。客户端 `inject` 为 `['slots']`。
+宿主 `inject` 为 `['webServer', 'database', 'secrets', 'consoleSession']`。客户端 `inject` 为 `['slots', 'locale']`。
 
 补丁只追加自己这一行：
 
@@ -84,11 +84,15 @@ web profile 的 bundle 列表加上这个包。
 
 样式挂在壳的 `.smp-console` 上，沿用 `panel`、`panel-head`、`mark`。
 
+栏目、页签和现有页面响应平台中英语言切换，其他语言回退英文；文案统一放在插件 `locale/{zh,en}.json`，日期显式按平台语言格式化。切换语言保留当前分组、搜索、分页和未提交表单，已显示的结构化错误及提示同步翻译。用户登记的数据、远端命令输出和任务摘录保留原文。后续类型、系统分组和升级管理见 [group-types-and-i18n.md](group-types-and-i18n.md)。
+
 ## 5. 路由
 
 浏览器路径把原来的 `/api` 换成 `/console-api`。应答形状保持现在的网站后台。集合和 `test-connection` 用精确路径。带编号的路径用前缀 `/console-api/servers`、`/console-api/server-groups`、`/console-api/ssh-keys`、`/console-api/ops-jobs`，由插件自己拆。登记时不带结尾斜杠。精确路径先匹配，所以 `test-connection` 不会被服务器前缀吞掉。登记接口没有 `:id` 模板。
 
 除登录外，这些路由都先调用 `consoleSession.read`。没有会话时返回 401。插件不自己解析 cookie。
+
+接口错误返回稳定 `code` 和必要 `params`，页面按当前语言翻译；兼容字段 `detail` 保留默认中文说明，不用其文本判断错误类型。登记前连接测试返回 `ok: false` 时也携带同样的错误字段。
 
 | 方法 | 路径 | 行为 |
 | --- | --- | --- |
