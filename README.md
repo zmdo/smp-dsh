@@ -18,7 +18,7 @@
 
 | 插件 | 内容 |
 | --- | --- |
-| `@smp/console-shell` | 侧栏、登录页、Harness |
+| `@smp/console-frame` | 侧栏、登录页、Harness |
 | `@smp/console-dashboard` | 仪表盘 |
 | `@smp/console-quant` | 概览、行情、交易所、交易策略 |
 | `@smp/console-accounts` | 钱包、信用卡 |
@@ -41,4 +41,4 @@
 
 ## 源仓库
 
-实现仍以 `smp` 为准，直到这里开始迁宿主端。设计记录在 `smp` 的 `docs/design/dsh-console-plugins/`。
+实现仍以 `smp` 为准，直到这里开始迁宿主端。设计记录在 `smp` 的 `docs/design/dsh-smp-plugin-inventory/`。

@@ -53,7 +53,7 @@ window.__ModuleLoader__.load({ id: '@smp/console-quant', factory: (require) => {
 ```
 
 - 非基线的运行时依赖写进 `dsh.client.external`。`.css` 按文本打进包。
-- 每个插件都有 `locale/en.json`、`locale/zh.json` 和包内的 `icon.svg`，并导出 `./locale/*.json` 和 `./icon`。清单标题用 `meta.title`，说明用 `meta.description`。中文是日常看到的语言，英文同样写全，缺了会退回包名和默认图标。图标用 SVG、PNG、JPEG 或 WebP，不超过 256 KiB，不使用指向包外的路径。控制台插件不进插件市场，这两样仍然要有，插件管理器不启动插件也会显示它们。
+- 每个插件都有 `locale/en.json`、`locale/zh.json` 和包内的 `icon.svg`，并导出 `./locale/*.json` 和 `./icon`。清单标题用 `meta.title`，说明用 `meta.description`。中文是日常看到的语言。英文标题用目录名，说明写成完整句子。缺了会退回包名和默认图标。图标用 SVG、PNG、JPEG 或 WebP，不超过 256 KiB，不使用指向包外的路径。控制台插件不进插件市场，这两样仍然要有，插件管理器不启动插件也会显示它们。
 
 ## 补丁
 
@@ -61,7 +61,7 @@ window.__ModuleLoader__.load({ id: '@smp/console-quant', factory: (require) => {
 
 ```yaml
 - insert:
-    - id: console-quant
+    - id: smp-quant
       name: '@smp/console-quant'
 ```
 

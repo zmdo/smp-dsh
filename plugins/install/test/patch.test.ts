@@ -20,7 +20,7 @@ test('a Fernet key is 32 bytes', () => {
 
 test('writing credentials keeps the other rows and disables install', () => {
   const source = `
-- id: console-shell
+- id: smp-frame
   config:
     sessionSecret: keep-me
 - id: locale
@@ -52,7 +52,7 @@ test('disabling install does not invent store credentials', () => {
 
 test('blank store fields count as missing', () => {
   const source = `
-- id: console-store
+- id: smp-database
   config:
     databaseUrl: ''
     encryptionKey: 'present'

@@ -76,7 +76,7 @@ export async function saveCredentials(path: string, credentials: StoreCredential
 export async function reloadStore(ctx: Context, profile: ProfileFacts): Promise<void> {
   const boot = await hostAppBoot()
   const patches = boot.readProfilePatches('dsh', profile)
-  await boot.reconcileProfilePatches(ctx.root, patches, 'dsh', ['console-store'])
+  await boot.reconcileProfilePatches(ctx.root, patches, 'dsh', ['smp-database'])
 }
 
 /**

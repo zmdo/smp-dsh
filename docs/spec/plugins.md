@@ -8,8 +8,16 @@
 
 ```
 plugins/
-  store/
-  shell/
+  database/
+  session-persistence/
+  workspace-storage/
+  install/
+  frame/
+  plugin-inventory/
+  harness-settings/
+  settings-models/
+  encryption-key/
+  sessions/
   dashboard/
   quant/
   accounts/
@@ -31,20 +39,21 @@ scripts/
 
 | 目录 | 包名 | 补丁 `id` | 页面 |
 | --- | --- | --- | --- |
-| `plugins/store` | `@smp/console-store` | `console-store` | 无 |
-| `plugins/session-log` | `@smp/console-session-log` | `console-session-log` | 无 |
-| `plugins/storage` | `@smp/console-storage` | `console-storage` | 无 |
-| `plugins/install` | `@smp/console-install` | `console-install` | 无 |
-| `plugins/shell` | `@smp/console-shell` | `console-shell` | 有 |
-| `plugins/dashboard` | `@smp/console-dashboard` | `console-dashboard` | 有 |
-| `plugins/quant` | `@smp/console-quant` | `console-quant` | 有 |
-| `plugins/accounts` | `@smp/console-accounts` | `console-accounts` | 有 |
-| `plugins/servers` | `@smp/console-servers` | `console-servers` | 有 |
-| `plugins/settings` | `@smp/console-settings` | `console-settings` | 有 |
-| `plugins/settings-shell` | `@smp/console-settings-shell` | `console-settings-shell` | 有 |
-| `plugins/models` | `@smp/console-models` | `console-models` | 有 |
-| `plugins/data` | `@smp/console-data` | `console-data` | 有 |
-| `plugins/archive` | `@smp/console-archive` | `console-archive` | 有 |
+| `plugins/database` | `@smp/console-database` | `smp-database` | 无 |
+| `plugins/session-persistence` | `@smp/console-session-persistence` | `smp-session-persistence` | 无 |
+| `plugins/workspace-storage` | `@smp/console-workspace-storage` | `smp-workspace-storage` | 无 |
+| `plugins/install` | `@smp/console-install` | `smp-install` | 无 |
+| `plugins/frame` | `@smp/console-frame` | `smp-frame` | 有 |
+| `plugins/plugin-inventory` | `@smp/console-plugin-inventory` | `smp-plugin-inventory` | 有 |
+| `plugins/dashboard` | `@smp/console-dashboard` | `smp-dashboard` | 有 |
+| `plugins/quant` | `@smp/console-quant` | `smp-quant` | 有 |
+| `plugins/accounts` | `@smp/console-accounts` | `smp-accounts` | 有 |
+| `plugins/servers` | `@smp/console-servers` | `smp-servers` | 有 |
+| `plugins/settings` | `@smp/console-settings` | `smp-settings` | 有 |
+| `plugins/harness-settings` | `@smp/console-harness-settings` | `smp-harness-settings` | 有 |
+| `plugins/settings-models` | `@smp/console-settings-models` | `smp-settings-models` | 有 |
+| `plugins/encryption-key` | `@smp/console-encryption-key` | `smp-encryption-key` | 有 |
+| `plugins/sessions` | `@smp/console-sessions` | `smp-sessions` | 有 |
 
 有页面的插件：
 
@@ -79,34 +88,35 @@ plugins/servers/
 
 ```yaml
 - insert:
-    - id: console-servers
+    - id: smp-servers
       name: '@smp/console-servers'
 ```
 
-没有页面的插件去掉 `src/client.tsx`、`exports` 里的 `./client`、`files` 里的 `lib/client.js`、`dsh.client`。`locale` 和 `icon.svg` 仍在。存储插件的 SQL 放在 `plugins/store/migrations/`。组件脚本不放进任何插件目录，由服务器插件的配置指向仓库外面的那个目录。
+没有页面的插件去掉 `src/client.tsx`、`exports` 里的 `./client`、`files` 里的 `lib/client.js`、`dsh.client`。`locale` 和 `icon.svg` 仍在。存储插件的 SQL 放在 `plugins/database/migrations/`。组件脚本不放进任何插件目录，由服务器插件的配置指向仓库外面的那个目录。
 
 ## 清单
 
 插件管理器不启动插件就会读这两样。每个插件，包括没有页面的存储插件，都要有。
 
-`locale/en.json` 和 `locale/zh.json` 都写 `meta.title` 和 `meta.description`。中文是自己使用时看到的文字。英文写同样的意思，避免界面语言是英文时退回包名。
+`locale/en.json` 和 `locale/zh.json` 都写 `meta.title` 和 `meta.description`。中文是自己使用时看到的文字。英文标题用目录名。说明写成完整句子，避免界面语言是英文时退回包名。
 
 | 插件 | 中文标题 | 中文说明 | 英文标题 |
 | --- | --- | --- | --- |
-| 存储 | 存储 | 数据库连接和密文 | Store |
-| 会话记录 | 会话记录 | 将会话写入数据库 | Session log |
-| 工作区存储 | 工作区存储 | 把工作区登记写入数据库 | Workspace storage |
-| 安装 | 安装 | 第一次启动时填写数据库地址和加密密钥 | Install |
-| 壳 | 控制台 | 侧栏、登录和 Harness | Console |
-| 仪表盘 | 仪表盘 | 总览 | Dashboard |
-| 数字货币 | 数字货币 | 行情、交易所和交易策略 | Markets |
-| 资金账户 | 资金账户 | 钱包和虚拟信用卡 | Accounts |
-| 服务器 | 服务器 | 服务器、密钥和终端 | Servers |
-| 平台设置 | 平台设置 | 安全和 MCP | Settings |
-| 设置壳 | 设置壳 | 把已登记的 Harness 设置栏目列在平台设置里 | Settings shell |
-| 模型 | 模型 | 把 Harness 的模型配置同步到数据库 | Models |
-| 数据 | 数据 | 查看和更换加密密钥 | Data |
-| 档案 | 档案 | 按标题、会话编号、日期、状态和工作区查找会话，分页后恢复或删除已归档的会话 | Archive |
+| 数据库 | 数据库 | 数据库连接和密文 | database |
+| 会话存储 | 会话存储 | 将会话写入数据库 | session-persistence |
+| 工作区存储 | 工作区存储 | 把工作区登记写入数据库 | workspace-storage |
+| 安装 | 安装 | 第一次启动时填写数据库地址和加密密钥 | install |
+| 控制台 | 控制台 | 侧栏、登录和 Harness | frame |
+| 插件 | 插件 | 查看系统与所有会话共用的插件 | plugin-inventory |
+| 仪表盘 | 仪表盘 | 总览 | dashboard |
+| 数字货币 | 数字货币 | 行情、交易所和交易策略 | quant |
+| 资金账户 | 资金账户 | 钱包和虚拟信用卡 | accounts |
+| 服务器 | 服务器 | 服务器、密钥和终端 | servers |
+| 平台设置 | 平台设置 | 安全和 MCP | settings |
+| Harness 设置 | Harness 设置 | 把已登记的 Harness 设置栏目列在平台设置里 | harness-settings |
+| 模型 | 模型 | 把 Harness 的模型配置同步到数据库 | settings-models |
+| 加密密钥 | 加密密钥 | 查看和更换加密密钥 | encryption-key |
+| 档案 | 档案 | 按标题、会话编号、日期、状态和工作区查找会话，分页后恢复或删除已归档的会话 | sessions |
 
 `icon.svg` 放在包根，由 `"./icon": "./icon.svg"` 导出。每个插件一张，彼此分得开。格式可以是 SVG、PNG、JPEG 或 WebP，不超过 256 KiB，文件留在包内，不使用绝对路径、网址或指向包外的符号链接。
 

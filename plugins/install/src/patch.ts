@@ -1,7 +1,7 @@
 import { isMap, isSeq, parseDocument, Scalar, visit, type Document } from 'yaml'
 
-export const STORE_ID = 'console-store'
-export const INSTALL_ID = 'console-install'
+export const STORE_ID = 'smp-database'
+export const INSTALL_ID = 'smp-install'
 
 const jsTag = {
   tag: 'tag:yaml.org,2002:js',

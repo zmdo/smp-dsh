@@ -1,4 +1,4 @@
-# 安装页（console-install）
+# 安装页（smp-install）
 
 状态：待实现。本文只描述这个插件怎么做，不包含实现。
 
@@ -6,7 +6,7 @@
 
 ## 1. 要解决的事
 
-数据库地址和加密密钥写在 web profile 的 `cordis.patch.yml` 里，属 `console-store` 这一行的 `config`。存储插件启动时就要读到这两项，壳又要等 `database` 服务出现才加载。新环境还没有这两项时，壳不会出现。
+数据库地址和加密密钥写在 web profile 的 `cordis.patch.yml` 里，属 `smp-database` 这一行的 `config`。存储插件启动时就要读到这两项，壳又要等 `database` 服务出现才加载。新环境还没有这两项时，壳不会出现。
 
 安装页在登录之前就能改数据库地址，并且不校验 `smp_session`。这个窗口只在第一次安装时打开。完成后关掉，避免有人把控制台指到另一套数据库。
 
@@ -19,7 +19,7 @@
 | 放在哪 | 新插件 `@smp/console-install`，目录 `plugins/install`。不写进壳，也不写进存储插件 |
 | 锁 | profile 目录下的 `install-complete`。文件可以是空的，里面不写地址和密钥 |
 | 默认 | 新的 profile 目录没有这个文件，插件补丁也不写 `disabled`，所以会加载 |
-| 已经能连上 | 不显示表单。写上标记，并在补丁里给 `console-install` 写上 `disabled: true` |
+| 已经能连上 | 不显示表单。写上标记，并在补丁里给 `smp-install` 写上 `disabled: true` |
 | 需要填写 | 两项有缺，或库连不上，且没有标记文件。提交成功后才写地址、密钥、标记和 `disabled: true` |
 | 以后 | 标记还在就不显示安装页。补丁被清空也一样 |
 | 再开一次 | 删掉 `install-complete`，并删掉补丁里的 `disabled: true`，而且地址缺失或连不上，然后重启。只删标记时插件仍被禁用，安装页不会出现 |
@@ -30,13 +30,13 @@
 
 ## 3. 插件
 
-包名 `@smp/console-install`，补丁 `id` 为 `console-install`。有 locale 和图标。没有客户端包：安装页在宿主里拼好，壳的槽位当时还不存在。
+包名 `@smp/console-install`，补丁 `id` 为 `smp-install`。有 locale 和图标。没有客户端包：安装页在宿主里拼好，壳的槽位当时还不存在。
 
 `inject` 为 `['webServer', 'profileContext']`。不注入 `database`、`secrets` 或 `configEditor`。设置编辑器只能改已经在运行的插件；缺配置时存储插件处于失败状态，那条路走不通。
 
 web profile 的 bundle 列表加上这个包。插件补丁只追加自己这一行，不带 `disabled`。
 
-`install-complete` 放在 `profileContext.dir` 下，和 `cordis.patch.yml` 并列。加载器看到补丁里 `console-install` 的 `disabled: true` 时不调用 `apply`。标记文件仍是权威：补丁里的禁用行丢了，只要标记还在，`apply` 也不登记安装路由。
+`install-complete` 放在 `profileContext.dir` 下，和 `cordis.patch.yml` 并列。加载器看到补丁里 `smp-install` 的 `disabled: true` 时不调用 `apply`。标记文件仍是权威：补丁里的禁用行丢了，只要标记还在，`apply` 也不登记安装路由。
 
 存储插件的行为不变：两项缺了，它自己加载失败，不发布 `database`。壳的 `inject` 保持 `['connection', 'webServer', 'database']`。
 
@@ -44,7 +44,7 @@ web profile 的 bundle 列表加上这个包。插件补丁只追加自己这一
 
 `apply` 先看 `install-complete`。
 
-标记已在：不替换索引门禁，不登记 `/install`。补丁里还没有 `console-install` 的 `disabled: true` 时，只把它写进文件，不重载。当前这次 `apply` 已经不会登记路由；下一次启动由加载器跳过。不读、不改数据库地址。地址这时是空的，重载会让仍失败的存储插件被当成新的失败，还可能把标记删掉。
+标记已在：不替换索引门禁，不登记 `/install`。补丁里还没有 `smp-install` 的 `disabled: true` 时，只把它写进文件，不重载。当前这次 `apply` 已经不会登记路由；下一次启动由加载器跳过。不读、不改数据库地址。地址这时是空的，重载会让仍失败的存储插件被当成新的失败，还可能把标记删掉。
 
 标记不在，且 `databaseUrl` 和 `encryptionKey` 都是非空字符串，并且用它们能连上库：不显示安装页。写上标记和 `disabled: true`，不重载。壳已经在这一轮加载，重载会把正在用的进程再停一次。下一次启动不再进入 `apply`。
 
@@ -75,8 +75,8 @@ web profile 的 bundle 列表加上这个包。插件补丁只追加自己这一
 
 人提交并且校验通过时，一次写入三处：
 
-- `console-store` 的 `config.databaseUrl` 和 `config.encryptionKey`。没有这一行就追加一行，只含 `id` 和 `config`。
-- `console-install` 的 `disabled: true`。这是布尔值，不是会再读地址的表达式。
+- `smp-database` 的 `config.databaseUrl` 和 `config.encryptionKey`。没有这一行就追加一行，只含 `id` 和 `config`。
+- `smp-install` 的 `disabled: true`。这是布尔值，不是会再读地址的表达式。
 - profile 目录下的 `install-complete`。
 
 用 YAML 文档编辑补丁，保留其余行和已有的 `!!js`。`sessionSecret`、语言、主题、模型行不动。
@@ -108,13 +108,13 @@ web profile 的 bundle 列表加上这个包。插件补丁只追加自己这一
 
 ## 9. 测试
 
-测试环境可以清掉本地的数据库配置。库里的行保留。填回的地址和密钥与清空前相同。开始测试前，profile 目录里没有 `install-complete`，补丁里也没有 `console-install` 的 `disabled: true`。
+测试环境可以清掉本地的数据库配置。库里的行保留。填回的地址和密钥与清空前相同。开始测试前，profile 目录里没有 `install-complete`，补丁里也没有 `smp-install` 的 `disabled: true`。
 
 1. 两项都空、且没有标记时启动。打开 `/` 进入安装页。登录页和壳的侧栏不出现。
 2. 提交错误密钥，以及一个连不上的地址。仍停在安装页。补丁里没有这两项，目录里也没有 `install-complete`。
-3. 提交原来的地址和同一把密钥。浏览器进入登录页。用现有账号登录后，壳出现，默认工作区和已有会话还在。库里的工作区行和会话行仍是提交前的内容。`install-complete` 存在，`console-install` 为 `disabled: true`。再打开 `/install` 不是安装表单。
+3. 提交原来的地址和同一把密钥。浏览器进入登录页。用现有账号登录后，壳出现，默认工作区和已有会话还在。库里的工作区行和会话行仍是提交前的内容。`install-complete` 存在，`smp-install` 为 `disabled: true`。再打开 `/install` 不是安装表单。
 4. 停掉进程。删掉 `databaseUrl` 和 `encryptionKey`，保留标记和 `disabled: true`。再启动。打开 `/` 和 `/install` 都不是安装页，壳也不出现。
-5. 停掉进程。删掉数据库地址、加密密钥和 `console-install` 的 `disabled: true`，其余补丁行保留，`install-complete` 也保留。再启动。仍然不是安装页。
+5. 停掉进程。删掉数据库地址、加密密钥和 `smp-install` 的 `disabled: true`，其余补丁行保留，`install-complete` 也保留。再启动。仍然不是安装页。
 6. 把原来的地址和密钥写回补丁，保留标记，再启动。进入登录或壳，不出现安装页。
 7. 停掉进程。只删 `install-complete`，保留 `disabled: true` 和地址。再启动。安装页不出现。标记不会重写，因为加载器没有调用 `apply`。
 8. 停掉进程。删掉标记和 `disabled: true`，并删掉地址和密钥。再启动。安装页再次出现。

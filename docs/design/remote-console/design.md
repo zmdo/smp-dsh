@@ -12,7 +12,7 @@
 
 因此控制台不需要自己的后台进程，也不需要和第二套进程做隔离。它是遥控器：页面、登记、原来运维服务里的动作，都放进同一个 `dsh` 进程的插件。外面只留数据库、插件进程里用到的协议客户端，以及第三方 API。
 
-`smp` 里 `docs/design/dsh-console-plugins/` 描述的是上一步：页面已经嵌进 `dsh`，接口仍转到网站后台。那一步到此为止。本文替换「把网站后台改写成 TypeScript、继续调用运维服务」的打算。
+`smp` 里 `docs/design/dsh-smp-plugin-inventory/` 描述的是上一步：页面已经嵌进 `dsh`，接口仍转到网站后台。那一步到此为止。本文替换「把网站后台改写成 TypeScript、继续调用运维服务」的打算。
 
 ## 2. 目标
 
@@ -82,21 +82,23 @@ flowchart LR
 
 | 插件 | 页面 | 宿主端 |
 | --- | --- | --- |
-| `@smp/console-store` | 无 | 连接池、密文、启动时迁移。提供 `database` 和 `secrets` |
-| `@smp/console-session-log` | 无 | 实现 `sessionPersistence`，把会话日志写入 PostgreSQL，并停用 jsonl 后端 |
-| `@smp/console-storage` | 无 | 提供 `postgres` 存储后端，只把 `workspace` 域指到数据库 |
+| `@smp/console-database` | 无 | 连接池、密文、启动时迁移。提供 `database` 和 `secrets` |
+| `@smp/console-session-persistence` | 无 | 实现 `sessionPersistence`，把会话日志写入 PostgreSQL，并停用 jsonl 后端 |
+| `@smp/console-workspace-storage` | 无 | 提供 `postgres` 存储后端，只把 `workspace` 域指到数据库 |
 | `@smp/console-install` | 无 | 新的 profile 里启动一次，写入数据库地址和加密密钥，并留下 `install-complete`。标记还在时不再出现 |
-| `@smp/console-data` | 数据 | 在平台设置里查看和更换加密密钥。写入补丁，并让当前进程改用新密钥 |
-| `@smp/console-archive` | 档案 | 列出会话，按标题、会话编号、日期、状态和工作区查找。列表分页。未归档的可以打开，已归档的可以恢复或彻底删除 |
-| `@smp/console-shell` | 侧栏、登录页、安全、Harness | 签发和校验 `smp_session`，登记 `/login` 和安全 |
-| `@smp/console-settings-shell` | Harness | 无。列出已登记的栏目，并自己登记通用栏目 |
+| `@smp/console-encryption-key` | 数据 | 在平台设置里查看和更换加密密钥。写入补丁，并让当前进程改用新密钥 |
+| `@smp/console-sessions` | 档案 | 列出会话，按标题、会话编号、日期、状态和工作区查找。列表分页。未归档的可以打开，已归档的可以恢复或彻底删除 |
+| `@smp/console-frame` | 侧栏、登录页、安全、Harness | 签发和校验 `smp_session`，登记 `/login` 和安全 |
+| `@smp/console-harness-settings` | Harness | 无。列出已登记的栏目，并自己登记通用栏目 |
+| `@smp/console-settings-models` | 模型 | 把模型配置写回 Harness，并把去掉密钥的配置同步进数据库 |
+| `@smp/console-plugin-inventory` | 插件 | 列出全局插件 |
 | `@smp/console-dashboard` | 仪表盘 | 空。有数字可显示时再直接读库 |
 | `@smp/console-quant` | 概览、行情、交易所、交易策略 | 交易所账户；调用交易所 API 取余额和行情 |
 | `@smp/console-accounts` | 钱包、钱包详情、虚拟信用卡 | 这些表的读写；进程内派生地址 |
 | `@smp/console-servers` | 服务器、详情、登记、终端、密钥 | 服务器、分组、密钥、容器清单、任务、巡检、采指标、组件安装、终端 |
 | `@smp/console-settings` | MCP | MCP 开关和 `/mcp` |
 
-栏目插件只往壳声明的 `console.page` 登记页面，并带上 `label` 和 `order`。同一 `group` 的页面合成侧栏的一项，顶部页签用各页自己的 `label`。没写 `group` 的页面单独成为一项。`placement: 'footer'` 的组固定在侧栏底部。壳自己登记「平台设置」里的「安全」和「通用」，放在底部。「Harness」由 `@smp/console-settings-shell` 登记到同一组。其他栏目不在壳里写死。侧栏仍由壳以优先级 `-100` 占用，并停用 harness 自带的 `ui-sidebar`。那条侧栏一旦出现，Harness 自带的设置弹层会声明 `settings.section`，和设置壳抢同一个槽位。`conversation` 留给 `dsh` 会话，点「Harness」时 `selectPanel(null)`。槽位只留下 `label` 和 `order`，所以组名、组的标题和位置附在 `label` 函数上。
+栏目插件只往壳声明的 `console.page` 登记页面，并带上 `label` 和 `order`。同一 `group` 的页面合成侧栏的一项，顶部页签用各页自己的 `label`。没写 `group` 的页面单独成为一项。`placement: 'footer'` 的组固定在侧栏底部。壳自己登记「平台设置」里的「安全」和「通用」，放在底部。「Harness」由 `@smp/console-harness-settings` 登记到同一组。其他栏目不在壳里写死。侧栏仍由壳以优先级 `-100` 占用，并停用 harness 自带的 `ui-sidebar`。那条侧栏一旦出现，Harness 自带的设置弹层会声明 `settings.section`，和 Harness 设置抢同一个槽位。`conversation` 留给 `dsh` 会话，点「Harness」时 `selectPanel(null)`。槽位只留下 `label` 和 `order`，所以组名、组的标题和位置附在 `label` 函数上。
 
 跨栏目的读取走数据库，不走另一个插件的 HTTP。例如 MCP 要列出服务器时，设置插件读 `servers` 表，不请求服务器插件的路由。
 
@@ -106,7 +108,7 @@ flowchart LR
 
 `apply` 里打开连接池、准备密文工具、执行尚未应用的 SQL 迁移，再用 `provide` 交出 `database` 和 `secrets`。这两项放在 effect 的最后发布，卸载时先撤回服务，再关池子。
 
-表结构沿用 `smp` 里已经迁移到头的 PostgreSQL。本插件的迁移从该状态往后加，不在插件启动时重放 Python Alembic。会话日志表也由这里的迁移创建。`@smp/console-session-log` 注入 `database` 后实现 `sessionPersistence`，事件只追加进这些表。补丁停用 `session-persistence-jsonl`，新会话不再写 jsonl。
+表结构沿用 `smp` 里已经迁移到头的 PostgreSQL。本插件的迁移从该状态往后加，不在插件启动时重放 Python Alembic。会话日志表也由这里的迁移创建。`@smp/console-session-persistence` 注入 `database` 后实现 `sessionPersistence`，事件只追加进这些表。补丁停用 `session-persistence-jsonl`，新会话不再写 jsonl。
 
 ### 6.2 壳
 
@@ -120,25 +122,25 @@ flowchart LR
 
 客户端 `inject` 为 `['slots']`，另外使用 `layout`、`sessions`、`uiWorkspace`、`workspaces`、`locale`、`theme`。当前选中的页面是这次 `apply` 里的状态，键来自已登记的 `console.page`，不放在模块级变量上。壳登记的页面键是 `settings` 和 `general`，都在底部的「平台设置」里。`settings` 的页签是「安全」。`general` 的页签是「通用」，语言调用 `locale.setLocale`，外观调用 `theme.setTheme`。网站标题和图标写在 `console_site`，并显示在侧栏和登录页。图标留空时继续用 DeepSeek Harness 的图标。配置页里的图标是 100×100，点击它打开文件选择。「安全」里的「保存用户名」和改密码的「保存」同样只在内容有改动时可以点。「通用」页的「网站」里可以选择登录后初始面板。选项是已登记的页面；一个栏目有多个子页时，每个子页单独一条，写成「栏目 / 子页」。没保存过时进入 Harness 的「会话」。这一项写在 `console_site.landing_page`。同一张表单还可以选择侧边栏初始状态，展开或收起，没保存过时收起，写在 `console_site.sidebar_collapsed`。标题、图标和这两项一起由「保存」写入，没有改动时按钮不可点。「菜单」的「新建分组」和「模型」的「添加」在各自标题栏右侧。新建后出现「未命名分组 N」，名称处于编辑中；对号保存，叉号取消。除「未分组」外，分组可以改名、删除和拖动排序。补丁把 `ui-sidebar` 标为停用。
 
-### 6.2.1 设置壳
+### 6.2.1 Harness 设置
 
-`@smp/console-settings-shell` 只有客户端。壳的主面板声明 `console.settings-host`，这一项一直挂着，并在这里声明 `settings.section`。设置壳自己登记 `general` 这一栏，并声明 `settings.general.item`。画行时跳过 `language` 和 `appearance`，这两项在壳的「通用」页签里；也跳过 `models`，这一栏由模型页签画出。其余 Harness 设置插件继续把自己的栏目登记到 `settings.section`，保存仍走它们原来的配置。补丁停用 `ui-settings-general`，否则那一栏也会声明 `settings.general.item`。这个插件不声明 `sidebar.settings`，因此不会把 Harness 那块带遮罩的设置弹层挂进来。
+`@smp/console-harness-settings` 只有客户端。壳的主面板声明 `console.settings-host`，这一项一直挂着，并在这里声明 `settings.section`。这一项自己登记 `general` 这一栏，并声明 `settings.general.item`。画行时跳过 `language` 和 `appearance`，这两项在壳的「通用」页签里；也跳过 `models`，这一栏由模型页签画出。其余 Harness 设置插件继续把自己的栏目登记到 `settings.section`，保存仍走它们原来的配置。补丁停用 `ui-settings-general`，否则那一栏也会声明 `settings.general.item`。这个插件不声明 `sidebar.settings`，因此不会把 Harness 那块带遮罩的设置弹层挂进来。
 
 ### 6.2.2 模型
 
-`@smp/console-models` 往同一组 `platform` 登记页签「模型」，排在「Harness」前面。它不声明 `settings.section`。这一页的表开始是空的，由用户添加。添加时可以选已有提供商，也可以输入一个新的；同时勾选这个提供商支持的模型。列仍是提供商、API 地址、API 协议（OpenAI、Anthropic）、API Key。地址、协议和模型写回 Harness 设置，密钥走原来的凭据接口。宿主监听 `settings/document-updated`、`llm/adapters-updated` 和 `credentials/reference-updated`。事件之后重读模型目录和去掉密钥字段的设置，把供应商、接入地址、模型名和配置档写入 `console_model_profiles`。API 密钥按引用名再读，加密后放进同一行。Harness 的文件仍是调用时读取的那一份。
+`@smp/console-settings-models` 往同一组 `platform` 登记页签「模型」，排在「Harness」前面。它不声明 `settings.section`。这一页的表开始是空的，由用户添加。添加时可以选已有提供商，也可以输入一个新的；同时勾选这个提供商支持的模型。列仍是提供商、API 地址、API 协议（OpenAI、Anthropic）、API Key。地址、协议和模型写回 Harness 设置，密钥走原来的凭据接口。宿主监听 `settings/document-updated`、`llm/adapters-updated` 和 `credentials/reference-updated`。事件之后重读模型目录和去掉密钥字段的设置，把供应商、接入地址、模型名和配置档写入 `console_model_profiles`。API 密钥按引用名再读，加密后放进同一行。Harness 的文件仍是调用时读取的那一份。
 
 ### 6.2.3 插件
 
-`@smp/console-plugins` 往同一组登记页签「插件」。它读 `pluginInventory.list()`，只列出全局 Loader 条目：名称、说明和启停状态。列表分页，每页可以选 10、20 或 50 条，也可以直接跳到某一页，并按启停状态筛选。点一行展开模块名、条目标识、启用、运行阶段和预设。会话插件仍留在「Harness」的「内置插件」里。这一页不改启用状态。
+`@smp/console-plugin-inventory` 往同一组登记页签「插件」。它读 `pluginInventory.list()`，只列出全局 Loader 条目：名称、说明和启停状态。列表分页，每页可以选 10、20 或 50 条，也可以直接跳到某一页，并按启停状态筛选。点一行展开模块名、条目标识、启用、运行阶段和预设。会话插件仍留在「Harness」的「内置插件」里。这一页不改启用状态。
 
 ### 6.2.4 数据
 
-`@smp/console-data` 往同一组登记页签「数据」。页面读出存储插件配置里的加密密钥，默认不显示明文，点按钮才看得到。可以改，也可以生成一把新的。密钥没有改动时「保存」不可点。保存时写回 `console-store` 的 `encryptionKey`，并让当前进程的 `secrets` 改用这一把。已经用旧密钥加密的内容解不开。数据库地址不在这一页改。
+`@smp/console-encryption-key` 往同一组登记页签「数据」。页面读出存储插件配置里的加密密钥，默认不显示明文，点按钮才看得到。可以改，也可以生成一把新的。密钥没有改动时「保存」不可点。保存时写回 `smp-database` 的 `encryptionKey`，并让当前进程的 `secrets` 改用这一把。已经用旧密钥加密的内容解不开。数据库地址不在这一页改。
 
 ### 6.2.5 档案
 
-`@smp/console-archive` 登记 Harness 的页签「档案」。列表来自会话目录，归档标记来自工作区登记。搜索只比较标题或会话编号，由一个选择框决定比哪一个。还可以按更新时间的起止日期、使用中或已归档、以及工作区来缩小列表。会话编号在第一列，过长时省略，鼠标停在上面能看到完整编号，旁边的图标可以把它复制出去。同一行还写出标题、工作区、更新时间，以及是否在跑、是否空白、是否已置顶、是否从别的会话分出来，这些都写在同一行里。列表分页，每页可以选 10、20 或 50 条，也可以直接跳到某一页。未归档的会话点开后回到「会话」并选中它。已归档的可以恢复，也可以彻底删除：先卸掉还留在进程里的代理，再删掉 PostgreSQL 里的会话日志，然后从工作区账上摘掉并清掉归档标记。没有归档的会话不能删。聊天正文不在这一页搜。
+`@smp/console-sessions` 登记 Harness 的页签「档案」。列表来自会话目录，归档标记来自工作区登记。搜索只比较标题或会话编号，由一个选择框决定比哪一个。还可以按更新时间的起止日期、使用中或已归档、以及工作区来缩小列表。会话编号在第一列，过长时省略，鼠标停在上面能看到完整编号，旁边的图标可以把它复制出去。同一行还写出标题、工作区、更新时间，以及是否在跑、是否空白、是否已置顶、是否从别的会话分出来，这些都写在同一行里。列表分页，每页可以选 10、20 或 50 条，也可以直接跳到某一页。未归档的会话点开后回到「会话」并选中它。已归档的可以恢复，也可以彻底删除：先卸掉还留在进程里的代理，再删掉 PostgreSQL 里的会话日志，然后从工作区账上摘掉并清掉归档标记。没有归档的会话不能删。聊天正文不在这一页搜。
 
 ### 6.3 服务器
 
@@ -195,11 +197,11 @@ flowchart LR
 
 ```yaml
 - insert:
-    - id: console-servers
+    - id: smp-servers
       name: '@smp/console-servers'
 ```
 
-存储插件的 `id` 用 `console-store`。一行一个 `id`。先后依赖 `inject`，不依赖补丁里的位置。会随部署变化的地址、间隔、密钥和组件目录写成经过校验的 `Config`。
+存储插件的 `id` 用 `smp-database`。一行一个 `id`。先后依赖 `inject`，不依赖补丁里的位置。会随部署变化的地址、间隔、密钥和组件目录写成经过校验的 `Config`。
 
 宿主构建为 ESM、`platform: node`。客户端构建为 CJS、`platform: browser`，`react` 和 `react/jsx-runtime` 设为 external，外包一层 `window.__ModuleLoader__.load`，`id` 等于包名。
 
@@ -235,7 +237,7 @@ flowchart LR
 ## 10. 构建顺序
 
 1. 存储插件。连上现有库，提供 `database` 和 `secrets`，启动迁移可用。
-2. 壳。`/login`、`smp_session` 和安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，通用、安全和模型是其中的页签。设置壳接着登记同一组的「Harness」，模型栏目从那里挪到模型页签。
+2. 壳。`/login`、`smp_session` 和安全不再访问网站后台。侧栏按已登记的页面分组；平台设置在底部，通用、安全和模型是其中的页签。Harness 设置接着登记同一组的「Harness」，模型栏目从那里挪到模型页签。
 3. 服务器插件。把连接测试、巡检、采指标、组件安装和终端从运维服务搬进来，页面仍轮询 `ops_jobs`。
 4. 资金账户、数字货币、平台设置。按栏目把对应的读写和外部调用搬进宿主端。
 5. 仪表盘维持空宿主。
