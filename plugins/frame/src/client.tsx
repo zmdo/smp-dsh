@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { consoleCss } from '@smp/console-kit'
-import { navGroups, pageLabel, pageRoutes, visibleGroups, type NavGroup, type RegisteredPage } from './pages.ts'
+import { navGroups, pageLabel, pageRoutes, visibleGroups, withoutPages, type NavGroup, type RegisteredPage } from './pages.ts'
 import { createSection, type SectionStore } from './section.ts'
 import { shellCopy, type ShellCopy } from './copy.ts'
 import { GeneralView, type LocaleFace, type ThemeFace } from './general-view.tsx'
@@ -34,11 +34,18 @@ interface AuthStore {
   logout(): Promise<void>
 }
 
+interface GroupFace {
+  subscribe(listener: () => void): () => void
+  hiddenPages(): string[]
+  renderSidebar(renderSlot: RenderSlot): ReactNode
+}
+
 interface ShellCtx {
   slots: PageSlots
   layout: Layout
   locale: LocaleFace
   theme: ThemeFace
+  workspaceGroups: GroupFace
   on(name: 'theme/change', listener: () => void): () => void
   effect(run: () => (() => void)): void
 }
@@ -264,29 +271,20 @@ function useCopy(locale: LocaleFace): ShellCopy {
 }
 
 function createChatSideMount(): ChatSideMount {
-  let node: HTMLElement | null = null
-  const listeners = new Set<() => void>()
+  const node = document.createElement('aside')
+  node.className = 'smp-chat-side'
   return {
-    subscribe(listener) {
-      listeners.add(listener)
-      return () => { listeners.delete(listener) }
-    },
+    subscribe: () => () => {},
     get: () => node,
-    set(next) {
-      if (node === next) return
-      node = next
-      for (const listener of listeners) listener()
-    },
+    // The root owns this node; session-scoped headers only offer its current attachment point.
+    set(host) { if (host !== null && node.parentElement !== host) host.append(node) },
   }
 }
 
-function OfficialSessions(props: { mount: ChatSideMount; renderSlot?: RenderSlot }) {
+function OfficialSessions(props: { mount: ChatSideMount; groups: GroupFace; renderSlot?: RenderSlot }) {
   const node = useSyncExternalStore(props.mount.subscribe, props.mount.get)
   if (node === null || props.renderSlot === undefined) return null
-  return createPortal(props.renderSlot('sidebar.workspaces', {
-    wide: true,
-    expandSidebar: () => {},
-  }), node)
+  return createPortal(props.groups.renderSidebar(props.renderSlot), node)
 }
 
 function usePages(slots: PageSlots, locale: LocaleFace): ReturnType<typeof pageRoutes> {
@@ -383,6 +381,7 @@ function ShellSidebar(props: {
   menu: MenuStore
   landing: LandingStore
   chatSide: ChatSideMount
+  groups: GroupFace
   collapsed: boolean
   width: number
   openConsole: (id: string) => void
@@ -391,7 +390,8 @@ function ShellSidebar(props: {
   usePanelInfo?: (select: (info: { activePanelId: string | null }) => string | null) => string | null
 }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
-  const pages = usePages(props.slots, props.locale)
+  const hidden = useSyncExternalStore(props.groups.subscribe, props.groups.hiddenPages)
+  const pages = withoutPages(usePages(props.slots, props.locale), hidden)
   const copy = useCopy(props.locale)
   const site = useSyncExternalStore(props.site.subscribe, props.site.get)
   const saved = useSyncExternalStore(props.menu.subscribe, props.menu.get)
@@ -500,7 +500,7 @@ function ShellSidebar(props: {
   return (
     <>
       {column}
-      <OfficialSessions mount={props.chatSide} renderSlot={props.renderSlot} />
+      <OfficialSessions mount={props.chatSide} groups={props.groups} renderSlot={props.renderSlot} />
     </>
   )
 }
@@ -547,7 +547,7 @@ function ConversationChrome(props: {
           <button className="tab" type="button" onClick={() => props.openConsole(ARCHIVE_PAGE)}>{copy.archive}</button>
         </nav>
       </header>
-      <aside className="smp-chat-side" ref={props.chatSide.set} />
+      <div style={{ display: 'contents' }} ref={props.chatSide.set} />
     </>
   )
 }
@@ -556,10 +556,11 @@ function EmptyPage() {
   return null
 }
 
-function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: SectionStore; auth: AuthStore; openConsole: (id: string) => void; renderSlot?: RenderSlot }) {
+function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: SectionStore; auth: AuthStore; groups: GroupFace; openConsole: (id: string) => void; renderSlot?: RenderSlot }) {
   const current = useSyncExternalStore(props.section.subscribe, props.section.get)
   const auth = useSyncExternalStore(props.auth.subscribe, props.auth.get)
-  const pages = usePages(props.slots, props.locale)
+  const hidden = useSyncExternalStore(props.groups.subscribe, props.groups.hiddenPages)
+  const pages = withoutPages(usePages(props.slots, props.locale), hidden)
   const copy = useCopy(props.locale)
   const tabs = groupOf(pages, current)?.pages ?? []
   const body = props.renderSlot?.('console.page', {}, { entryKey: current }) ?? null
@@ -591,7 +592,7 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
   )
 }
 
-export const inject = ['slots', 'layout', 'locale', 'theme']
+export const inject = ['slots', 'layout', 'locale', 'theme', 'workspaceGroups']
 
 export function apply(ctx: ShellCtx): void {
   const section = createSection(AGENT_CHAT)
@@ -600,6 +601,7 @@ export function apply(ctx: ShellCtx): void {
   const menu = createMenuStore()
   const landing = createLandingStore()
   const chatSide = createChatSideMount()
+  ctx.effect(() => () => { chatSide.get()?.remove() })
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = '@smp/console-frame'
@@ -637,6 +639,7 @@ export function apply(ctx: ShellCtx): void {
       menu,
       landing,
       chatSide,
+      groups: ctx.workspaceGroups,
     }),
   }, ShellSidebar))
   ctx.slots.inject('conversation.header.leading', () => ctx.slots.register({
@@ -647,6 +650,12 @@ export function apply(ctx: ShellCtx): void {
       chatSide,
     }),
   }, ConversationChrome))
+  ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'workspace-groups-empty' }, () => (
+    <div style={{ position: 'relative', height: '100%', paddingLeft: 280, paddingTop: 49 }}>
+      <ConversationChrome locale={ctx.locale} openConsole={openConsole} chatSide={chatSide} />
+      <p style={{ padding: 32, textAlign: 'center' }}>{ctx.locale.getSnapshot().active === 'zh' ? '未归属组没有可打开的会话' : 'No available unassigned sessions'}</p>
+    </div>
+  )))
   ctx.slots.inject('main', () => {
     const dispose = ctx.slots.register({
       name: 'main',
@@ -655,7 +664,7 @@ export function apply(ctx: ShellCtx): void {
         'console.page': { kind: 'keyed', scope: 'root' },
         'console.settings-host': { kind: 'single', scope: 'root' },
       },
-    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} openConsole={openConsole} renderSlot={props.renderSlot} />)
+    }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} groups={ctx.workspaceGroups} openConsole={openConsole} renderSlot={props.renderSlot} />)
     void landing.refresh().finally(() => {
       if (!chosen) show(landing.get().page)
     })

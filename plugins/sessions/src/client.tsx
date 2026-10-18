@@ -19,12 +19,13 @@ interface ArchiveClient {
   workspaces: ArchivePageProps['workspaces']
   uiWorkspace: ArchivePageProps['uiWorkspace']
   layout: ArchivePageProps['layout']
+  workspaceGroups: ArchivePageProps['workspaceGroups']
   effect(run: () => (() => void)): void
 }
 
 const ARCHIVE_PAGE = 'archive'
 
-export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'layout']
+export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'layout', 'workspaceGroups']
 
 export function apply(ctx: ArchiveClient): void {
   ctx.effect(installArchiveStyle)
@@ -42,6 +43,7 @@ export function apply(ctx: ArchiveClient): void {
       workspaces: ctx.workspaces,
       uiWorkspace: ctx.uiWorkspace,
       layout: ctx.layout,
+      workspaceGroups: ctx.workspaceGroups,
     }),
   }, ArchivePage))
 }
