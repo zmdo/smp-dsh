@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { Component } from './catalog.ts'
-import { keyInUse, shouldRetest } from './jobs.ts'
+import { CatalogError, normalizeSelection, type Component } from './catalog.ts'
+import { keyInUse, retestAfterEdit, type RetestSnap } from './jobs.ts'
 import { chosenRegion, lookupRegion } from './region.ts'
 import { field, readJson, sendJson, text } from './reply.ts'
 import { componentView, enqueue, HttpError, type Db, type JobRecord } from './store.ts'
@@ -124,7 +124,7 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
   const groupId = await groupOrNull(deps.db, field(body, 'group_id'))
   const region = await regionOf(host, field(body, 'region'))
   const auto = field(body, 'auto_install') === true
-  const components = componentIds(deps.catalog, field(body, 'install_component_ids'))
+  const components = componentSelection(deps.catalog, auto, field(body, 'install_component_ids'))
   const id = randomUUID()
   let keyId: string | null = null
   let secret = ''
@@ -143,7 +143,7 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
          id, name, intranet_host, ssh_port, ssh_user, auth_method, secret_ciphertext, ssh_key_id, group_id, region,
          auto_install, install_component_ids, component_status, reachability
        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}','unknown')`,
-      [id, name, host, port, user, method, method === 'password' ? deps.secrets.encrypt(secret) : '', keyId, groupId, region, auto, JSON.stringify(components)],
+      [id, name, host, port, user, method, method === 'password' ? deps.secrets.encrypt(secret) : '', keyId, groupId, region, auto, components],
     )
   } catch (cause) {
     if (isUnique(cause)) throw new HttpError(409, '这台机器已经登记过')
@@ -154,10 +154,19 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
 
 async function updateServer(deps: Deps, id: string, body: unknown): Promise<unknown> {
   const current = await deps.db.query(
-    'select id, intranet_host, auth_method, auto_install, install_component_ids from servers where id = $1',
+    `select id, intranet_host, ssh_port, ssh_user, auth_method, ssh_key_id, auto_install, install_component_ids
+     from servers where id = $1`,
     [id],
   )
-  const row = current.rows[0] as { intranet_host: string; auth_method: string; auto_install: boolean; install_component_ids: string } | undefined
+  const row = current.rows[0] as {
+    intranet_host: string
+    ssh_port: number
+    ssh_user: string
+    auth_method: string
+    ssh_key_id: string | null
+    auto_install: boolean
+    install_component_ids: string
+  } | undefined
   if (row === undefined) throw new HttpError(404, '服务器不存在')
   const sets: string[] = []
   const params: unknown[] = [id]
@@ -165,16 +174,54 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
     params.push(value)
     sets.push(`${column} = $${params.length}`)
   }
+  const before = snapOf(deps.catalog, row)
+  const after: RetestSnap = { ...before, secretWritten: false }
   if (field(body, 'name') !== undefined) assign('name', required(text(field(body, 'name')), '名称不能为空'))
-  if (field(body, 'intranet_host') !== undefined) assign('intranet_host', required(text(field(body, 'intranet_host')), '地址不能为空'))
-  if (field(body, 'ssh_port') !== undefined) assign('ssh_port', portOf(field(body, 'ssh_port')))
-  if (field(body, 'ssh_user') !== undefined) assign('ssh_user', required(text(field(body, 'ssh_user')), '用户不能为空'))
+  if (field(body, 'intranet_host') !== undefined) {
+    after.host = required(text(field(body, 'intranet_host')), '地址不能为空')
+    assign('intranet_host', after.host)
+  }
+  if (field(body, 'ssh_port') !== undefined) {
+    after.port = portOf(field(body, 'ssh_port'))
+    assign('ssh_port', after.port)
+  }
+  if (field(body, 'ssh_user') !== undefined) {
+    after.user = required(text(field(body, 'ssh_user')), '用户不能为空')
+    assign('ssh_user', after.user)
+  }
   if (field(body, 'group_id') !== undefined) assign('group_id', await groupOrNull(deps.db, field(body, 'group_id')))
-  if (field(body, 'region') !== undefined) assign('region', await regionOf(text(field(body, 'intranet_host')) || row.intranet_host, field(body, 'region')))
-  if (field(body, 'auto_install') !== undefined) assign('auto_install', field(body, 'auto_install') === true)
-  if (field(body, 'install_component_ids') !== undefined) assign('install_component_ids', JSON.stringify(componentIds(deps.catalog, field(body, 'install_component_ids'))))
-  if (field(body, 'ssh_key_id') !== undefined) assign('ssh_key_id', text(field(body, 'ssh_key_id')) || null)
-  if (field(body, 'secret') !== undefined && text(field(body, 'secret')) !== '') assign('secret_ciphertext', deps.secrets.encrypt(text(field(body, 'secret'))))
+  if (field(body, 'region') !== undefined) assign('region', await regionOf(after.host, field(body, 'region')))
+  if (field(body, 'auto_install') !== undefined || field(body, 'install_component_ids') !== undefined) {
+    after.autoInstall = field(body, 'auto_install') === undefined ? row.auto_install : field(body, 'auto_install') === true
+    const raw = field(body, 'install_component_ids') === undefined ? parseJson(row.install_component_ids, []) : field(body, 'install_component_ids')
+    after.selection = componentSelection(deps.catalog, after.autoInstall, raw)
+    assign('auto_install', after.autoInstall)
+    assign('install_component_ids', after.selection)
+  }
+  if (field(body, 'auth_method') !== undefined || field(body, 'ssh_key_id') !== undefined || field(body, 'secret') !== undefined) {
+    const method = field(body, 'auth_method') === undefined ? row.auth_method : text(field(body, 'auth_method'))
+    if (method === 'private_key') {
+      const keyId = field(body, 'ssh_key_id') === undefined ? (row.ssh_key_id ?? '') : text(field(body, 'ssh_key_id'))
+      if (!UUID.test(keyId)) throw new HttpError(422, '请选择一把密钥')
+      const found = await deps.db.query('select id from ssh_keys where id = $1', [keyId])
+      if (found.rows[0] === undefined) throw new HttpError(422, '密钥不存在')
+      after.method = 'private_key'
+      after.keyId = keyId
+      assign('auth_method', 'private_key')
+      assign('ssh_key_id', keyId)
+    } else if (method === 'password') {
+      const secret = text(field(body, 'secret'))
+      if (secret === '' && row.auth_method !== 'password') throw new HttpError(422, '口令不能为空')
+      after.method = 'password'
+      after.keyId = null
+      after.secretWritten = secret !== ''
+      assign('auth_method', 'password')
+      assign('ssh_key_id', null)
+      if (secret !== '') assign('secret_ciphertext', deps.secrets.encrypt(secret))
+    } else {
+      throw new HttpError(422, '请选择私钥或口令')
+    }
+  }
   if (sets.length === 0) return serverDetail(deps.db, id)
   try {
     await deps.db.query(`update servers set ${sets.join(', ')}, updated_at = now() where id = $1`, params)
@@ -182,10 +229,7 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
     if (isUnique(cause)) throw new HttpError(409, '这台机器已经登记过')
     throw cause
   }
-  const connectionChanged = ['intranet_host', 'ssh_port', 'ssh_user', 'ssh_key_id', 'secret'].some(name => field(body, name) !== undefined)
-  const selectionChanged = field(body, 'install_component_ids') !== undefined
-  const auto = field(body, 'auto_install') === undefined ? row.auto_install : field(body, 'auto_install') === true
-  if (shouldRetest({ autoInstall: auto, connectionChanged, selectionChanged })) await enqueue(deps.db, id, 'test_connection')
+  if (retestAfterEdit(before, after)) await enqueue(deps.db, id, 'test_connection')
   return serverDetail(deps.db, id)
 }
 
@@ -366,12 +410,40 @@ async function regionOf(host: string, value: unknown): Promise<string | null> {
   return lookupRegion(host)
 }
 
-function componentIds(catalog: readonly Component[], value: unknown): string[] {
+function componentSelection(catalog: readonly Component[], auto: boolean, value: unknown): string {
+  if (!auto) return '[]'
   const raw = Array.isArray(value) ? value.map(item => String(item)) : []
-  const known = new Set(catalog.map(item => item.id))
-  const unknown = raw.find(item => !known.has(item))
-  if (unknown !== undefined) throw new HttpError(422, `没有这个组件：${unknown}`)
-  return catalog.filter(item => raw.includes(item.id)).map(item => item.id)
+  let ids: string[]
+  try {
+    ids = normalizeSelection(catalog, raw)
+  } catch (cause) {
+    if (cause instanceof CatalogError) throw new HttpError(422, cause.message)
+    throw cause
+  }
+  if (ids.length === 0) throw new HttpError(422, '请选择要安装的组件')
+  return JSON.stringify(ids)
+}
+
+function snapOf(catalog: readonly Component[], row: { intranet_host: string; ssh_port: number; ssh_user: string; auth_method: string; ssh_key_id: string | null; auto_install: boolean; install_component_ids: string }): RetestSnap {
+  let selection = '[]'
+  if (row.auto_install) {
+    try {
+      selection = componentSelection(catalog, true, parseJson(row.install_component_ids, []))
+    } catch (cause) {
+      void cause
+      selection = row.install_component_ids
+    }
+  }
+  return {
+    autoInstall: row.auto_install,
+    host: row.intranet_host,
+    port: Number(row.ssh_port),
+    user: row.ssh_user,
+    method: row.auth_method,
+    keyId: row.ssh_key_id,
+    selection,
+    secretWritten: false,
+  }
 }
 
 function portOf(value: unknown): number {

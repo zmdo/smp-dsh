@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { claimCandidate, failRunning, keyInUse, openJob, shouldRetest, type JobRow } from '../src/jobs.ts'
+import { claimCandidate, failRunning, keyInUse, openJob, retestAfterEdit, shouldRetest, type JobRow, type RetestSnap } from '../src/jobs.ts'
 import { omitSecrets } from '../src/records.ts'
 import { parsePs, parseSample } from '../src/parse.ts'
 import { chosenRegion, privatePlace } from '../src/region.ts'
@@ -45,6 +45,19 @@ test('a busy key and a quiet connection change stay put', () => {
   assert.equal(keyInUse(0), false)
   assert.equal(shouldRetest({ autoInstall: false, connectionChanged: true, selectionChanged: false }), false)
   assert.equal(shouldRetest({ autoInstall: true, connectionChanged: false, selectionChanged: true }), true)
+  const saved: RetestSnap = {
+    autoInstall: true,
+    host: '10.0.0.1',
+    port: 22,
+    user: 'root',
+    method: 'private_key',
+    keyId: 'k',
+    selection: '["docker"]',
+    secretWritten: false,
+  }
+  assert.equal(retestAfterEdit(saved, saved), false)
+  assert.equal(retestAfterEdit(saved, { ...saved, host: '10.0.0.2' }), true)
+  assert.equal(retestAfterEdit({ ...saved, autoInstall: false }, { ...saved, autoInstall: false, host: '10.0.0.2' }), false)
 })
 
 test('a server response drops the stored secret', () => {

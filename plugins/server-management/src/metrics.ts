@@ -21,13 +21,16 @@ interface Secrets {
 }
 
 /** One SSH per server. A dropped connection waits a few seconds and does not mark the server offline. */
-export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number): () => Promise<void> {
+export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, onError: (cause: unknown) => void): () => Promise<void> {
   const sessions = new Map<string, SshSession>()
   const retryAt = new Map<string, number>()
+  const busy = new Set<string>()
   const tasks = new Set<Promise<void>>()
   let stopped = false
   const timer = setInterval(() => {
-    const task = sampleAll().finally(() => { tasks.delete(task) })
+    const task = sampleAll()
+      .catch((cause: unknown) => { onError(cause) })
+      .finally(() => { tasks.delete(task) })
     tasks.add(task)
   }, Math.max(1, intervalSeconds) * 1000)
 
@@ -53,27 +56,24 @@ export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number):
   }
 
   async function sampleOne(id: string): Promise<void> {
-    if (Date.now() < (retryAt.get(id) ?? 0)) return
+    if (busy.has(id) || Date.now() < (retryAt.get(id) ?? 0)) return
+    busy.add(id)
     let session = sessions.get(id)
-    if (session === undefined) {
-      try {
+    try {
+      if (session === undefined) {
         session = await open(id)
         sessions.set(id, session)
-      } catch (cause) {
-        void cause
-        retryAt.set(id, Date.now() + RETRY_MS)
-        return
       }
-    }
-    try {
       const result = await session.exec(SAMPLE, 8000)
       if (result.code !== 0) throw new Error(result.stderr || result.stdout || '采集失败')
       await saveMetrics(db, id, parseSample(result.stdout))
     } catch (cause) {
       void cause
-      session.close()
-      sessions.delete(id)
+      session?.close()
+      if (sessions.get(id) === session) sessions.delete(id)
       retryAt.set(id, Date.now() + RETRY_MS)
+    } finally {
+      busy.delete(id)
     }
   }
 

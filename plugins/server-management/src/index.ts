@@ -61,7 +61,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   await recoverRunning(db)
   const deps = { db, secrets: ctx.secrets, catalog }
   yield startJobs(ctx, db, config)
-  yield startMetrics(db, ctx.secrets, config.metricsIntervalSeconds)
+  yield startMetrics(db, ctx.secrets, config.metricsIntervalSeconds, (cause) => { ctx.logger.error(cause) })
   yield ctx.webServer.register({
     kind: 'exact',
     path: '/console-api/servers',
@@ -117,9 +117,9 @@ function startJobs(ctx: HostCtx, db: Db, config: Config): () => Promise<void> {
   let pumping = false
   let active = 0
   const tasks = new Set<Promise<void>>()
-  const claim = setInterval(() => { void pump() }, 400)
-  const inspect = setInterval(() => { void queueInspects() }, 5000)
-  void pump()
+  const claim = setInterval(() => { void pump().catch((cause: unknown) => { ctx.logger.error(cause) }) }, 400)
+  const inspect = setInterval(() => { void queueInspects().catch((cause: unknown) => { ctx.logger.error(cause) }) }, 5000)
+  void pump().catch((cause: unknown) => { ctx.logger.error(cause) })
   return async () => {
     stopped = true
     clearInterval(claim)

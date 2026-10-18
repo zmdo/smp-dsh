@@ -40,6 +40,29 @@ export function shouldRetest(input: { autoInstall: boolean; connectionChanged: b
   return input.autoInstall && (input.connectionChanged || input.selectionChanged)
 }
 
+export interface RetestSnap {
+  autoInstall: boolean
+  host: string
+  port: number
+  user: string
+  method: string
+  keyId: string | null
+  selection: string
+  secretWritten: boolean
+}
+
+/** Field presence is not a change. A repeated edit of the same login must not queue another test. */
+export function retestAfterEdit(before: RetestSnap, after: RetestSnap): boolean {
+  const connectionChanged = before.host !== after.host
+    || before.port !== after.port
+    || before.user !== after.user
+    || before.method !== after.method
+    || before.keyId !== after.keyId
+    || after.secretWritten
+  const selectionChanged = before.autoInstall !== after.autoInstall || before.selection !== after.selection
+  return shouldRetest({ autoInstall: after.autoInstall, connectionChanged, selectionChanged })
+}
+
 /** A restart cannot resume an SSH session that died with the process. */
 export function failRunning(rows: readonly JobRow[]): JobRow[] {
   return rows.map(row => row.status === 'running' ? { ...row, status: 'failed' } : row)

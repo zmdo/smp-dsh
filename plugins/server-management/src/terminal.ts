@@ -67,8 +67,14 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService)
       secret,
       expectedFingerprint: server.host_key_fingerprint,
     })
+    let shell: ShellChannel
+    try {
+      shell = await ssh.shell(80, 24)
+    } catch (cause) {
+      ssh.close()
+      throw cause
+    }
     open.add(ssh)
-    const shell = await ssh.shell(80, 24)
     shell.onData((chunk) => { ws.send(chunk) })
     shell.onClose(() => {
       open.delete(ssh)
@@ -87,6 +93,7 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService)
 function onMessage(shell: ShellChannel, data: RawData): void {
   const buffer = Buffer.isBuffer(data) ? data : Array.isArray(data) ? Buffer.concat(data) : Buffer.from(data)
   const resize = readResize(buffer.toString('utf8'))
+  if (resize === 'ignore') return
   if (resize !== undefined) {
     shell.resize(resize.cols, resize.rows)
     return
@@ -94,7 +101,7 @@ function onMessage(shell: ShellChannel, data: RawData): void {
   shell.write(buffer)
 }
 
-function readResize(text: string): { cols: number; rows: number } | undefined {
+function readResize(text: string): { cols: number; rows: number } | 'ignore' | undefined {
   if (!text.startsWith('{')) return undefined
   let payload: unknown
   try {
@@ -108,8 +115,8 @@ function readResize(text: string): { cols: number; rows: number } | undefined {
   if (record.type !== 'resize') return undefined
   const cols = Number(record.cols)
   const rows = Number(record.rows)
-  if (!Number.isInteger(cols) || cols < 20 || cols > 300) return undefined
-  if (!Number.isInteger(rows) || rows < 5 || rows > 120) return undefined
+  if (!Number.isInteger(cols) || cols < 20 || cols > 300) return 'ignore'
+  if (!Number.isInteger(rows) || rows < 5 || rows > 120) return 'ignore'
   return { cols, rows }
 }
 

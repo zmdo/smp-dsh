@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { loadCatalog, normalizeSelection } from './catalog.ts'
+import { CatalogError, loadCatalog, normalizeSelection } from './catalog.ts'
 import { isKnownAction, UNIMPLEMENTED_MESSAGE } from './jobs.ts'
 import { dockerAccessMessage, excerpt, parseComposeVersion, parseDockerVersion, parsePs, scrub } from './parse.ts'
 import { FingerprintMismatch, SshError, connectSsh, type SshSession } from './ssh.ts'
@@ -54,6 +54,10 @@ export async function executeJob(db: Db, secrets: Secrets, componentsDir: string
       await runPrepare(db, componentsDir, jobId, server, secret, selected)
     }
   } catch (cause) {
+    if (cause instanceof CatalogError) {
+      await finishJob(db, jobId, 'failed', cause.message)
+      return
+    }
     const error = cause instanceof SshError ? cause : new SshError('连接测试失败', undefined, { cause })
     const dockerDown = !(cause instanceof FingerprintMismatch) && isDockerProblem(error.message)
     await saveFailure(

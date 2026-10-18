@@ -145,23 +145,45 @@ function sessionFor(client: Client, fingerprint: string): SshSession {
 
 function execCommand(client: Client, command: string, timeoutMs: number): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
-    client.exec(command, { timeout: timeoutMs }, (cause, stream) => {
-      if (cause) {
-        reject(new SshError(`无法执行命令：${cause.message}`, undefined, { cause }))
-        return
-      }
-      const out: Buffer[] = []
-      const err: Buffer[] = []
-      stream.on('data', (chunk: Buffer) => { out.push(chunk) })
-      stream.stderr.on('data', (chunk: Buffer) => { err.push(chunk) })
-      stream.on('close', (code: number) => {
-        resolve({
-          code: code ?? 0,
-          stdout: Buffer.concat(out).toString('utf8'),
-          stderr: Buffer.concat(err).toString('utf8'),
+    let settled = false
+    let channel: { close(): void } | undefined
+    const finish = (run: () => void) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      run()
+    }
+    // ssh2 ignores a timeout on exec. Close the channel ourselves.
+    const timer = setTimeout(() => {
+      channel?.close()
+      finish(() => reject(new SshError('命令执行超时')))
+    }, timeoutMs)
+    try {
+      client.exec(command, (cause, stream) => {
+        if (settled) {
+          stream?.close()
+          return
+        }
+        if (cause) {
+          finish(() => reject(new SshError(`无法执行命令：${cause.message}`, undefined, { cause })))
+          return
+        }
+        channel = stream
+        const out: Buffer[] = []
+        const err: Buffer[] = []
+        stream.on('data', (chunk: Buffer) => { out.push(chunk) })
+        stream.stderr.on('data', (chunk: Buffer) => { err.push(chunk) })
+        stream.on('close', (code: number) => {
+          finish(() => resolve({
+            code: code ?? 0,
+            stdout: Buffer.concat(out).toString('utf8'),
+            stderr: Buffer.concat(err).toString('utf8'),
+          }))
         })
       })
-    })
+    } catch (cause) {
+      finish(() => reject(new SshError('无法执行命令', undefined, { cause })))
+    }
   })
 }
 
