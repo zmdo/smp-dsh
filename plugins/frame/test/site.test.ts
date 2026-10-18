@@ -4,13 +4,14 @@ import { DEFAULT_TITLE, loadSite, saveSite, siteDraft, siteView } from '../src/s
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
-test('an empty record shows the harness title and no custom icon', () => {
+test('an empty record shows the default title and no custom icon', () => {
+  assert.equal(DEFAULT_TITLE, 'Central Control System')
   assert.deepEqual(siteView(undefined), { title: DEFAULT_TITLE, icon: '' })
   assert.deepEqual(siteView({ title: '  ', icon: '' }), { title: DEFAULT_TITLE, icon: '' })
   assert.deepEqual(siteView({ title: '策略控制台', icon: PNG }), { title: '策略控制台', icon: PNG })
 })
 
-test('the harness title is stored blank and a bad icon is refused', () => {
+test('the default title is stored blank and a bad icon is refused', () => {
   assert.deepEqual(siteDraft({ title: `  ${DEFAULT_TITLE}  `, icon: '' }), { ok: true, title: '', icon: '' })
   assert.deepEqual(siteDraft({ title: '策略控制台', icon: PNG }), { ok: true, title: '策略控制台', icon: PNG })
   assert.equal(siteDraft({ title: 'x'.repeat(81), icon: '' }).ok, false)

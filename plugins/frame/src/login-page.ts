@@ -1,12 +1,15 @@
 /** Standalone login document. It is not part of the console frame, so the sidebar is absent. */
+import { DEFAULT_TITLE } from './site.ts'
+import { DEFAULT_ICON_DARK, DEFAULT_ICON_LIGHT } from './site-mark.ts'
+
 export const LOGIN_PAGE = `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DeepSeek Harness</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)">
-<link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)">
+<title>${DEFAULT_TITLE}</title>
+<link rel="icon" type="image/svg+xml" href="${DEFAULT_ICON_LIGHT}" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="${DEFAULT_ICON_DARK}" media="(prefers-color-scheme: dark)">
 <script>
 fetch('/console-api/site').then(function (response) {
   return response.json()
@@ -71,7 +74,7 @@ fetch('/console-api/site').then(function (response) {
 <body>
   <div class="login-wrap">
     <form class="login-card">
-      <div class="login-brand"><span class="logo-mark"><img src="/favicon.svg" alt=""></span><h1>DeepSeek Harness</h1></div>
+      <div class="login-brand"><span class="logo-mark"><img src="${DEFAULT_ICON_LIGHT}" alt=""></span><h1>${DEFAULT_TITLE}</h1></div>
       <p class="muted">使用用户名和密码登录。开启两步验证后，还需要验证码。</p>
       <p class="banner" hidden></p>
       <label>用户名<input name="username" value="admin" autocomplete="username" required></label>

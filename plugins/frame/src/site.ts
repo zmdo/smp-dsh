@@ -1,4 +1,4 @@
-export const DEFAULT_TITLE = 'DeepSeek Harness'
+export const DEFAULT_TITLE = 'Central Control System'
 export const TITLE_LIMIT = 80
 export const ICON_LIMIT = 256 * 1024
 
@@ -22,7 +22,7 @@ interface Queryable {
 
 const ICON_DATA = /^data:image\/(png|jpeg|webp|svg\+xml)(?:;charset=utf-8)?;base64,([A-Za-z0-9+/]+={0,2})$/
 
-/** What the page shows. An empty stored title is the harness name. */
+/** What the page shows. An empty stored title is the control system name. */
 export function siteView(stored: StoredSite | undefined): SiteView {
   const title = stored?.title.trim() ?? ''
   return {
@@ -39,7 +39,7 @@ function iconBytes(value: string): number | undefined {
   return Math.floor(payload.length * 3 / 4) - padding
 }
 
-/** Empty title and icon mean the harness defaults. The stored title omits that default. */
+/** Empty title and icon mean the control-system defaults. The stored title omits that default. */
 export function siteDraft(input: { title: string; icon: string }): SiteDraft {
   const title = input.title.trim()
   if (title.length > TITLE_LIMIT) return { ok: false, error: 'title' }

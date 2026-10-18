@@ -6,6 +6,7 @@ import { createSection, type SectionStore } from './section.ts'
 import { shellCopy, type ShellCopy } from './copy.ts'
 import { GeneralView, type LocaleFace, type ThemeFace } from './general-view.tsx'
 import { SecurityView } from './security-view.tsx'
+import { DEFAULT_ICON_DARK, DEFAULT_ICON_LIGHT } from './site-mark.ts'
 import { createSiteStore, type SiteStore } from './site-chrome.ts'
 import { CONVERSATION_ID, menuChoices, sidebarBlocks, type PlacedOption } from './menu.ts'
 import { createMenuStore, type MenuStore } from './menu-store.ts'
@@ -114,6 +115,9 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
 .smp-console .site-icon-field { display: grid; gap: 6px; justify-items: start; color: var(--dsw-alias-label-secondary); }
 .smp-console button.site-icon { width: 100px; height: 100px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--dsw-alias-bg-layer-1); cursor: pointer; overflow: hidden; }
 .smp-console button.site-icon img { width: 100px; height: 100px; object-fit: contain; display: block; }
+.smp-console button.site-icon .mark-dark { display: none; }
+body[data-ds-dark-theme] .smp-console button.site-icon .mark-light { display: none; }
+body[data-ds-dark-theme] .smp-console button.site-icon .mark-dark { display: block; }
 .smp-console .menu-board { display: grid; gap: 12px; }
 .smp-console .menu-group { border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 10px 12px; }
 .smp-console .menu-group.is-over { border-color: var(--dsw-alias-state-business-primary); }
@@ -315,8 +319,8 @@ function BrandMark(props: { icon: string }) {
   if (props.icon !== '') return <img src={props.icon} alt="" />
   return (
     <>
-      <img className="mark-light" src="/favicon.svg" alt="" />
-      <img className="mark-dark" src="/favicon-dark.svg" alt="" />
+      <img className="mark-light" src={DEFAULT_ICON_LIGHT} alt="" />
+      <img className="mark-dark" src={DEFAULT_ICON_DARK} alt="" />
     </>
   )
 }

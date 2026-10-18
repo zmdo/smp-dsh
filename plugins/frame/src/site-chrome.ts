@@ -1,4 +1,5 @@
 import { DEFAULT_TITLE } from './site.ts'
+import { DEFAULT_ICON_DARK, DEFAULT_ICON_LIGHT } from './site-mark.ts'
 
 export interface SiteSnap {
   title: string
@@ -12,14 +13,15 @@ export interface SiteStore {
   apply(title: string, icon: string): void
 }
 
-/** Browser tab title and favicon. An empty icon restores the harness files. */
+/** Browser tab title and favicon. An empty icon uses the control hub. */
 export function applySiteChrome(title: string, icon: string): void {
   document.title = title.trim() === '' ? DEFAULT_TITLE : title
   const links = [...document.head.querySelectorAll('link[rel="icon"]')]
   if (icon === '') {
-    if (!links.some(link => (link.getAttribute('href') ?? '').startsWith('data:'))) return
+    const hrefs = links.map(link => link.getAttribute('href') ?? '')
+    if (hrefs.length === 2 && hrefs[0] === DEFAULT_ICON_LIGHT && hrefs[1] === DEFAULT_ICON_DARK) return
     for (const link of links) link.remove()
-    document.head.append(defaultIcon('light', '/favicon.svg'), defaultIcon('dark', '/favicon-dark.svg'))
+    document.head.append(defaultIcon('light', DEFAULT_ICON_LIGHT), defaultIcon('dark', DEFAULT_ICON_DARK))
     return
   }
   for (const link of links) link.remove()

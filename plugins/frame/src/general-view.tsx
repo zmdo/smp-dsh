@@ -5,6 +5,7 @@ import { landingChoice, landingLabel, landingPages, type SidebarMode } from './l
 import type { LandingStore } from './landing-store.ts'
 import { navGroups, pageRoutes, type RegisteredPage } from './pages.ts'
 import { DEFAULT_TITLE, siteDraft } from './site.ts'
+import { DEFAULT_ICON_DARK, DEFAULT_ICON_LIGHT } from './site-mark.ts'
 import type { SiteStore } from './site-chrome.ts'
 
 interface LocaleChoice {
@@ -184,7 +185,14 @@ function SitePanel(props: { copy: ReturnType<typeof shellCopy>; site: SiteStore;
         <div className="site-icon-field">
           <span>{copy.siteIcon}</span>
           <button type="button" className="site-icon" aria-label={copy.siteIcon} onClick={() => fileRef.current?.click()}>
-            <img src={icon === '' ? '/favicon.svg' : icon} alt="" width={100} height={100} />
+            {icon === '' ? (
+              <>
+                <img className="mark-light" src={DEFAULT_ICON_LIGHT} alt="" width={100} height={100} />
+                <img className="mark-dark" src={DEFAULT_ICON_DARK} alt="" width={100} height={100} />
+              </>
+            ) : (
+              <img src={icon} alt="" width={100} height={100} />
+            )}
           </button>
           <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={onIcon} />
           <p className="row">
