@@ -1,14 +1,14 @@
-# smp-dsh
+# CCCS
 
-Smart Management Platform（SMP）的基座。
+Cyber Central Control System（CCCS）。
 
-基座是 DeepSeek Harness（`dsh`）上的一组 Cordis 插件。它提供登录、侧栏、平台设置、数据库、加密密钥、会话和工作区存储。行情、账户、服务器这些业务栏目作为插件装上来，不另起进程，也不再经过单独的网站后台。
+CCCS 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harness（`dsh`）里的一组 Cordis 插件，提供登录、侧栏、平台设置、数据库、加密密钥、会话和工作区存储。CCCS 的业务栏目作为插件装到基座上，不另起进程，也不再经过单独的网站后台。
 
 本进程默认听 `9090`（`http://127.0.0.1:9090/`）。[smp](https://github.com/zmdo/smp) 里原来的控制台继续用 `8080`，两边同时开。
 
 `dsh` 崩了就重启。数据库里的登记和远端容器不受这次重启影响。
 
-## 基座里有什么
+## 基座提供
 
 | 插件 | 作用 |
 | --- | --- |
@@ -23,10 +23,10 @@ Smart Management Platform（SMP）的基座。
 | `@smp/console-settings-models` | 模型 |
 | `@smp/console-plugin-inventory` | 插件清单 |
 
-目录、包名和补丁 id 以 `docs/spec/plugins.md` 为准。各插件负责什么以 `docs/design/remote-console/design.md` 为准。
+目录、包名和补丁 id 以 `docs/spec/plugins.md` 为准。控制台怎么做以 `docs/design/remote-console/design.md` 为准。
 
-## 留在基座外面的
+## 留在外面的
 
 - PostgreSQL。
 - 交易所和模型的 HTTP 接口。模型仍走 `dsh` 自己的接口。
-- 登记过的服务器上的容器。基座不把 Docker 引擎写进本仓库。
+- 登记过的服务器上的容器。CCCS 不把 Docker 引擎写进本仓库。
