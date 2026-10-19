@@ -2,7 +2,7 @@
 
 状态：部分实现。国际化、内置类型、插件系统分组及按类型检测和安装必要软件已实现。版本范围、带软件变更的类型转换／移组预检、自动检测升级与升级管理仍待实现。已实现的接口与边界见第 13 节；其余建议不能当成已经存在的能力。运行版本仍为 `dsh` `0.2.1-alpha.5`。
 
-基础服务器管理见 [design.md](design.md)。后续会话能力见 [session-shell.md](session-shell.md) 与 [session-catalog.md](session-catalog.md)。实现时遵守 [dsh 插件规范](../../../.agents/skills/dsh-plugin/SKILL.md)。本文记录需求、分析与实施进展；版本范围、自动检测升级与批量安排的补充分析见第 12 节。
+基础服务器管理见 [design.md](design.md)，操作系统选择与类型、软件的适用范围见 [operating-systems.md](operating-systems.md)。后续会话能力见 [session-shell.md](session-shell.md) 与 [session-catalog.md](session-catalog.md)。实现时遵守 [dsh 插件规范](../../../.agents/skills/dsh-plugin/SKILL.md)。本文记录需求、分析与实施进展；版本范围、自动检测升级与批量安排的补充分析见第 12 节。
 
 ## 1. 已确认的需求
 
