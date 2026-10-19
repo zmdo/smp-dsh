@@ -1,7 +1,8 @@
 import { realpath, stat } from 'node:fs/promises'
 import { basename, isAbsolute } from 'node:path'
 import { GroupFailure, type GroupSnapshot, type Member, type Focus, type RegisteredGroup } from './contract.ts'
-import { GENERAL_GROUP_ID, GENERAL_GROUP_LABEL, UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_LABEL, DEFAULT_WORKSPACE_TITLE, normalizeGroup, normalizeAllow, rememberAllow, pagesHidden, pluginUsable } from './rules.ts'
+import { GENERAL_GROUP_ID, GENERAL_GROUP_LABEL, UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_LABEL, DEFAULT_WORKSPACE_TITLE, normalizeGroup, normalizeAllow, rememberAllow, pagesHidden, pluginUsable, type GroupInput } from './rules.ts'
+import { groupCopy } from './copy.ts'
 import { defaultWorkspacePath, ensureDirectory, resolveGroupDirectory } from './paths.ts'
 
 export interface Queryable {
@@ -41,7 +42,8 @@ export class GroupRegistry {
   private readonly home: string
   constructor(db: Queryable, registry: Registry, home: string) {
     this.db = db; this.registry = registry; this.home = home
-    this.groups.set(UNASSIGNED_GROUP_ID, { kind: 'system', id: UNASSIGNED_GROUP_ID, label: UNASSIGNED_GROUP_LABEL, order: Number.MAX_SAFE_INTEGER })
+    this.groups.set(UNASSIGNED_GROUP_ID, { kind: 'system', id: UNASSIGNED_GROUP_ID, label: UNASSIGNED_GROUP_LABEL,
+      labelI18n: { zh: groupCopy('zh').unassigned, en: groupCopy('en').unassigned }, order: Number.MAX_SAFE_INTEGER })
   }
 
   async close(): Promise<void> { this.closing = true; await this.tail }
@@ -53,7 +55,7 @@ export class GroupRegistry {
     return result
   }
 
-  register(input: { id: string; label: string; directory: string; order?: number }): Promise<void> {
+  register(input: GroupInput): Promise<void> {
     return this.enqueue(async () => {
       const spec = normalizeGroup(input)
       if (this.groups.has(spec.id)) throw new GroupFailure('workspace-group/duplicate', `已经注册过工作区组 ${spec.id}`, 409)
@@ -245,4 +247,5 @@ export class GroupRegistry {
   }
 }
 
-export const generalGroup = { id: GENERAL_GROUP_ID, label: GENERAL_GROUP_LABEL, directory: '.smp/workspaces', order: 0 }
+export const generalGroup = { id: GENERAL_GROUP_ID, label: GENERAL_GROUP_LABEL,
+  labelI18n: { zh: groupCopy('zh').general, en: groupCopy('en').general }, directory: '.smp/workspaces', order: 0 }

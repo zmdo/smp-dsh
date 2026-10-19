@@ -139,10 +139,10 @@
 ```json
 {
   "code": "workspace-group/directory-conflict",
-  "detail": "该目录已属于「普通工作区组」的「项目 A」。",
+  "detail": "该目录已属于「默认组」的「项目 A」。",
   "owner": {
     "groupId": "general",
-    "groupLabel": "普通工作区组",
+    "groupLabel": "默认组",
     "workspaceId": "workspace-id",
     "workspaceTitle": "项目 A"
   }
@@ -303,6 +303,10 @@ focus 写入必须校验会话存在、可恢复且当前属于该组，并核�
 - 置顶、会话改名、分叉、归档与恢复、运行提示、拖拽排序、展开状态和中英文显示完成回归；插件卸载清理所有临时资源。
 
 ## 13. 已核对的源码依据
+
+2026-10-19 补充：内置及插件工作区组的名称国际化已实现。注册支持可选 `labelI18n: { zh?: string, en?: string }`，保留 `label` 作为回退；切换器与档案通过客户端 `labelOf(groupId)` 解析，语言切换不改组身份和归属。完整插件示例与回退规则见 [design.md 第 4 节](design.md#4-插件登记)。
+
+验证：工作区组 45 项测试（含隔离数据库注册快照），档案 12 项测试通过。隔离界面检查覆盖插件翻译、固定名称回退、双向语言切换、组选择／搜索／筛选保留与订阅清理；CES 实例验证了英文切换器与档案列、筛选项。验收前已按约定重置测试历史，临时插件保持禁用。
 
 - `plugins/workspace-groups/src/client.tsx`、`store.ts`、`rules.ts`：当前 DOM 过滤、只记工作区的关注与单组成员规则。
 - `plugins/frame/src/client.tsx`：侧栏 portal 的目标节点位于会话页头，需调整生命周期。

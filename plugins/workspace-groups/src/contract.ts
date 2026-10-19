@@ -3,19 +3,24 @@ export interface ListSource<T> {
   subscribe(listener: () => void): () => void
 }
 
-export interface NormalGroup {
+export type GroupLabelI18n = Readonly<Partial<Record<'zh' | 'en', string>>>
+
+export interface GroupLabel {
+  label: string
+  labelI18n?: GroupLabelI18n
+}
+
+export interface NormalGroup extends GroupLabel {
   kind: 'normal'
   id: string
-  label: string
   directory: string
   path: string
   order: number
 }
 
-export interface SystemGroup {
+export interface SystemGroup extends GroupLabel {
   kind: 'system'
   id: 'unassigned'
-  label: string
   order: number
 }
 

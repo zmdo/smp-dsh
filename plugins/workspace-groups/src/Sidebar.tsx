@@ -25,8 +25,8 @@ export function GroupSidebar({ client, slots, renderSlot }: { client: GroupClien
   const copy = groupCopy(locale.active)
   return <>
     <div className="smp-group-switch">
-      <select aria-label={copy.group} value={client.selectedId()} title={client.getError() || undefined} onChange={event => client.select(event.target.value)}>
-        {client.getSnapshot().groups.map(group => <option key={group.id} value={group.id}>{group.kind === 'system' ? copy.unassigned : group.label}</option>)}
+      <select aria-label={copy.group} value={client.selectedId()} title={client.getError() || client.labelOf(client.selectedId())} onChange={event => client.select(event.target.value)}>
+        {client.getSnapshot().groups.map(group => <option key={group.id} value={group.id}>{client.labelOf(group.id)}</option>)}
       </select>
     </div>
     {renderSlot('sidebar.workspaces', { wide: true, expandSidebar: () => {}, ...binding?.props })}
