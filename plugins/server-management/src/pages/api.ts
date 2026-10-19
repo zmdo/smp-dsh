@@ -41,3 +41,7 @@ export function displayError(active: string, error: ServerError | null): string 
   }
   return errorText(active, error.code, params)
 }
+
+export function displayJobError(active: string, error: unknown): string {
+  return typeof error === 'string' ? error : displayError(active, responseError(error))
+}

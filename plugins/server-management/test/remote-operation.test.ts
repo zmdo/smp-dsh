@@ -199,3 +199,92 @@ else:sys.exit(127)
   assert.equal(resolved.code, 0, resolved.stderr)
   assert.equal(JSON.parse(resolved.stdout).change.payload.packages.length, 2)
 })
+
+test('apt detection accepts the installed Ubuntu package version while rejecting binary and package drift', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'smp-compose-version-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const packaged = '2.40.3+ds1-0ubuntu1~24.04.1'
+  const stub = `#!/usr/bin/env python3
+import sys,os
+name=os.path.basename(sys.argv[0]);args=sys.argv[1:]
+if name=='dpkg-query':
+ if args[-1]!='docker-compose-v2':sys.exit(1)
+ print('install ok installed\\t'+os.environ['SMP_FIXTURE_PACKAGE_VERSION']+'\\tamd64')
+elif name=='docker':
+ if args!=['compose','version','--short']:sys.exit(127)
+ print(os.environ['SMP_FIXTURE_REPORTED_VERSION'])
+else:raise RuntimeError('fixture refuses mutations')
+`
+  for (const name of ['dpkg-query', 'docker', 'apt-get'])
+    await writeFile(join(directory, name), stub, { mode: 0o700 })
+  const base = { software: 'builtin/docker-compose', recipe: 'builtin/compose-apt', recipeRevision: 'fixture' }
+  const change = {
+    target: { targetIdentity: `docker-compose-v2=${packaged}` },
+    payload: { packages: [{ name: 'docker-compose-v2', version: packaged }] },
+  }
+  const env = {
+    ...process.env, PATH: `${directory}:${process.env.PATH}`,
+    SMP_FIXTURE_PACKAGE_VERSION: packaged, SMP_FIXTURE_REPORTED_VERSION: packaged,
+  }
+  for (const reported of [packaged, 'v' + packaged, '2.40.3+ds1', '2.40.3']) {
+    const response = await python(APT_RECIPE, { ...base, operation: 'verify', change }, {
+      ...env, SMP_FIXTURE_REPORTED_VERSION: reported,
+    })
+    assert.equal(response.code, 0, response.stderr)
+    const actual = JSON.parse(response.stdout)
+    assert.equal(actual.healthy, true)
+    assert.equal(actual.result.version, '2.40.3')
+    assert.equal(actual.result.targetIdentity, change.target.targetIdentity)
+    assert.equal(actual.result.packages[0].version, packaged)
+  }
+  for (const reported of ['2.40.4', '2.40.3+ds2', '2.40.3-rc.1']) {
+    const response = await python(APT_RECIPE, { ...base, operation: 'detect' }, {
+      ...env, SMP_FIXTURE_REPORTED_VERSION: reported,
+    })
+    assert.equal(response.code, 0, response.stderr)
+    const actual = JSON.parse(response.stdout).result
+    assert.equal(actual.state, 'unknown')
+    assert.match(actual.detail, /differs from the installed package/)
+  }
+  const drifted = await python(APT_RECIPE, { ...base, operation: 'verify', change }, {
+    ...env, SMP_FIXTURE_PACKAGE_VERSION: '2.40.3+ds1-0ubuntu1~24.04.2',
+    SMP_FIXTURE_REPORTED_VERSION: '2.40.3+ds1-0ubuntu1~24.04.2',
+  })
+  assert.equal(drifted.code, 0, drifted.stderr)
+  assert.equal(JSON.parse(drifted.stdout).healthy, false)
+})
+
+test('Docker health checks can use existing non-interactive sudo without changing permissions', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'smp-docker-read-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const log = join(directory, 'sudo.json')
+  const stub = `#!/usr/bin/env python3
+import sys,os,json
+name=os.path.basename(sys.argv[0]);args=sys.argv[1:]
+if name=='dpkg-query':
+ if args[-1]!='docker.io':sys.exit(1)
+ print('install ok installed\\t29.1.3-0ubuntu3~24.04.2\\tamd64')
+elif name=='docker':
+ print('permission denied on Docker socket',file=sys.stderr);sys.exit(1)
+elif name=='sudo':
+ with open(os.environ['SMP_FIXTURE_SUDO_LOG'],'w') as f:json.dump(args,f)
+ if os.environ.get('SMP_FIXTURE_DENY_SUDO')=='1':sys.exit(1)
+ if args!=['-n','docker','version','--format','{{.Server.Version}}']:raise RuntimeError('Not a read-only health check')
+ print('29.1.3')
+else:raise RuntimeError('fixture refuses mutations')
+`
+  for (const name of ['dpkg-query', 'docker', 'sudo', 'apt-get'])
+    await writeFile(join(directory, name), stub, { mode: 0o700 })
+  const env = { ...process.env, PATH: `${directory}:${process.env.PATH}`, SMP_FIXTURE_SUDO_LOG: log }
+  // Exercise a non-root SSH identity even when the test runner itself is root.
+  const source = 'import os\nos.geteuid=lambda:1000\n' + APT_RECIPE
+  const input = { operation: 'detect', software: 'builtin/docker-engine' }
+  const allowed = await python(source, input, env)
+  assert.equal(allowed.code, 0, allowed.stderr)
+  assert.equal(JSON.parse(allowed.stdout).result.state, 'installed')
+  assert.deepEqual(JSON.parse(await readFile(log, 'utf8')), ['-n', 'docker', 'version', '--format', '{{.Server.Version}}'])
+  const denied = await python(source, input, { ...env, SMP_FIXTURE_DENY_SUDO: '1' })
+  assert.equal(denied.code, 0, denied.stderr)
+  assert.equal(JSON.parse(denied.stdout).result.state, 'unknown')
+  assert.match(JSON.parse(denied.stdout).result.detail, /permission denied on Docker socket/)
+})

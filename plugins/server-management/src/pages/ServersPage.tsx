@@ -22,7 +22,7 @@ import {
   type SoftwareView,
   type TypeOptions,
 } from '../definitions.ts'
-import { api, displayError, requestError, responseError } from './api.ts'
+import { api, displayError, displayJobError, requestError, responseError } from './api.ts'
 import { useActiveLocale } from './locale.ts'
 import { EnrollmentPreview, type ConnectionResult } from './enrollment-preview.ts'
 import {
@@ -1682,7 +1682,7 @@ function ServerDetail(props: {
             {enumLabel(serverCopy(active).actions, job.action)}{' '}
             <span className={`pill ${job.status}`}>{enumLabel(serverCopy(active).jobStatus, job.status)}</span>{' '}
             {job.result?.error
-              ? displayError(active, responseError(job.result.error))
+              ? displayJobError(active, job.result.error)
               : job.result?.summary
                 ? enumLabel(serverCopy(active).jobMessages, job.result.summary)
                 : job.status === 'recovering'

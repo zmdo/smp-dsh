@@ -12,10 +12,22 @@ def run(args):
  p=subprocess.run(args,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=dict(__import__('os').environ,LC_ALL='C',DEBIAN_FRONTEND='noninteractive'))
  if p.returncode: raise RuntimeError(p.stderr[-500:])
  return p.stdout
+def docker_read(args):
+ try:return run(['docker']+args)
+ except RuntimeError as ordinary:
+  if os.geteuid()==0:raise
+  try:return run(['sudo','-n','docker']+args)
+  except (OSError,RuntimeError):raise ordinary
 def product(v):
  m=re.match(r'(?:\d+:)?(\d+\.\d+\.\d+)',v)
  if not m: raise RuntimeError('Unsupported product version: '+v)
  return m.group(1)
+def matches_package(reported,version):
+ # Distributions may compile their complete package version into the binary.
+ # Accept only the installed package, its upstream part, or its product version.
+ packaged=version.split(':',1)[-1]
+ upstream=packaged.rsplit('-',1)[0]
+ return reported in (product(version),packaged,upstream)
 def installed(name):
  p=subprocess.run(['dpkg-query','-W','-f='+'$'+'{Status}\t'+'$'+'{Version}\t'+'$'+'{Architecture}',name],text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  if p.returncode or not p.stdout.startswith('install ok installed\t'): return None
@@ -45,9 +57,9 @@ def detect():
   found=installed(name)
   if found:
    version,arch=found
-   if software=='builtin/docker-engine': reported=run(['docker','version','--format','{{.Server.Version}}']).strip().lstrip('v')
-   else: reported=run(['docker','compose','version','--short']).strip().lstrip('v')
-   if reported!=product(version):raise RuntimeError('Running software differs from the installed package')
+   if software=='builtin/docker-engine': reported=docker_read(['version','--format','{{.Server.Version}}']).strip().lstrip('v')
+   else: reported=docker_read(['compose','version','--short']).strip().lstrip('v')
+   if not matches_package(reported,version):raise RuntimeError('Running software differs from the installed package')
    return dict(state='installed',version=product(version),targetIdentity=name+'='+version,packages=[dict(manager='apt',name=name,version=version,architecture=arch,source='installed')],healthy=True)
  # Refuse to overwrite an unmanaged Docker/Compose installation.
  p=subprocess.run(['sh','-c','command -v docker'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)

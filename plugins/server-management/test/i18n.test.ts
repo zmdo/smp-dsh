@@ -13,7 +13,7 @@ import {
   serverCopy,
 } from '../src/i18n.ts'
 import { pageLabel } from '../src/page-label.ts'
-import { displayError, responseError } from '../src/pages/api.ts'
+import { displayError, displayJobError, responseError } from '../src/pages/api.ts'
 import { routeGroups, routeKeys, routeServers } from '../src/records.ts'
 import { HttpError, type Db } from '../src/store.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
@@ -64,6 +64,15 @@ test('error codes do not rely on Chinese detail and malformed payloads fall back
   assert.equal(responseError({ code: 'group_exists', params: ['bad'] }).code, 'group_exists')
   assert.match(displayError('en', responseError({ detail: 'remote output' })), /remote output/)
   assert.equal(errorPayload(new HttpError(404, 'server_not_found')).code, 'server_not_found')
+})
+
+test('remote job errors remain visible and structured job failures still follow the current language', () => {
+  const error = 'recipe_failed: Running software differs from the installed package\n'
+  assert.equal(displayJobError('zh', error), error)
+  assert.equal(displayJobError('en', error), error)
+  const structured = errorPayload(new ServerError('ssh_auth_failed'))
+  assert.equal(displayJobError('zh', structured), 'SSH 认证失败，请检查用户名、私钥或口令。')
+  assert.equal(displayJobError('en', structured), 'SSH authentication failed. Check the username, private key or password.')
 })
 
 test('dates use the platform locale and external names and output remain intact', () => {
