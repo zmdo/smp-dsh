@@ -39,6 +39,9 @@
 .smp-required-software { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .smp-required-software li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
 .smp-required-software small { flex-basis: 100%; }
+.smp-console form.panel-form .smp-server-address-row { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 12px; }
+.smp-console form.panel-form .smp-server-address-row > .field { min-width: 0; }
+.smp-console form.panel-form .smp-server-address-row input { width: 100%; min-width: 0; box-sizing: border-box; }
 .smp-console .panel-form .smp-server-auto-install { display: flex; align-items: center; gap: 8px; }
 .smp-console .panel-form .smp-server-auto-install input { width: auto; margin: 0; }
 .smp-console .smp-server-table tbody tr:hover td { background: var(--dsw-specific-sidebar-nav-item-hover); }

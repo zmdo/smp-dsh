@@ -928,9 +928,9 @@ function ServerForm(props: {
             }}
           />
         </label>
-        <div className="triple">
+        <div className="smp-server-address-row">
           <label className="field">
-            {copy.privateAddress}
+            {copy.hostAddress}
             <input
               value={host}
               onChange={(event) => {
@@ -947,16 +947,16 @@ function ServerForm(props: {
               }}
             />
           </label>
-          <label className="field">
-            {copy.user}
-            <input
-              value={user}
-              onChange={(event) => {
-                setUser(event.target.value)
-              }}
-            />
-          </label>
         </div>
+        <label className="field">
+          {copy.user}
+          <input
+            value={user}
+            onChange={(event) => {
+              setUser(event.target.value)
+            }}
+          />
+        </label>
         <label className="field">
           {copy.authMethod}
           <select
@@ -1020,7 +1020,7 @@ function ServerForm(props: {
           </label>
         )}
         <label className="field">
-          {copy.osFamily}
+          {copy.operatingSystem}
           <select
             value={osFamily}
             required

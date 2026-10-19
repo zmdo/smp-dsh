@@ -65,7 +65,7 @@
 | --- | --- |
 | `id` | 服务器编号 |
 | `name` | 名称 |
-| `address` | `intranet_host` |
+| `address` | 登记的 `host`；可以是内网 IP、公网 IP 或可解析的域名 |
 | `sshPort` | 端口 |
 | `sshUser` | 登录用户 |
 | `access` | `visible` 或 `operate` |
