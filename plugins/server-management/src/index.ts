@@ -13,6 +13,7 @@ import { errorPayload, ServerError } from './i18n.ts'
 import { DefinitionRegistry } from './registry.ts'
 import { ServerManagement } from './service.ts'
 import { Enrollment } from './enrollment.ts'
+import { connectSsh } from './ssh.ts'
 
 export { ServerManagement } from './service.ts'
 export { VACANT_TYPE, GENERAL_TYPE } from './definitions.ts'
@@ -56,11 +57,13 @@ interface HostCtx extends Context {
 export interface Config {
   inspectIntervalSeconds: number
   metricsIntervalSeconds: number
+  sshReadyTimeoutSeconds: number
 }
 
 export const Config: Schema<Config> = Schema.object({
   inspectIntervalSeconds: Schema.number().default(30),
   metricsIntervalSeconds: Schema.number().default(1),
+  sshReadyTimeoutSeconds: Schema.natural().min(1).max(300).default(30),
 })
 
 export const inject = ['webServer', 'database', 'secrets', 'consoleSession']
@@ -72,14 +75,17 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const catalog = builtinCatalog()
   const db = ctx.database.pool
   const definitions = new DefinitionRegistry(db, catalog)
-  const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions })
+  const connect: typeof connectSsh = (input) =>
+    connectSsh({ ...input, readyTimeoutMs: config.sshReadyTimeoutSeconds * 1000 })
+  const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions }, connect)
   const deps = { db, secrets: ctx.secrets, catalog, definitions, enrollment }
   yield ctx.effect(function* () {
     yield () => definitions.close()
-    yield startJobs(ctx, db, config, definitions)
-    yield startMetrics(db, ctx.secrets, config.metricsIntervalSeconds, (cause) => {
-      ctx.logger.error(cause)
-    })
+    yield startJobs(ctx, db, config, definitions, connect)
+    yield startMetrics(
+      db, ctx.secrets, config.metricsIntervalSeconds,
+      (cause) => { ctx.logger.error(cause) }, connect,
+    )
     yield () => enrollment.close()
     yield ctx.webServer.register({
       kind: 'exact',
@@ -154,14 +160,20 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
           routeJobs(db, request, response, suffix(request, '/console-api/server-jobs')),
         ),
     })
-    const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession)
+    const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession, connect)
     yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
     yield () => terminal.close()
     yield ctx.provide('serverManagement', new ServerManagement(ctx, definitions))
   })
 }
 
-function startJobs(ctx: HostCtx, db: Db, config: Config, definitions: DefinitionRegistry): () => Promise<void> {
+function startJobs(
+  ctx: HostCtx,
+  db: Db,
+  config: Config,
+  definitions: DefinitionRegistry,
+  connect: typeof connectSsh,
+): () => Promise<void> {
   const workerId = randomUUID()
   let stopped = false
   let pumping = false
@@ -201,7 +213,7 @@ function startJobs(ctx: HostCtx, db: Db, config: Config, definitions: Definition
         const job = await claimNext(db, workerId)
         if (job === undefined) return
         active += 1
-        const task = executeJob(db, ctx.secrets, definitions, job)
+        const task = executeJob(db, ctx.secrets, definitions, job, connect)
           .catch((cause: unknown) => {
             ctx.logger.error(cause)
           })

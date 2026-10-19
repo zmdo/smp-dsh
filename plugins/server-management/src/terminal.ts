@@ -16,7 +16,7 @@ interface SessionService {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Exact upgrade path. The server id is the `id` query. Closing the socket closes SSH. */
-export function terminalRoute(db: Db, secrets: Secrets, session: SessionService): {
+export function terminalRoute(db: Db, secrets: Secrets, session: SessionService, connect: typeof connectSsh = connectSsh): {
   handler: (request: IncomingMessage, socket: Duplex, head: Buffer) => Promise<void>
   close: () => Promise<void>
 } {
@@ -60,7 +60,7 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService)
       ws.close()
       return
     }
-    const ssh = await connectSsh({
+    const ssh = await connect({
       host: server.host,
       port: server.ssh_port,
       username: server.ssh_user,

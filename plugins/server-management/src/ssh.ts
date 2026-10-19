@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
-import type { Client, ConnectConfig } from 'ssh2'
+import type { Client, ClientErrorExtensions, ConnectConfig } from 'ssh2'
 import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
 
 const { Client: SshClient, utils } = createRequire(import.meta.url)('ssh2') as typeof import('ssh2')
@@ -49,6 +49,7 @@ export interface ShellChannel {
 }
 
 const REMOTE_DIR = '/tmp/smp-components'
+type ConnectionPhase = 'connect' | 'handshake' | 'authentication'
 
 export function fingerprintOf(raw: Buffer): string {
   return `SHA256:${createHash('sha256').update(raw).digest('base64').replace(/=+$/, '')}`
@@ -85,23 +86,26 @@ export function connectSsh(input: {
   authMethod: string
   secret: string
   expectedFingerprint: string | null
+  readyTimeoutMs?: number
 }): Promise<SshSession> {
   return new Promise((resolve, reject) => {
     const client = new SshClient()
+    const readyTimeoutMs = input.readyTimeoutMs ?? 30_000
+    let phase: ConnectionPhase = 'connect'
     let seen = ''
     let mismatch = ''
     let settled = false
     const fail = (error: SshError) => {
       if (settled) return
       settled = true
-      client.end()
+      client.destroy()
       reject(error)
     }
     const config: ConnectConfig = {
       host: input.host,
       port: input.port,
       username: input.username,
-      readyTimeout: 8000,
+      readyTimeout: readyTimeoutMs,
       tryKeyboard: false,
       hostVerifier: (key: Buffer) => {
         seen = fingerprintOf(Buffer.isBuffer(key) ? key : Buffer.from(key))
@@ -118,6 +122,12 @@ export function connectSsh(input: {
       fail(new SshError('auth_unsupported'))
       return
     }
+    client.on('connect', () => {
+      phase = 'handshake'
+    })
+    client.on('handshake', () => {
+      phase = 'authentication'
+    })
     client.on('ready', () => {
       if (settled) return
       if (seen === '') {
@@ -132,9 +142,16 @@ export function connectSsh(input: {
         fail(new FingerprintMismatch(mismatch))
         return
       }
-      fail(mapConnectError(cause, seen))
+      fail(mapConnectError(cause, seen, phase, readyTimeoutMs))
     })
-    client.connect(config)
+    client.on('close', () => {
+      fail(new SshError('ssh_closed', seen || undefined))
+    })
+    try {
+      client.connect(config)
+    } catch (cause) {
+      fail(mapConnectError(cause instanceof Error ? cause : new Error(String(cause)), seen, phase, readyTimeoutMs))
+    }
   })
 }
 
@@ -270,17 +287,24 @@ function openShell(client: Client, cols: number, rows: number): Promise<ShellCha
   })
 }
 
-function mapConnectError(cause: Error, fingerprint: string): SshError {
-  const message = cause.message.toLowerCase()
-  if (message.includes('authentication') || message.includes('all configured authentication')) {
+function mapConnectError(
+  cause: Error & ClientErrorExtensions & { code?: string | number },
+  fingerprint: string,
+  phase: ConnectionPhase,
+  readyTimeoutMs: number,
+): SshError {
+  if (cause.level === 'client-authentication') {
     return new SshError('ssh_auth_failed', fingerprint || undefined, {}, { cause })
   }
-  if (message.includes('timed out') || message.includes('timeout')) {
-    return new SshError('ssh_timeout', fingerprint || undefined, {}, { cause })
+  if (cause.level === 'client-timeout' || cause.code === 'ETIMEDOUT') {
+    const code = phase === 'connect' ? 'ssh_connect_timeout'
+      : phase === 'handshake' ? 'ssh_handshake_timeout' : 'ssh_auth_timeout'
+    return new SshError(code, fingerprint || undefined, { seconds: readyTimeoutMs / 1000 }, { cause })
   }
-  if (message.includes('econnrefused')) {
+  if (cause.code === 'ECONNREFUSED') {
     return new SshError('ssh_refused', fingerprint || undefined, {}, { cause })
   }
+  const message = cause.message.toLowerCase()
   if (message.includes('passphrase') || message.includes('encrypted')) {
     return new SshError('key_encrypted', undefined, {}, { cause })
   }

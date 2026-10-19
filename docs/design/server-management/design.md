@@ -56,6 +56,7 @@
 | `componentsDir` | 组件目录。里面是现有的 `component.json`、`detect.sh`、`install.sh`。目录不存在时加载失败。脚本不放进插件目录 |
 | `inspectIntervalSeconds` | 巡检间隔，默认 30 |
 | `metricsIntervalSeconds` | 采指标间隔，默认 1 |
+| `sshReadyTimeoutSeconds` | 从建立连接到认证成功的总等待上限，默认 30 秒；整数，范围 1～300 秒。登记测试、系统识别、后台任务、指标采集和终端共用 |
 
 web profile 的 bundle 列表加上这个包。
 
