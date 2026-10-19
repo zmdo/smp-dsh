@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
-import { componentName, componentText, enumLabel, format, formatDate, serverCopy, ServerError, type LocaleFace } from '../i18n.ts'
+import { componentText, enumLabel, format, formatDate, groupName as localizedGroupName, serverCopy, ServerError, type LocaleFace } from '../i18n.ts'
+import { localized, sameSoftware, type GroupView, type LocalizedText, type ServerTypeView, type SoftwareView, type TypeOptions } from '../definitions.ts'
 import { api, displayError, requestError, responseError } from './api.ts'
 import { useActiveLocale } from './locale.ts'
 import serversStyle from './servers.css'
@@ -15,10 +16,16 @@ interface ServerRow {
   ssh_key_id: string | null
   group_id: string | null
   group_name: string | null
+  group_name_i18n: LocalizedText | null
+  type_key: string
+  type_name_i18n: LocalizedText
+  type_available: boolean
+  required_software: SoftwareView[]
+  software_state: string
   region: string | null
   auto_install: boolean
   install_component_ids: string[]
-  component_status: Record<string, { installed?: boolean; detail?: string }>
+  component_status: Record<string, { state?: string; installed?: boolean; detail?: string }>
   host_key_fingerprint: string | null
   reachability: string
   docker_version: string | null
@@ -29,7 +36,9 @@ interface ServerRow {
   disk_total_bytes: number | string | null
   disk_used_bytes: number | string | null
   last_checked_at: string | null
-  container_count: number
+  container_count: number | null
+  containers_state: string
+  containers_checked_at: string | null
   containers?: ContainerRow[]
   jobs?: JobRow[]
 }
@@ -50,9 +59,7 @@ interface JobRow {
   created_at: string
 }
 
-interface GroupRow {
-  id: string
-  name: string
+interface GroupRow extends GroupView {
   server_count: number
 }
 
@@ -60,13 +67,6 @@ interface KeyRow {
   id: string
   name: string
   fingerprint: string
-}
-
-interface ComponentRow {
-  id: string
-  name: string
-  summary: string
-  requires: string[]
 }
 
 type Screen = 'list' | 'form' | 'detail' | 'terminal'
@@ -97,10 +97,10 @@ export function ServersPage(props: { locale: LocaleFace }) {
   }
   if (screen === 'detail') return <ServerDetail active={active} id={serverId} onEdit={() => { setEditing(true); setScreen('form') }} onTerminal={() => { setScreen('terminal') }} onBack={() => { setScreen('list') }} />
   if (screen === 'terminal') return <ServerTerminal active={active} id={serverId} onBack={() => { setScreen('detail') }} />
-  return <ServerList active={active} view={listView} onView={setListView} onOpen={(id) => { setServerId(id); setEditing(false); setScreen('detail') }} onCreate={() => { setServerId(''); setEditing(false); setScreen('form') }} />
+  return <ServerList active={active} view={listView} onView={setListView} onOpen={(id) => { setServerId(id); setEditing(false); setScreen('detail') }} onEdit={(id) => { setServerId(id); setEditing(true); setScreen('form') }} onCreate={() => { setServerId(''); setEditing(false); setScreen('form') }} />
 }
 
-function ServerList(props: { active: string; view: ListView; onView: (view: ListView) => void; onOpen: (id: string) => void; onCreate: () => void }) {
+function ServerList(props: { active: string; view: ListView; onView: (view: ListView) => void; onOpen: (id: string) => void; onEdit: (id: string) => void; onCreate: () => void }) {
   const { active } = props
   const copy = serverCopy(active).ui
   const [servers, setServers] = useState<ServerRow[]>([])
@@ -142,11 +142,12 @@ function ServerList(props: { active: string; view: ListView; onView: (view: List
 
   const { view, onView } = props
   const groupId = loaded && view.groupId && !groups.some(group => group.id === view.groupId) ? null : view.groupId
-  const groupLabel = groupId === null ? copy.allServers : groupId === '' ? copy.ungrouped : groups.find(group => group.id === groupId)?.name ?? ''
+  const selectedGroup = groups.find(group => group.id === groupId)
+  const groupLabel = groupId === null ? copy.allServers : groupId === '' ? copy.ungrouped : selectedGroup === undefined ? '' : localizedGroupName(active, selectedGroup)
   const filtered = useMemo(() => {
     const needle = view.query.trim().toLowerCase()
     return servers.filter(server => (groupId === null || (server.group_id ?? '') === groupId)
-      && (needle === '' || [server.name, server.intranet_host, server.ssh_user, server.region ?? '', server.group_name ?? ''].some(value => value.toLowerCase().includes(needle))))
+      && (needle === '' || [server.name, server.intranet_host, server.ssh_user, server.region ?? '', server.group_name ?? '', server.group_name_i18n?.zh ?? '', server.group_name_i18n?.en ?? '', server.type_name_i18n.zh, server.type_name_i18n.en].some(value => value.toLowerCase().includes(needle))))
   }, [view.query, groupId, servers])
   const pages = Math.max(1, Math.ceil(filtered.length / view.pageSize))
   const page = Math.min(view.page, pages)
@@ -173,7 +174,7 @@ function ServerList(props: { active: string; view: ListView; onView: (view: List
     try {
       const group = await api<GroupRow>('/console-api/server-groups', { method: 'POST', body: JSON.stringify({ name: groupName }) })
       dataVersion.current += 1
-      setGroups(current => [...current, group].sort((a, b) => a.name.localeCompare(b.name)))
+      setGroups(current => [...current, group])
       selectGroup(group.id)
       setGroupName('')
       setAddingGroup(false)
@@ -190,19 +191,8 @@ function ServerList(props: { active: string; view: ListView; onView: (view: List
       await api(`/console-api/server-groups/${id}`, { method: 'DELETE' })
       dataVersion.current += 1
       setGroups(current => current.filter(group => group.id !== id))
-      setServers(current => current.map(server => server.group_id === id ? { ...server, group_id: null, group_name: null } : server))
+      setServers(current => current.map(server => server.group_id === id ? { ...server, group_id: null, group_name: null, group_name_i18n: null } : server))
       if (groupId === id) selectGroup('')
-    } catch (cause) {
-      setActionError(requestError(cause))
-    }
-  }
-
-  async function move(id: string, groupId: string): Promise<void> {
-    setActionError(null)
-    try {
-      const saved = await api<ServerRow>(`/console-api/servers/${id}`, { method: 'PATCH', body: JSON.stringify({ group_id: groupId === '' ? null : groupId }) })
-      dataVersion.current += 1
-      setServers(current => current.map(server => server.id === id ? saved : server))
     } catch (cause) {
       setActionError(requestError(cause))
     }
@@ -228,7 +218,7 @@ function ServerList(props: { active: string; view: ListView; onView: (view: List
         <nav className="smp-server-groups" aria-label={copy.serverGroups}>
           <GroupChoice active={active} label={copy.allServers} count={servers.length} selected={groupId === null} onSelect={() => selectGroup(null)} />
           {groups.map(group => (
-            <GroupChoice active={active} key={group.id} label={group.name} count={servers.filter(server => server.group_id === group.id).length} selected={groupId === group.id} onSelect={() => selectGroup(group.id)} onDelete={() => { void removeGroup(group.id) }} />
+            <GroupChoice active={active} key={group.id} label={localizedGroupName(active, group)} system={group.kind === 'system'} available={group.available} source={group.plugin_id ?? undefined} count={servers.filter(server => server.group_id === group.id).length} selected={groupId === group.id} onSelect={() => selectGroup(group.id)} onDelete={group.kind === 'user' ? () => { void removeGroup(group.id) } : undefined} />
           ))}
           <GroupChoice active={active} label={copy.ungrouped} count={servers.filter(server => server.group_id === null).length} selected={groupId === ''} onSelect={() => selectGroup('')} />
         </nav>
@@ -244,10 +234,10 @@ function ServerList(props: { active: string; view: ListView; onView: (view: List
           <div className="table-wrap smp-server-table-scroll" ref={tableScroll}>
             <table className="clickable smp-server-table" aria-label={copy.instances}>
               <thead>
-                <tr><th>{copy.name}</th><th>{copy.address}</th><th>{copy.region}</th><th>{copy.reachability}</th><th>CPU</th><th>{copy.memory}</th><th>{copy.disk}</th><th>Docker</th><th>{copy.containersCount}</th><th>{copy.lastCheck}</th><th>{copy.group}</th></tr>
+                <tr><th>{copy.name}</th><th>{copy.address}</th><th>{copy.serverType}</th><th>{copy.region}</th><th>{copy.reachability}</th><th>{copy.softwareState}</th><th>CPU</th><th>{copy.memory}</th><th>{copy.disk}</th><th>Docker</th><th>{copy.containersCount}</th><th>{copy.lastCheck}</th><th>{copy.group}</th></tr>
               </thead>
               <tbody>
-                {rows.map(server => <ServerLine active={active} key={server.id} server={server} groups={groups} onOpen={props.onOpen} onMove={(id, groupId) => { void move(id, groupId) }} />)}
+                {rows.map(server => <ServerLine active={active} key={server.id} server={server} onOpen={props.onOpen} onEdit={props.onEdit} />)}
               </tbody>
             </table>
             {rows.length === 0 && <p className="smp-server-empty">{!loaded ? loadError ? copy.cannotLoadServers : copy.loadingServers : view.query.trim() !== '' ? copy.noMatches : groupId === null ? copy.noServers : copy.emptyGroup}</p>}
@@ -267,12 +257,12 @@ function ServerList(props: { active: string; view: ListView; onView: (view: List
   )
 }
 
-function GroupChoice(props: { active: string; label: string; count: number; selected: boolean; onSelect: () => void; onDelete?: () => void }) {
+function GroupChoice(props: { active: string; label: string; count: number; selected: boolean; system?: boolean; available?: boolean; source?: string; onSelect: () => void; onDelete?: () => void }) {
   const copy = serverCopy(props.active).ui
   return (
     <div className={`smp-server-group${props.selected ? ' is-on' : ''}`}>
-      <button className="smp-server-group-choice" type="button" aria-current={props.selected ? 'true' : undefined} onClick={props.onSelect} title={props.label}>
-        <span>{props.label}</span><span className="smp-server-group-count">{props.count}</span>
+      <button className="smp-server-group-choice" type="button" aria-current={props.selected ? 'true' : undefined} onClick={props.onSelect} title={props.source === undefined ? props.label : `${props.label} (${props.source})`}>
+        <span>{props.label}{props.system && <small className="smp-server-group-source">{props.available === false ? copy.pluginUnavailable : copy.systemGroup}</small>}</span><span className="smp-server-group-count">{props.count}</span>
       </button>
       {props.onDelete && <button className="smp-server-group-delete" type="button" aria-label={format(copy.deleteNamedGroup, { name: props.label })} title={copy.deleteGroup} onClick={props.onDelete}>
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 4.5h10M6 4.5V2.8h4v1.7M4.5 4.5l.6 9h5.8l.6-9M6.5 7v4M9.5 7v4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -281,26 +271,25 @@ function GroupChoice(props: { active: string; label: string; count: number; sele
   )
 }
 
-function ServerLine(props: { active: string; server: ServerRow; groups: GroupRow[]; onOpen: (id: string) => void; onMove: (id: string, groupId: string) => void }) {
+function ServerLine(props: { active: string; server: ServerRow; onOpen: (id: string) => void; onEdit: (id: string) => void }) {
   const { server, active } = props
   const copy = serverCopy(active).ui
   return (
     <tr onClick={() => { props.onOpen(server.id) }}>
       <td><button className="smp-server-open" type="button" onClick={event => { event.stopPropagation(); props.onOpen(server.id) }}>{server.name}</button></td>
       <td className="mono">{server.intranet_host}:{server.ssh_port}</td>
+      <td title={server.type_available ? undefined : copy.typeUnavailable}>{localized(server.type_name_i18n, active)}</td>
       <td>{server.region || '—'}</td>
       <td><span className={`pill ${server.reachability}`}>{enumLabel(serverCopy(active).reach, server.reachability)}</span></td>
+      <td><SoftwareState state={server.software_state} active={active} /></td>
       <td>{meter(server.cpu_percent, '%')}</td>
       <td>{meter(ratio(server.mem_used_bytes, server.mem_total_bytes), bytes(server.mem_used_bytes))}</td>
       <td>{meter(ratio(server.disk_used_bytes, server.disk_total_bytes), bytes(server.disk_used_bytes))}</td>
       <td>{server.docker_version || '—'}</td>
-      <td>{server.container_count}</td>
+      <td>{server.container_count ?? '—'}</td>
       <td className="nowrap">{formatDate(server.last_checked_at, active)}</td>
       <td onClick={event => { event.stopPropagation() }}>
-        <select className="group-pick" aria-label={format(copy.serverGroup, { name: server.name })} value={server.group_id ?? ''} onChange={event => { props.onMove(server.id, event.target.value) }}>
-          <option value="">{copy.ungrouped}</option>
-          {props.groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
-        </select>
+        <button className="link" type="button" title={copy.adjustGroup} aria-label={format(copy.serverGroup, { name: server.name })} onClick={() => props.onEdit(server.id)}>{server.group_name_i18n ? localized(server.group_name_i18n, active) : server.group_name ?? copy.ungrouped}</button>
       </td>
     </tr>
   )
@@ -318,63 +307,80 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
   const [keyName, setKeyName] = useState('')
   const [secret, setSecret] = useState('')
   const [groupId, setGroupId] = useState(props.initialGroupId)
+  const [typeKey, setTypeKey] = useState('')
+  const [savedType, setSavedType] = useState<ServerTypeView | undefined>()
+  const [original, setOriginal] = useState<{ groupId: string; typeKey: string } | undefined>()
   const [region, setRegion] = useState('')
   const [auto, setAuto] = useState(false)
-  const [picked, setPicked] = useState<string[]>([])
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [keys, setKeys] = useState<KeyRow[]>([])
-  const [components, setComponents] = useState<ComponentRow[]>([])
+  const [defaults, setDefaults] = useState<TypeOptions | undefined>()
+  const [serverLoaded, setServerLoaded] = useState(!props.editing)
   const [error, setError] = useState<ServerError | null>(null)
   const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const initialized = useRef(false)
 
   useEffect(() => {
+    let stopped = false
     void Promise.all([
-      api<GroupRow[]>('/console-api/server-groups'),
-      api<KeyRow[]>('/console-api/ssh-keys'),
-      api<ComponentRow[]>('/console-api/components'),
-    ]).then(([nextGroups, nextKeys, nextComponents]) => {
-      setGroups(nextGroups)
-      setKeys(nextKeys)
-      setComponents(nextComponents)
-    }).catch((cause: unknown) => { setError(requestError(cause)) })
+      api<GroupRow[]>('/console-api/server-groups'), api<KeyRow[]>('/console-api/ssh-keys'), api<TypeOptions>('/console-api/server-types'),
+    ]).then(([nextGroups, nextKeys, nextDefaults]) => {
+      if (stopped) return
+      setGroups(nextGroups); setKeys(nextKeys); setDefaults(nextDefaults)
+    }).catch((cause: unknown) => { if (!stopped) setError(requestError(cause)) })
+    return () => { stopped = true }
   }, [])
 
   useEffect(() => {
     if (!props.editing || props.serverId === '') return
+    let stopped = false
     void api<ServerRow>(`/console-api/servers/${props.serverId}`).then(server => {
-      setName(server.name)
-      setHost(server.intranet_host)
-      setPort(String(server.ssh_port))
-      setUser(server.ssh_user)
-      setMethod(server.auth_method)
-      setKeyId(server.ssh_key_id ?? '')
-      setGroupId(server.group_id ?? '')
-      setRegion(server.region ?? '')
-      setAuto(server.auto_install)
-      setPicked(server.install_component_ids)
-    }).catch((cause: unknown) => { setError(requestError(cause)) })
+      if (stopped) return
+      setName(server.name); setHost(server.intranet_host); setPort(String(server.ssh_port)); setUser(server.ssh_user)
+      setMethod(server.auth_method); setKeyId(server.ssh_key_id ?? ''); setGroupId(server.group_id ?? ''); setRegion(server.region ?? '')
+      setAuto(server.auto_install); setTypeKey(server.type_key)
+      setSavedType({ key: server.type_key, name_i18n: server.type_name_i18n, software: server.required_software })
+      setOriginal({ groupId: server.group_id ?? '', typeKey: server.type_key }); setServerLoaded(true)
+    }).catch((cause: unknown) => { if (!stopped) setError(requestError(cause)) })
+    return () => { stopped = true }
   }, [props.editing, props.serverId])
 
+  const choices = groupId === '' ? defaults : groups.find(group => group.id === groupId)
+  const selected = choices?.types.find(type => type.key === typeKey) ?? (savedType?.key === typeKey ? savedType : undefined)
+  const originalBinding = original?.groupId === groupId && original.typeKey === typeKey
+  const available = choices?.available === true && choices.types.some(type => type.key === typeKey)
+  const software = selected?.software ?? []
+  const canSave = defaults !== undefined && serverLoaded && selected !== undefined && (available || originalBinding)
+
+  useEffect(() => {
+    if (defaults === undefined || !serverLoaded || initialized.current || choices === undefined) return
+    initialized.current = true
+    if (typeKey === '') setTypeKey(choices.default_type_key)
+  }, [defaults, serverLoaded, choices, typeKey])
+
+  function changeGroup(id: string): void {
+    const next = id === '' ? defaults : groups.find(group => group.id === id)
+    const type = next?.types.find(item => item.key === typeKey) ?? next?.types.find(item => item.key === next.default_type_key)
+    if (selected === undefined || type === undefined || !sameSoftware(selected, type)) setAuto(false)
+    setGroupId(id); setTypeKey(type?.key ?? '')
+  }
+
   async function preview(): Promise<void> {
-    setError(null)
-    setFingerprint(null)
+    setError(null); setFingerprint(null)
     try {
       const result = await api<{ ok: boolean; fingerprint?: string }>('/console-api/servers/test-connection', {
-        method: 'POST',
-        body: JSON.stringify({ intranet_host: host, ssh_port: Number(port), ssh_user: user, auth_method: method, secret }),
+        method: 'POST', body: JSON.stringify({ intranet_host: host, ssh_port: Number(port), ssh_user: user, auth_method: method, secret }),
       })
       if (result.ok) setFingerprint(result.fingerprint ?? '')
       else setError(responseError(result))
-    } catch (cause) {
-      setError(requestError(cause))
-    }
+    } catch (cause) { setError(requestError(cause)) }
   }
 
   async function save(event: FormEvent): Promise<void> {
     event.preventDefault()
-    setBusy(true)
-    setError(null)
+    if (!canSave || busy) return
+    setBusy(true); setError(null)
     try {
       let nextKey = keyId
       if (method === 'private_key' && secret.trim() !== '') {
@@ -382,15 +388,8 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
         nextKey = created.id
       }
       const body = {
-        name: name.trim(),
-        intranet_host: host.trim(),
-        ssh_port: Number(port),
-        ssh_user: user.trim(),
-        auth_method: method,
-        group_id: groupId === '' ? null : groupId,
-        region,
-        auto_install: auto,
-        install_component_ids: picked,
+        name: name.trim(), intranet_host: host.trim(), ssh_port: Number(port), ssh_user: user.trim(), auth_method: method,
+        group_id: groupId === '' ? null : groupId, type_key: typeKey, region, auto_install: software.length > 0 && auto,
         ssh_key_id: method === 'private_key' ? nextKey : undefined,
         secret: method === 'password' && secret.trim() !== '' ? secret : undefined,
       }
@@ -398,17 +397,13 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
         ? await api<ServerRow>(`/console-api/servers/${props.serverId}`, { method: 'PATCH', body: JSON.stringify(body) })
         : await api<ServerRow>('/console-api/servers', { method: 'POST', body: JSON.stringify(body) })
       props.onDone(saved.id)
-    } catch (cause) {
-      setError(requestError(cause))
-    } finally {
-      setBusy(false)
-    }
+    } catch (cause) { setError(requestError(cause)) } finally { setBusy(false) }
   }
 
   return (
     <Panel title={props.editing ? copy.editServer : copy.registerServer} extra={<button className="link" type="button" onClick={props.onCancel}>{copy.back}</button>}>
-      {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
-      {fingerprint !== null ? <p className="banner ok">{format(copy.connected, { fingerprint })}</p> : null}
+      {error !== null && <p className="banner error" role="alert">{displayError(active, error)}</p>}
+      {fingerprint !== null && <p className="banner ok">{format(copy.connected, { fingerprint })}</p>}
       <form className="panel-form" onSubmit={event => { void save(event) }}>
         <label className="field">{copy.name}<input value={name} onChange={event => { setName(event.target.value) }} /></label>
         <div className="triple">
@@ -416,49 +411,60 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
           <label className="field">{copy.port}<input value={port} onChange={event => { setPort(event.target.value) }} /></label>
           <label className="field">{copy.user}<input value={user} onChange={event => { setUser(event.target.value) }} /></label>
         </div>
-        <label className="field">{copy.authMethod}
-          <select value={method} onChange={event => { setMethod(event.target.value) }}>
-            <option value="private_key">{copy.privateKey}</option>
-            <option value="password">{copy.password}</option>
-          </select>
-        </label>
-        {method === 'private_key' ? (
-          <>
-            <label className="field">{copy.existingKey}
-              <select value={keyId} onChange={event => { setKeyId(event.target.value) }}>
-                <option value="">{copy.noKey}</option>
-                {keys.map(key => <option key={key.id} value={key.id}>{key.name}</option>)}
-              </select>
-            </label>
-            <label className="field">{copy.newKeyName}<input value={keyName} onChange={event => { setKeyName(event.target.value) }} /></label>
-            <label className="field">{copy.pasteKey}<textarea value={secret} onChange={event => { setSecret(event.target.value) }} placeholder={copy.secretHint} /></label>
-          </>
-        ) : <label className="field">{copy.password}<input type="password" value={secret} onChange={event => { setSecret(event.target.value) }} /></label>}
+        <label className="field">{copy.authMethod}<select value={method} onChange={event => { setMethod(event.target.value) }}>
+          <option value="private_key">{copy.privateKey}</option><option value="password">{copy.password}</option>
+        </select></label>
+        {method === 'private_key' ? <>
+          <label className="field">{copy.existingKey}<select value={keyId} onChange={event => { setKeyId(event.target.value) }}>
+            <option value="">{copy.noKey}</option>{keys.map(key => <option key={key.id} value={key.id}>{key.name}</option>)}
+          </select></label>
+          <label className="field">{copy.newKeyName}<input value={keyName} onChange={event => { setKeyName(event.target.value) }} /></label>
+          <label className="field">{copy.pasteKey}<textarea value={secret} onChange={event => { setSecret(event.target.value) }} placeholder={copy.secretHint} /></label>
+        </> : <label className="field">{copy.password}<input type="password" value={secret} onChange={event => { setSecret(event.target.value) }} /></label>}
         <div className="triple">
-          <label className="field">{copy.group}
-            <select value={groupId} onChange={event => { setGroupId(event.target.value) }}>
-              <option value="">{copy.ungrouped}</option>
-              {groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
-            </select>
-          </label>
+          <label className="field">{copy.group}<select value={groupId} onChange={event => { changeGroup(event.target.value) }}>
+            <option value="">{copy.ungrouped}</option>
+            {groups.map(group => <option key={group.id} value={group.id} disabled={!group.available && group.id !== original?.groupId}>{localizedGroupName(active, group)}{group.available ? '' : ` (${copy.pluginUnavailable})`}</option>)}
+          </select></label>
+          <label className="field">{copy.serverType}<select value={typeKey} onChange={event => { setTypeKey(event.target.value); setAuto(false) }} disabled={!choices?.available}>
+            {selected !== undefined && !choices?.types.some(type => type.key === typeKey) && <option value={typeKey}>{localized(selected.name_i18n, active)} ({copy.typeUnavailable})</option>}
+            {(choices?.types ?? []).map(type => <option key={type.key} value={type.key}>{localized(type.name_i18n, active)}</option>)}
+          </select></label>
           <label className="field">{copy.region}<input value={region} onChange={event => { setRegion(event.target.value) }} placeholder={copy.autoRegion} /></label>
         </div>
-        <label><input type="checkbox" checked={auto} onChange={event => { setAuto(event.target.checked) }} /> {copy.autoInstall}</label>
-        <div className="component-picks">
-          {components.map(component => (
-            <label key={component.id}>
-              <input type="checkbox" checked={picked.includes(component.id)} onChange={event => { setPicked(event.target.checked ? [...picked, component.id] : picked.filter(id => id !== component.id)) }} />
-              <span><strong>{componentText(active, component).name}</strong><em className="muted">{componentText(active, component).summary}</em></span>
-            </label>
-          ))}
-        </div>
+        {choices !== undefined && !available && <p className="muted">{copy.typeUnavailable}</p>}
+        {props.editing && !originalBinding && <p className="muted">{copy.typeChangeNote}</p>}
+        <h2>{copy.requiredSoftware}</h2>
+        <RequiredSoftware active={active} software={software} />
+        <label className="smp-server-auto-install"><input type="checkbox" checked={software.length > 0 && auto} disabled={software.length === 0 || !available} onChange={event => { setAuto(event.target.checked) }} /> {copy.autoInstall}</label>
         <div className="row">
           <button className="secondary" type="button" disabled={secret.trim() === ''} onClick={() => { void preview() }}>{copy.testConnection}</button>
-          <button className="primary" type="submit" disabled={busy}>{copy.save}</button>
+          <button className="primary" type="submit" disabled={busy || !canSave}>{copy.save}</button>
         </div>
       </form>
     </Panel>
   )
+}
+
+function SoftwareState(props: { active: string; state: string }) {
+  const copy = serverCopy(props.active).ui
+  const labels: Record<string, string> = { ready: copy.softwareReady, pending: copy.softwarePending, unknown: copy.softwareUnknown, unavailable: copy.softwareUnavailable }
+  return <span className={`pill ${props.state === 'ready' ? 'online' : props.state === 'pending' ? 'queued' : 'unknown'}`}>{enumLabel(labels, props.state)}</span>
+}
+
+function RequiredSoftware(props: { active: string; software: readonly SoftwareView[]; status?: ServerRow['component_status'] }) {
+  const copy = serverCopy(props.active).ui
+  if (props.software.length === 0) return <p className="muted">{copy.noRequiredSoftware}</p>
+  return <ul className="smp-required-software">{props.software.map(component => {
+    const item = props.status?.[component.id]
+    const state = item?.state ?? (item?.installed === true ? 'installed' : 'unknown')
+    const status = state === 'installed' ? copy.installed : state === 'missing' ? copy.notInstalled : copy.softwareUnknown
+    return <li key={component.id}><strong>{componentText(props.active, component).name}</strong>
+      {props.status !== undefined && <span>{status}</span>}
+      <small className="muted">{componentText(props.active, component).summary}</small>
+      {item?.detail && <small className="muted">{item.detail}</small>}
+    </li>
+  })}</ul>
 }
 
 function ServerDetail(props: { active: string; id: string; onEdit: () => void; onTerminal: () => void; onBack: () => void }) {
@@ -503,18 +509,22 @@ function ServerDetail(props: { active: string; id: string; onEdit: () => void; o
   }
 
   if (server === undefined) return <Panel title={copy.server}><p className="muted">{error === null ? copy.loading : displayError(active, error)}</p></Panel>
-  const missing = Object.values(server.component_status).some(item => item.installed === false)
+  const missing = server.type_available && server.required_software.length > 0 && server.software_state !== 'ready'
   const containers = server.containers ?? []
-  const containerNote = server.reachability === 'unknown' ? copy.notTested : containers.length === 0 ? copy.containerRefresh : ''
+  const containerNote = server.containers_state === 'unavailable' ? copy.containerUnavailable : server.containers_state === 'error' ? copy.containerError
+    : server.containers_state === 'unknown' ? copy.containerUnknown : containers.length === 0 ? copy.noContainers : ''
   return (
     <Panel title={server.name} extra={<button className="link" type="button" onClick={props.onBack}>{copy.back}</button>}>
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       {queued ? <p className="banner ok">{copy.jobQueued}</p> : null}
+      {!server.type_available && <p className="banner error">{copy.typeUnavailable}</p>}
       <div className="node-card">
         <div className="node-title"><span className="name-text">{server.intranet_host}:{server.ssh_port}</span><span className={`pill ${server.reachability}`}>{enumLabel(serverCopy(active).reach, server.reachability)}</span></div>
         <div className="node-grid">
           <div><span>{copy.user}</span>{server.ssh_user}</div>
           <div><span>{copy.region}</span>{server.region || '—'}</div>
+          <div><span>{copy.serverType}</span>{localized(server.type_name_i18n, active)}</div>
+          <div><span>{copy.requiredSoftware}</span><SoftwareState active={active} state={server.software_state} /></div>
           <div><span>Docker</span>{server.docker_version || '—'}</div>
           <div><span>Compose</span>{server.compose_version || '—'}</div>
           <div><span>{copy.hostFingerprint}</span><b className="mono">{server.host_key_fingerprint || copy.notPinned}</b></div>
@@ -528,10 +538,12 @@ function ServerDetail(props: { active: string; id: string; onEdit: () => void; o
           <button className="link danger" type="button" onClick={() => { void remove() }}>{copy.delete}</button>
         </div>
       </div>
-      <h2>{copy.components}</h2>
-      <ul>{Object.entries(server.component_status).map(([id, item]) => <li key={id}>{componentName(active, id)}: {item.installed ? copy.installed : copy.notInstalled} {item.detail ?? ''}</li>)}</ul>
+      <h2>{copy.requiredSoftware}</h2>
+      <RequiredSoftware active={active} software={server.required_software} status={server.component_status} />
       <h2>{copy.containers}</h2>
-      {containerNote !== '' ? <p className="empty">{containerNote}</p> : (
+      {containerNote !== '' && <p className="empty">{containerNote}</p>}
+      {server.containers_checked_at !== null && <p className="muted">{format(copy.containerObserved, { time: formatDate(server.containers_checked_at, active) })}</p>}
+      {containers.length > 0 && (
         <table>
           <thead><tr><th>{copy.name}</th><th>{copy.image}</th><th>{copy.status}</th><th>{copy.ports}</th></tr></thead>
           <tbody>{containers.map(item => <tr key={item.container_id}><td>{item.name}</td><td>{item.image}</td><td><span className={`pill ${item.status}`}>{enumLabel(serverCopy(active).containerStatus, item.status)}</span></td><td>{item.ports}</td></tr>)}</tbody>

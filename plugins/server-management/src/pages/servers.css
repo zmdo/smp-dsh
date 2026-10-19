@@ -30,12 +30,17 @@
 .smp-console .smp-server-tools .search { width: 180px; }
 .smp-console .smp-server-main .banner { margin: 12px 16px 0; flex: none; }
 .smp-server-table-scroll { flex: 1; min-height: 0; }
-.smp-console .smp-server-table { min-width: 1100px; }
+.smp-console .smp-server-table { min-width: 1340px; }
 .smp-console .smp-server-table th { position: sticky; top: 0; z-index: 1; height: 36px; padding: 8px 12px; box-sizing: border-box; background: var(--dsw-alias-bg-layer-2); white-space: nowrap; }
 .smp-console .smp-server-table td { height: 36px; padding: 3px 12px; box-sizing: border-box; white-space: nowrap; }
 .smp-console .smp-server-table th:last-child { right: 0; z-index: 3; }
 .smp-console .smp-server-table td:last-child { position: sticky; right: 0; background: var(--dsw-alias-bg-layer-1); box-shadow: -1px 0 var(--line); }
-.smp-console .smp-server-table select.group-pick { width: 104px; height: 28px; margin-right: 0; }
+.smp-server-group-source { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
+.smp-required-software { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.smp-required-software li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.smp-required-software small { flex-basis: 100%; }
+.smp-console .panel-form .smp-server-auto-install { display: flex; align-items: center; gap: 8px; }
+.smp-console .panel-form .smp-server-auto-install input { width: auto; margin: 0; }
 .smp-console .smp-server-table tbody tr:hover td { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-server-open { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 .smp-server-open:hover { color: var(--primary); }

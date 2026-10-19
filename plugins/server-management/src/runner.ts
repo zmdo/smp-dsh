@@ -1,30 +1,17 @@
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { CatalogError, loadCatalog, normalizeSelection } from './catalog.ts'
+import { DefinitionRegistry, type TypeLease } from './registry.ts'
 import { isKnownAction, UNIMPLEMENTED_MESSAGE } from './jobs.ts'
-import { dockerAccessMessage, excerpt, parseComposeVersion, parseDockerVersion, parsePs, scrub } from './parse.ts'
-import { FingerprintMismatch, SshError, connectSsh, type SshSession } from './ssh.ts'
-import {
-  finishJob,
-  loadJob,
-  replaceContainers,
-  saveComponentStatus,
-  saveFailure,
-  saveProbe,
-  serverSecret,
-  type Db,
-} from './store.ts'
-
-const DOCKER_VERSION = "docker version --format '{{json .}}'"
-const COMPOSE_VERSION = 'docker compose version --format json'
-const DOCKER_PS = "docker ps -a --no-trunc --format '{{json .}}'"
+import { ServerError } from './i18n.ts'
+import { scrub } from './parse.ts'
+import { connectSsh, type SshSession } from './ssh.ts'
+import { detectSoftware, inspectContainers, installRequired, type SoftwareStatus } from './software.ts'
+import { finishJob, loadJob, markConnected, recordFailure, saveComponentStatus, saveObservation, serverSecret, type Db } from './store.ts'
 
 interface Secrets {
   decrypt(ciphertext: string): string
 }
 
-/** Run one claimed job. The row is already `running`. */
-export async function executeJob(db: Db, secrets: Secrets, componentsDir: string, jobId: string): Promise<void> {
+/** Every mutating job is bound to the configuration and type definition accepted at enqueue time. */
+export async function executeJob(db: Db, secrets: Secrets, definitions: DefinitionRegistry, jobId: string, connect: typeof connectSsh = connectSsh): Promise<void> {
   const job = await loadJob(db, jobId)
   if (job === undefined || job.status !== 'running') return
   if (!isKnownAction(job.action)) {
@@ -33,161 +20,64 @@ export async function executeJob(db: Db, secrets: Secrets, componentsDir: string
   }
   const server = await serverSecret(db, job.server_id)
   if (server === undefined) {
-    await finishJob(db, jobId, 'failed', '服务器不存在')
+    await finishJob(db, jobId, 'failed', new ServerError('server_not_found').message)
+    return
+  }
+  if (job.config_revision !== null && String(job.config_revision) !== String(server.config_revision)) {
+    await finishJob(db, jobId, 'failed', new ServerError('job_configuration_changed').message)
     return
   }
   let secret = ''
-  try {
-    secret = secrets.decrypt(server.secret_ciphertext)
-  } catch (cause) {
+  try { secret = secrets.decrypt(server.secret_ciphertext) } catch (cause) {
     void cause
-    await saveFailure(db, server.id, jobId, '无法解密', false, undefined, false)
+    await finishJob(db, jobId, 'failed', new ServerError('secret_unavailable').message)
     return
   }
+  let session: SshSession | undefined
+  let lease: TypeLease | undefined
+  let connected = false
   try {
-    if (job.action === 'inspect') await runInspect(db, jobId, server, secret)
-    else {
-      const catalog = await loadCatalog(componentsDir)
-      const selected = job.action === 'install_components'
-        ? catalog.map(item => item.id)
-        : server.auto_install ? normalizeSelection(catalog, parseIds(server.install_component_ids)) : []
-      await runPrepare(db, componentsDir, jobId, server, secret, selected)
+    const open = () => connect({ host: server.intranet_host, port: server.ssh_port, username: server.ssh_user, authMethod: server.auth_method, secret, expectedFingerprint: server.host_key_fingerprint })
+    session = await open()
+    connected = true
+    await markConnected(db, server.id, session.fingerprint)
+    lease = await definitions.lease(server.group_id, server.type_key)
+    if (job.action === 'install_components' && lease === undefined) throw new ServerError('type_unavailable')
+    const install = job.action === 'install_components' || (job.action === 'test_connection' && server.auto_install)
+    if (install && lease !== undefined && lease.components.length > 0
+      && (job.type_signature !== lease.signature || job.config_revision === null)) throw new ServerError('job_definition_changed')
+    let status = lease === undefined ? undefined : await detectSoftware(session, lease.components)
+    if (install && lease !== undefined && lease.components.length > 0 && status !== undefined) {
+      status = await installRequired(session, lease.components, status, async () => {
+        const fingerprint = session!.fingerprint
+        session!.close()
+        session = await connect({ host: server.intranet_host, port: server.ssh_port, username: server.ssh_user, authMethod: server.auth_method, secret, expectedFingerprint: fingerprint })
+        return session
+      })
+      status = await detectSoftware(session, lease.components)
+      if (Object.values(status).some(item => item.state !== 'installed')) throw new ServerError('software_install_unverified', { component: server.type_key })
     }
+    const observation = await inspectContainers(session)
+    const summary = lease === undefined ? '类型定义不可用，未执行必要软件脚本。'
+      : lease.components.length === 0 ? '没有必要软件。'
+      : `必要软件：${Object.values(status ?? {}).filter(item => item.state === 'installed').length}/${lease.components.length} 已安装。`
+    const output = `SSH 已连接。${summary} 容器巡检：${observation.state}。主机指纹 ${session.fingerprint}。`
+    await saveObservation(db, server.id, jobId, status === undefined ? undefined : clean(status, secret), observation, scrub(output, secret))
   } catch (cause) {
-    if (cause instanceof CatalogError) {
-      await finishJob(db, jobId, 'failed', cause.message)
-      return
+    if (session !== undefined && lease !== undefined) {
+      const actual = await detectSoftware(session, lease.components)
+      await saveComponentStatus(db, server.id, clean(actual, secret))
     }
-    const error = cause instanceof SshError ? cause : new SshError('connection_failed', undefined, {}, { cause })
-    const dockerDown = !(cause instanceof FingerprintMismatch) && isDockerProblem(error.message)
-    await saveFailure(
-      db,
-      server.id,
-      jobId,
-      scrub(error.message, secret),
-      dockerDown,
-      error.fingerprint,
-      !(cause instanceof FingerprintMismatch),
-    )
-  }
-}
-
-async function runPrepare(db: Db, componentsDir: string, jobId: string, server: Awaited<ReturnType<typeof serverSecret>> & object, secret: string, componentIds: string[]): Promise<void> {
-  let session = await open(server, secret)
-  try {
-    let status = await detect(session, componentsDir)
-    await saveComponentStatus(db, server.id, status)
-    const report = componentIds.length > 0 ? await installMissing(session, componentsDir, componentIds) : undefined
-    if (report?.changed) {
-      const fingerprint = session.fingerprint
-      session.close()
-      session = await open({ ...server, host_key_fingerprint: fingerprint }, secret)
-    }
-    if (report !== undefined) {
-      status = await detect(session, componentsDir)
-      await saveComponentStatus(db, server.id, status)
-    }
-    const versions = await readVersions(session)
-    let output = `已连接。Docker ${versions.docker}，Compose ${versions.compose}。主机指纹 ${session.fingerprint}。`
-    if (report !== undefined && report.notes.length > 0) output = `${report.notes.join(' ')} ${output}`
-    await saveProbe(db, server.id, jobId, session.fingerprint, versions.docker, versions.compose, scrub(output, secret))
+    const message = cause instanceof Error ? cause.message : new ServerError('connection_failed').message
+    await recordFailure(db, server.id, jobId, scrub(message, secret), connected)
   } finally {
-    session.close()
+    session?.close()
+    lease?.release()
   }
 }
 
-async function runInspect(db: Db, jobId: string, server: NonNullable<Awaited<ReturnType<typeof serverSecret>>>, secret: string): Promise<void> {
-  const session = await open(server, secret)
-  try {
-    const versions = await readVersions(session)
-    const listed = await session.exec(DOCKER_PS, 15_000)
-    if (listed.code !== 0) {
-      const access = dockerAccessMessage(listed.stderr)
-      throw new SshError('containers_failed', undefined, { detail: access ?? excerpt(listed.stderr || listed.stdout) })
-    }
-    const containers = parsePs(listed.stdout)
-    const output = scrub(`巡检完成，${containers.length} 个容器。Docker ${versions.docker}。`, secret)
-    await db.query(
-      `update servers set docker_version = $2, compose_version = $3, host_key_fingerprint = $4, updated_at = now() where id = $1`,
-      [server.id, versions.docker, versions.compose, session.fingerprint],
-    )
-    await replaceContainers(db, server.id, jobId, containers, output)
-  } finally {
-    session.close()
-  }
-}
-
-async function open(server: { intranet_host: string; ssh_port: number; ssh_user: string; auth_method: string; host_key_fingerprint: string | null }, secret: string): Promise<SshSession> {
-  return connectSsh({
-    host: server.intranet_host,
-    port: server.ssh_port,
-    username: server.ssh_user,
-    authMethod: server.auth_method,
-    secret,
-    expectedFingerprint: server.host_key_fingerprint,
-  })
-}
-
-async function readVersions(session: SshSession): Promise<{ docker: string; compose: string }> {
-  const docker = await session.exec(DOCKER_VERSION, 15_000)
-  if (docker.code !== 0) {
-    const access = dockerAccessMessage(docker.stderr)
-    throw new SshError('docker_version_failed', undefined, { detail: access ?? '' })
-  }
-  const compose = await session.exec(COMPOSE_VERSION, 15_000)
-  if (compose.code !== 0) throw new SshError('compose_version_failed', undefined, { detail: dockerAccessMessage(compose.stderr) ?? '' })
-  return { docker: parseDockerVersion(docker.stdout), compose: parseComposeVersion(compose.stdout) }
-}
-
-async function detect(session: SshSession, componentsDir: string): Promise<Record<string, { installed: boolean; detail: string }>> {
-  const catalog = await loadCatalog(componentsDir)
-  const status: Record<string, { installed: boolean; detail: string }> = {}
-  for (const component of catalog) {
-    const result = await runScript(session, componentsDir, component.id, 'detect', 30_000)
-    const line = result.stdout.split('\n').map(item => item.trim()).find(item => item !== '') ?? ''
-    status[component.id] = { installed: result.code === 0, detail: line.slice(0, 120) }
-  }
-  return status
-}
-
-async function installMissing(session: SshSession, componentsDir: string, ids: string[]): Promise<{ notes: string[]; changed: boolean }> {
-  const wanted = new Set(ids)
-  const notes: string[] = []
-  let changed = false
-  for (const component of await loadCatalog(componentsDir)) {
-    if (!wanted.has(component.id)) continue
-    const detected = await runScript(session, componentsDir, component.id, 'detect', 30_000)
-    if (detected.code === 0) {
-      notes.push(`${component.name} 已安装，跳过`)
-      continue
-    }
-    const installed = await runScript(session, componentsDir, component.id, 'install', 600_000)
-    if (installed.code !== 0) {
-      const detail = (installed.stderr || installed.stdout).trim()
-      throw new SshError('component_install_failed', undefined, { component: component.name, detail: detail.slice(-500), exitCode: installed.code })
-    }
-    notes.push(`已安装 ${component.name}`)
-    changed = true
-  }
-  return { notes, changed }
-}
-
-async function runScript(session: SshSession, componentsDir: string, id: string, kind: 'detect' | 'install', timeoutMs: number) {
-  const body = await readFile(join(componentsDir, id, `${kind}.sh`))
-  await session.putScript(`${id}-${kind}.sh`, body)
-  return session.exec(`sh /tmp/smp-components/${id}-${kind}.sh`, timeoutMs)
-}
-
-function parseIds(raw: string): string[] {
-  try {
-    const value = JSON.parse(raw) as unknown
-    return Array.isArray(value) ? value.map(item => String(item)) : []
-  } catch (cause) {
-    void cause
-    return []
-  }
-}
-
-function isDockerProblem(message: string): boolean {
-  return message.includes('Docker') || message.includes('Compose') || message.includes('docker')
+function clean(status: SoftwareStatus, secret: string): SoftwareStatus {
+  return Object.fromEntries(Object.entries(status).map(([id, item]) => [id, {
+    ...item, detail: scrub(item.detail, secret), ...(item.version === undefined ? {} : { version: scrub(item.version, secret) }),
+  }]))
 }

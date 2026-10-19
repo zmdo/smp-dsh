@@ -5,12 +5,18 @@ import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { loadCatalog } from './catalog.ts'
 import { startMetrics } from './metrics.ts'
-import { routeComponents, routeGroups, routeJobs, routeKeys, routeServers } from './records.ts'
+import { routeComponents, routeGroups, routeJobs, routeKeys, routeServers, routeTypes } from './records.ts'
 import { cookieHeader, sendJson } from './reply.ts'
 import { executeJob } from './runner.ts'
 import { claimNext, dueInspects, enqueue, HttpError, recoverRunning, type Db } from './store.ts'
 import { terminalRoute } from './terminal.ts'
 import { errorPayload, ServerError } from './i18n.ts'
+import { DefinitionRegistry } from './registry.ts'
+import { ServerManagement } from './service.ts'
+
+export { ServerManagement } from './service.ts'
+export { VACANT_TYPE, GENERAL_TYPE } from './definitions.ts'
+export type { SystemGroupDefinition, ServerTypeDefinition, SoftwareDefinition, LocalizedText } from './definitions.ts'
 
 interface SessionService {
   read(cookieHeader: string): Promise<unknown>
@@ -59,72 +65,88 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   await access(config.componentsDir, constants.R_OK)
   const catalog = await loadCatalog(config.componentsDir)
   const db = ctx.database.pool
+  const definitions = new DefinitionRegistry(db, catalog)
   await recoverRunning(db)
-  const deps = { db, secrets: ctx.secrets, catalog }
-  yield startJobs(ctx, db, config)
-  yield startMetrics(db, ctx.secrets, config.metricsIntervalSeconds, (cause) => { ctx.logger.error(cause) })
-  yield ctx.webServer.register({
-    kind: 'exact',
-    path: '/console-api/servers',
-    handler: (request, response) => guard(ctx, request, response, () => routeServers(deps, request, response, '')),
+  const deps = { db, secrets: ctx.secrets, catalog, definitions }
+  yield ctx.effect(function* () {
+    yield () => definitions.close()
+    yield startJobs(ctx, db, config, definitions)
+    yield startMetrics(db, ctx.secrets, config.metricsIntervalSeconds, (cause) => { ctx.logger.error(cause) })
+    yield ctx.webServer.register({
+      kind: 'exact',
+      path: '/console-api/servers',
+      handler: (request, response) => guard(ctx, request, response, () => routeServers(deps, request, response, '')),
+    })
+    yield ctx.webServer.register({
+      kind: 'exact',
+      path: '/console-api/servers/test-connection',
+      handler: (request, response) => guard(ctx, request, response, () => routeServers(deps, request, response, '/test-connection')),
+    })
+    yield ctx.webServer.register({
+      kind: 'prefix',
+      path: '/console-api/servers',
+      handler: (request, response) => guard(ctx, request, response, () => routeServers(deps, request, response, suffix(request, '/console-api/servers'))),
+    })
+    yield ctx.webServer.register({
+      kind: 'exact',
+      path: '/console-api/server-groups',
+      handler: (request, response) => guard(ctx, request, response, () => routeGroups(db, request, response, '', definitions)),
+    })
+    yield ctx.webServer.register({
+      kind: 'prefix',
+      path: '/console-api/server-groups',
+      handler: (request, response) => guard(ctx, request, response, () => routeGroups(db, request, response, suffix(request, '/console-api/server-groups'), definitions)),
+    })
+    yield ctx.webServer.register({
+      kind: 'exact',
+      path: '/console-api/ssh-keys',
+      handler: (request, response) => guard(ctx, request, response, () => routeKeys(deps, request, response, '')),
+    })
+    yield ctx.webServer.register({
+      kind: 'prefix',
+      path: '/console-api/ssh-keys',
+      handler: (request, response) => guard(ctx, request, response, () => routeKeys(deps, request, response, suffix(request, '/console-api/ssh-keys'))),
+    })
+    yield ctx.webServer.register({
+      kind: 'exact',
+      path: '/console-api/server-types',
+      handler: (request, response) => guard(ctx, request, response, () => routeTypes(definitions, request, response)),
+    })
+    yield ctx.webServer.register({
+      kind: 'exact',
+      path: '/console-api/components',
+      handler: (request, response) => guard(ctx, request, response, async () => { routeComponents(catalog, request, response) }),
+    })
+    yield ctx.webServer.register({
+      kind: 'prefix',
+      path: '/console-api/ops-jobs',
+      handler: (request, response) => guard(ctx, request, response, () => routeJobs(db, request, response, suffix(request, '/console-api/ops-jobs'))),
+    })
+    const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession)
+    yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
+    yield () => terminal.close()
+    yield ctx.provide('serverManagement', new ServerManagement(ctx, definitions))
   })
-  yield ctx.webServer.register({
-    kind: 'exact',
-    path: '/console-api/servers/test-connection',
-    handler: (request, response) => guard(ctx, request, response, () => routeServers(deps, request, response, '/test-connection')),
-  })
-  yield ctx.webServer.register({
-    kind: 'prefix',
-    path: '/console-api/servers',
-    handler: (request, response) => guard(ctx, request, response, () => routeServers(deps, request, response, suffix(request, '/console-api/servers'))),
-  })
-  yield ctx.webServer.register({
-    kind: 'exact',
-    path: '/console-api/server-groups',
-    handler: (request, response) => guard(ctx, request, response, () => routeGroups(db, request, response, '')),
-  })
-  yield ctx.webServer.register({
-    kind: 'prefix',
-    path: '/console-api/server-groups',
-    handler: (request, response) => guard(ctx, request, response, () => routeGroups(db, request, response, suffix(request, '/console-api/server-groups'))),
-  })
-  yield ctx.webServer.register({
-    kind: 'exact',
-    path: '/console-api/ssh-keys',
-    handler: (request, response) => guard(ctx, request, response, () => routeKeys(deps, request, response, '')),
-  })
-  yield ctx.webServer.register({
-    kind: 'prefix',
-    path: '/console-api/ssh-keys',
-    handler: (request, response) => guard(ctx, request, response, () => routeKeys(deps, request, response, suffix(request, '/console-api/ssh-keys'))),
-  })
-  yield ctx.webServer.register({
-    kind: 'exact',
-    path: '/console-api/components',
-    handler: (request, response) => guard(ctx, request, response, async () => { routeComponents(catalog, request, response) }),
-  })
-  yield ctx.webServer.register({
-    kind: 'prefix',
-    path: '/console-api/ops-jobs',
-    handler: (request, response) => guard(ctx, request, response, () => routeJobs(db, request, response, suffix(request, '/console-api/ops-jobs'))),
-  })
-  const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession)
-  yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
-  yield () => terminal.close()
 }
 
-function startJobs(ctx: HostCtx, db: Db, config: Config): () => Promise<void> {
+function startJobs(ctx: HostCtx, db: Db, config: Config, definitions: DefinitionRegistry): () => Promise<void> {
   let stopped = false
   let pumping = false
   let active = 0
   const tasks = new Set<Promise<void>>()
-  const claim = setInterval(() => { void pump().catch((cause: unknown) => { ctx.logger.error(cause) }) }, 400)
-  const inspect = setInterval(() => { void queueInspects().catch((cause: unknown) => { ctx.logger.error(cause) }) }, 5000)
-  void pump().catch((cause: unknown) => { ctx.logger.error(cause) })
+  const loops = new Set<Promise<void>>()
+  const launch = (run: () => Promise<void>) => {
+    const task = run().catch((cause: unknown) => { ctx.logger.error(cause) }).finally(() => { loops.delete(task) })
+    loops.add(task)
+  }
+  const claim = setInterval(() => { launch(pump) }, 400)
+  const inspect = setInterval(() => { launch(queueInspects) }, 5000)
+  launch(pump)
   return async () => {
     stopped = true
     clearInterval(claim)
     clearInterval(inspect)
+    await Promise.all(loops)
     await Promise.all(tasks)
   }
 
@@ -136,7 +158,7 @@ function startJobs(ctx: HostCtx, db: Db, config: Config): () => Promise<void> {
         const id = await claimNext(db)
         if (id === undefined) return
         active += 1
-        const task = executeJob(db, ctx.secrets, config.componentsDir, id)
+        const task = executeJob(db, ctx.secrets, definitions, id)
           .catch((cause: unknown) => { ctx.logger.error(cause) })
           .finally(() => {
             active -= 1
@@ -152,7 +174,10 @@ function startJobs(ctx: HostCtx, db: Db, config: Config): () => Promise<void> {
   async function queueInspects(): Promise<void> {
     if (stopped) return
     const ids = await dueInspects(db, config.inspectIntervalSeconds)
-    for (const id of ids) await enqueue(db, id, 'inspect')
+    for (const id of ids) {
+      if (stopped) return
+      await enqueue(db, id, 'inspect')
+    }
   }
 }
 

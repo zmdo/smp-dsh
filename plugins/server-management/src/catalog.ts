@@ -1,6 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
+import { createHash } from 'node:crypto'
+import { ServerError, serverCopy, type ErrorCode, type MessageParams } from './i18n.ts'
+import type { LocalizedText } from './definitions.ts'
 
 export interface Component {
   id: string
@@ -9,6 +11,17 @@ export interface Component {
   order: number
   requires: string[]
   directory: string
+  recipe: string
+  detection: 'builtin' | 'json'
+  name_i18n: LocalizedText
+  summary_i18n: LocalizedText
+  detectScript: Buffer
+  installScript: Buffer
+}
+
+export function componentRevision(item: Component): string {
+  return createHash('sha256').update(JSON.stringify({ id: item.id, recipe: item.recipe, requires: item.requires }))
+    .update(item.detectScript).update(item.installScript).digest('hex')
 }
 
 export class CatalogError extends ServerError {
@@ -40,6 +53,11 @@ export async function loadCatalog(root: string): Promise<Component[]> {
     const id = String(meta.id ?? '')
     if (id !== name) throw new CatalogError('component_id', { component: name })
     const requires = Array.isArray(meta.requires) ? meta.requires.map(item => String(item)) : []
+    const builtin = id === 'docker' || id === 'compose'
+    const fallback = { name: String(meta.name ?? id), summary: String(meta.summary ?? '') }
+    const zh = builtin ? serverCopy('zh').components[id] : fallback
+    const en = builtin ? serverCopy('en').components[id] : fallback
+    const [detectScript, installScript] = await Promise.all([readFile(join(directory, 'detect.sh')), readFile(join(directory, 'install.sh'))])
     found.push({
       id,
       name: String(meta.name ?? id),
@@ -47,6 +65,12 @@ export async function loadCatalog(root: string): Promise<Component[]> {
       order: Number(meta.order ?? 0),
       requires,
       directory,
+      recipe: `builtin/${id}`,
+      detection: builtin ? 'builtin' : 'json',
+      name_i18n: { zh: zh.name, en: en.name },
+      summary_i18n: { zh: zh.summary, en: en.summary },
+      detectScript,
+      installScript,
     })
   }
   found.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))

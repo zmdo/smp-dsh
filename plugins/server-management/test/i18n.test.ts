@@ -7,6 +7,8 @@ import { pageLabel } from '../src/page-label.ts'
 import { displayError, responseError } from '../src/pages/api.ts'
 import { routeGroups, routeKeys, routeServers } from '../src/records.ts'
 import { HttpError, type Db } from '../src/store.ts'
+import { DefinitionRegistry } from '../src/registry.ts'
+import { builtinCatalog } from './fixtures.ts'
 
 test('Chinese and English cover the same messages and placeholders', () => {
   function compare(left: object, right: object): void {
@@ -86,14 +88,15 @@ async function invalidPost(body: object, route: (request: IncomingMessage, respo
 }
 
 test('server and key validation return stable codes without attempting a write', async () => {
-  const deps = { db: noDb, catalog: [], secrets: { encrypt: (value: string) => value, decrypt: (value: string) => value } }
+  const deps = { db: noDb, catalog: builtinCatalog(), definitions: new DefinitionRegistry(noDb, builtinCatalog()), secrets: { encrypt: (value: string) => value, decrypt: (value: string) => value } }
   await invalidPost({}, (request, response) => routeServers(deps, request, response, ''), 'name_required')
   await invalidPost({ name: 'demo', intranet_host: '127.0.0.1', ssh_port: 70000 }, (request, response) => routeServers(deps, request, response, ''), 'port_invalid')
   await invalidPost({ name: 'key', secret: 'invalid PEM' }, (request, response) => routeKeys(deps, request, response, ''), 'key_invalid')
 })
 
 test('virtual group names are reserved in both supported languages', async () => {
+  const definitions = new DefinitionRegistry(noDb, builtinCatalog())
   for (const name of ['未分组', '全部服务器', 'Ungrouped', 'ALL SERVERS']) {
-    await invalidPost({ name }, (request, response) => routeGroups(noDb, request, response, ''), 'group_name_reserved')
+    await invalidPost({ name }, (request, response) => routeGroups(noDb, request, response, '', definitions), 'group_name_reserved')
   }
 })

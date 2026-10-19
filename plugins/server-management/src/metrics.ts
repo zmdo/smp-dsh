@@ -21,7 +21,7 @@ interface Secrets {
 }
 
 /** One SSH per server. A dropped connection waits a few seconds and does not mark the server offline. */
-export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, onError: (cause: unknown) => void): () => Promise<void> {
+export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, onError: (cause: unknown) => void, connect: typeof connectSsh = connectSsh): () => Promise<void> {
   const sessions = new Map<string, SshSession>()
   const retryAt = new Map<string, number>()
   const busy = new Set<string>()
@@ -45,6 +45,7 @@ export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, 
   async function sampleAll(): Promise<void> {
     if (stopped) return
     const ids = await serverIds(db)
+    if (stopped) return
     const live = new Set(ids)
     for (const [id, session] of sessions) {
       if (live.has(id)) continue
@@ -56,15 +57,17 @@ export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, 
   }
 
   async function sampleOne(id: string): Promise<void> {
-    if (busy.has(id) || Date.now() < (retryAt.get(id) ?? 0)) return
+    if (stopped || busy.has(id) || Date.now() < (retryAt.get(id) ?? 0)) return
     busy.add(id)
     let session = sessions.get(id)
     try {
       if (session === undefined) {
         session = await open(id)
+        if (stopped) { session.close(); return }
         sessions.set(id, session)
       }
       const result = await session.exec(SAMPLE, 8000)
+      if (stopped) return
       if (result.code !== 0) throw new Error(result.stderr || result.stdout || '采集失败')
       await saveMetrics(db, id, parseSample(result.stdout))
     } catch (cause) {
@@ -80,7 +83,7 @@ export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, 
   async function open(id: string): Promise<SshSession> {
     const server = await serverSecret(db, id)
     if (server === undefined) throw new Error('服务器不存在')
-    return connectSsh({
+    return connect({
       host: server.intranet_host,
       port: server.ssh_port,
       username: server.ssh_user,

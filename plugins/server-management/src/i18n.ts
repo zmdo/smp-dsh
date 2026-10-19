@@ -1,5 +1,6 @@
 import en from '../locale/en.json' with { type: 'json' }
 import zh from '../locale/zh.json' with { type: 'json' }
+import { localized, type LocalizedText } from './definitions.ts'
 
 export interface LocaleFace {
   getSnapshot(): { active: string }
@@ -53,11 +54,16 @@ export function enumLabel(labels: Readonly<Record<string, string>>, value: strin
   return Object.hasOwn(labels, value) ? labels[value]! : value
 }
 
-export function componentText(active: string, component: { id: string; name: string; summary: string }) {
+export function componentText(active: string, component: { id: string; name: string; summary: string; name_i18n?: LocalizedText; summary_i18n?: LocalizedText }) {
+  if (component.name_i18n !== undefined) return { name: localized(component.name_i18n, active), summary: component.summary_i18n === undefined ? component.summary : localized(component.summary_i18n, active) }
   const labels = serverCopy(active).components
   return Object.hasOwn(labels, component.id) ? labels[component.id as keyof typeof labels] : component
 }
 
 export function componentName(active: string, id: string): string {
   return componentText(active, { id, name: id, summary: '' }).name
+}
+
+export function groupName(active: string, group: { name: string; name_i18n?: LocalizedText | null }): string {
+  return group.name_i18n == null ? group.name : localized(group.name_i18n, active)
 }
