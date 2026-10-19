@@ -8,7 +8,6 @@ import {
   typeSupportsOs,
   type GroupRecord,
   type ServerTypeView,
-  type TypeOptions,
 } from './definitions.ts'
 import { errorPayload, ServerError, type ErrorCode } from './i18n.ts'
 import { keyInUse, retestAfterEdit, type RetestSnap } from './jobs.ts'
@@ -26,6 +25,7 @@ import { componentView, enqueueOn as enqueue, HttpError, type Db, type JobRecord
 import { keyFingerprint, SshError } from './ssh.ts'
 import type { Enrollment } from './enrollment.ts'
 import { parseTaskQuery, taskHistory } from './task-history.ts'
+import { parseServerListQuery, serverList, serverRead } from './server-list.ts'
 
 interface Secrets {
   encrypt(secret: string): string
@@ -38,6 +38,7 @@ export interface Deps {
   catalog: readonly Component[]
   definitions: DefinitionRegistry
   enrollment: Enrollment
+  freshnessMs?: number
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -48,7 +49,8 @@ export async function routeServers(
   response: ServerResponse,
   rest: string,
 ): Promise<void> {
-  if (rest === '' && request.method === 'GET') return sendJson(response, 200, await listServers(deps))
+  if (rest === '' && request.method === 'GET')
+    return sendJson(response, 200, await serverList(deps, parseServerListQuery(new URL(request.url ?? '/', 'http://localhost').searchParams)))
   if (rest === '' && request.method === 'POST')
     return sendJson(response, 201, await createServer(deps, await readJson(request)))
   if (rest === '/test-connection' && request.method === 'POST')
@@ -160,121 +162,15 @@ export function routeComponents(
   sendJson(response, 200, componentView(catalog))
 }
 
-async function listServers(deps: Deps): Promise<Record<string, unknown>[]> {
-  const result = await deps.db
-    .query(`select s.id,s.name,s.host,s.ssh_port,s.ssh_user,s.auth_method,s.ssh_key_id,s.group_id,
-    g.name as group_name,g.name_i18n as group_name_i18n,g.kind as group_kind,s.region,s.install_required_software,s.type_key,s.type_snapshot,s.type_revision,s.config_revision,
-    s.declared_os,s.host_fingerprint,s.created_at,r.connection_state as reachability,r.connection_checked_at as last_checked_at,
-    r.detected_os,r.os_probe_state,r.observed_config_revision,r.environment_revision,r.os_checked_at,r.os_error,
-    r.cpu_cores,r.cpu_percent,r.memory_total_bytes as mem_total_bytes,r.memory_used_bytes as mem_used_bytes,r.disk_total_bytes,r.disk_used_bytes,r.metrics_sampled_at as metrics_at,
-    coalesce(c.state,'unknown') as containers_state,c.last_success_at as containers_checked_at,
-    case when c.state='ready' then (select count(*)::int from server_containers where server_id=s.id) else null end as container_count
-    from servers s join server_runtime r on r.server_id=s.id left join server_groups g on g.id=s.group_id left join server_container_scans c on c.server_id=s.id order by s.name,s.id`)
-  const observations = await deps.db.query('select * from server_software_observations')
-  const byServer = new Map<string, Map<string, Record<string, unknown>>>()
-  for (const item of observations.rows) {
-    const id = String(item.server_id)
-    if (!byServer.has(id)) byServer.set(id, new Map())
-    byServer.get(id)!.set(String(item.software_key), item)
-  }
-  const options = new Map<string | null, TypeOptions>()
-  await Promise.all(
-    [...new Set(result.rows.map((row) => row.group_id as string | null))].map(async (id) => {
-      try {
-        options.set(id, await deps.definitions.options(id))
-      } catch (cause) {
-        if (!(cause instanceof ServerError) || cause.code !== 'group_not_found') throw cause
-        options.set(id, { kind: 'user', available: false, default_type_key: '', types: [] })
-      }
-    }),
-  )
-  const resolvedTypes = new Map<string, ServerTypeView>()
-  const bindingKey = (row: Record<string, unknown>) => JSON.stringify([row.group_id, row.type_key, row.declared_os])
-  const bindings = new Map(result.rows.map(row => [bindingKey(row), row]))
-  await Promise.all([...bindings].map(async ([key,row]) => {
-    let lease: TypeLease | undefined
-    try {
-      lease = await deps.definitions.lease(row.group_id as string | null, String(row.type_key), row.declared_os as DeclaredOs)
-      if (lease) resolvedTypes.set(key, lease.type)
-    } catch (cause) {
-      if (!(cause instanceof ServerError)) throw cause
-    } finally { lease?.release() }
-  }))
-  return result.rows.map((row) => {
-    const visible = omitSecrets(row)
-    const choice = options.get(row.group_id as string | null)!
-    const current = resolvedTypes.get(bindingKey(row))
-    const cached = row.type_snapshot as ServerTypeView | null
-    const fallback = deps.definitions.defaultOptions().types.find((type) => type.key === row.type_key)
-    const type = current ?? cached ?? fallback
-    const available = choice.available && current !== undefined
-    const required = type?.software ?? []
-    const observed = byServer.get(String(row.id))
-    const status: Record<
-      string,
-      {
-        state: string
-        installed: boolean
-        version?: unknown
-        last_known_version?: unknown
-        detail?: string
-        revision?: unknown
-      }
-    > = {}
-    for (const item of required) {
-      const fact = observed?.get(item.software_key)
-      const fresh =
-        fact &&
-        fact.recipe_revision === item.revision &&
-        String(fact.observed_config_revision) === String(row.config_revision) &&
-        String(fact.observed_environment_revision) === String(row.environment_revision)
-      const state = fresh ? String(fact.probe_state) : 'unknown'
-      status[item.id] = {
-        state,
-        installed: state === 'installed',
-        version: state === 'installed' ? fact?.product_version : undefined,
-        last_known_version: fact?.product_version,
-        detail: (fact?.error as { detail?: string } | null)?.detail,
-        revision: fact?.recipe_revision,
-      }
-    }
-    const osState =
-      String(row.observed_config_revision) === String(row.config_revision) ? String(row.os_probe_state) : 'unknown'
-    const verification = osVerification(row.declared_os as DeclaredOs, row.detected_os as DetectedOs | null, osState)
-    const states = required.map(
-      (item) => status[item.id]?.state ?? (status[item.id]?.installed === true ? 'installed' : 'unknown'),
-    )
-    const softwareState = !available
-      ? 'unavailable'
-      : required.length === 0 || states.every((state) => state === 'installed')
-        ? 'ready'
-        : states.some((state) => state === 'missing')
-          ? 'pending'
-          : 'unknown'
-    return {
-      ...visible,
-      software_status: status,
-      os_verification: verification,
-      type_supported_os: type?.supportedOs,
-      type_os_compatible: type !== undefined && typeSupportsOs(type, row.declared_os as DeclaredOs),
-      docker_version: observed?.get('builtin/docker-engine')?.product_version ?? null,
-      compose_version: observed?.get('builtin/docker-compose')?.product_version ?? null,
-      type_name_i18n: type?.name_i18n ?? { zh: String(row.type_key), en: String(row.type_key) },
-      type_available: available,
-      required_software: required,
-      software_state: softwareState,
-    }
-  })
-}
-
 async function serverDetail(deps: Deps, id: string): Promise<unknown> {
-  const server = (await listServers(deps)).find((item) => item.id === id)
+  const server = await serverRead(deps, id)
   if (server === undefined) throw new HttpError(404, 'server_not_found')
   const containers = await deps.db.query(
     'select container_id, name, image, status, ports, managed, strategy_slug, observed_at from server_containers where server_id = $1 order by name',
     [id],
   )
-  return { ...server, containers: containers.rows }
+  const scan = (await deps.db.query<{ state: string; last_success_at: Date | null }>('select state,last_success_at from server_container_scans where server_id=$1', [id])).rows[0]
+  return { ...server, containers: containers.rows, containers_state: scan?.state ?? 'unknown', containers_checked_at: scan?.last_success_at ?? null }
 }
 
 async function selectType(

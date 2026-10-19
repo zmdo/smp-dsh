@@ -1,10 +1,10 @@
 # 国际化、服务器类型、系统分组与软件升级：需求分析
 
-状态：部分实现。国际化、内置类型、插件系统分组及按类型检测和安装必要软件已实现。版本范围、带软件变更的类型转换／移组预检、自动检测升级与升级管理仍待实现。当前接口与边界见 [执行基础实施记录](execution-foundation.md)；第 13、14 节为旧接口历史，其余建议不能当成已经存在的能力。运行版本仍为 `dsh` `0.2.1-alpha.5`。
+状态：部分实现。国际化、内置类型、插件系统分组、插件版本范围解析及 Linux 精确初装已实现；B 阶段的八列列表与统一状态已完成。用户进一步收紧版本范围、带软件变更的类型转换／移组预检、自动检测升级与升级管理仍待实现。当前接口与边界见 [执行基础实施记录](execution-foundation.md)；第 13、14 节为旧接口历史，其余建议不能当成已经存在的能力。运行版本仍为 `dsh` `0.2.1-alpha.5`。
 
 基础服务器管理见 [design.md](design.md)，操作系统选择与类型、软件的适用范围见 [operating-systems.md](operating-systems.md)。后续会话能力见 [session-shell.md](session-shell.md) 与 [session-catalog.md](session-catalog.md)。实现时遵守 [dsh 插件规范](../../../.agents/skills/dsh-plugin/SKILL.md)。本文记录需求、分析与实施进展；版本范围、自动检测升级与批量安排的补充分析见第 12 节。
 
-最新的数据前提、数据库问题及后续顺序见 [database-redesign.md](database-redesign.md)：当前无服务器数据、无发布部署，允许破坏兼容性，后续无需旧服务器迁移。实例列表的精简与统一状态见 [server-instances-list.md](server-instances-list.md)，尚未实现。
+最新的数据前提、数据库问题及后续顺序见 [database-redesign.md](database-redesign.md)：当前无服务器数据、无发布部署，允许破坏兼容性，后续无需旧服务器迁移。实例列表的精简、统一状态与后端分页已实现，见 [server-instances-list.md](server-instances-list.md)。
 
 ## 1. 已确认的需求
 
@@ -38,7 +38,7 @@
 
 本轮不实现会话工具，也不改变会话权限。本文的服务器分组与「工作区组」是两套概念，不建立隐含的绑定关系。
 
-## 2. 当前代码的实际状况
+## 2. 早期代码状况（历史，当前能力以上方实施状态为准）
 
 | 位置 | 当前行为 | 对新需求的影响 |
 | --- | --- | --- |

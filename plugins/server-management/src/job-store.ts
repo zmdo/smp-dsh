@@ -214,11 +214,12 @@ export async function finishJob(
     }
   })
 }
-export async function recovering(db: Db, job: JobRecord, message: string): Promise<void> {
+export async function recovering(db: Db, job: JobRecord, message: string, remoteState: 'running' | 'unknown' = 'unknown'): Promise<void> {
   await owned(db, job, async (client) => {
     await client.query(
-      "update server_jobs set state='recovering',phase='reconciling',output_excerpt=$2,lease_expires_at=now()+interval '30 seconds' where id=$1",
-      [job.id, message.slice(-4000)],
+      `update server_jobs set state='recovering',phase='reconciling',output_excerpt=$2,lease_expires_at=now()+interval '30 seconds',
+        result=coalesce(result,'{}'::jsonb)||jsonb_build_object('remote_state',$3::text,'remote_checked_at',now()) where id=$1`,
+      [job.id, message.slice(-4000), remoteState],
     )
   })
 }

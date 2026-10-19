@@ -78,7 +78,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const connect: typeof connectSsh = (input) =>
     connectSsh({ ...input, readyTimeoutMs: config.sshReadyTimeoutSeconds * 1000 })
   const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions }, connect)
-  const deps = { db, secrets: ctx.secrets, catalog, definitions, enrollment }
+  const deps = { db, secrets: ctx.secrets, catalog, definitions, enrollment, freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000 }
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield startJobs(ctx, db, config, definitions, connect)

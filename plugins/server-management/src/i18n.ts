@@ -2,6 +2,7 @@ import en from '../locale/en.json' with { type: 'json' }
 import zh from '../locale/zh.json' with { type: 'json' }
 import { localized, type LocalizedText } from './definitions.ts'
 import type { VersionRule } from './versions.ts'
+import type { StatusReason } from './server-list-contract.ts'
 
 export interface LocaleFace {
   getSnapshot(): { active: string }
@@ -53,6 +54,12 @@ export function formatDate(value: string | null, active: string): string {
 
 export function enumLabel(labels: Readonly<Record<string, string>>, value: string): string {
   return Object.hasOwn(labels, value) ? labels[value]! : value
+}
+
+export function statusReason(active: string, reason: StatusReason): string {
+  const parameters = { ...reason.parameters }
+  if (parameters.software) parameters.software = parameters[active === 'zh' ? 'softwareZh' : 'softwareEn'] ?? parameters.software
+  return format(serverCopy(active).statusReasons[reason.code], parameters).trim()
 }
 
 export function versionRequirement(active: string, rule?: VersionRule): string {

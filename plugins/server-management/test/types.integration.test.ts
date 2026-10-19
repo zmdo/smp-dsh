@@ -352,6 +352,12 @@ test(
       assert.equal(check.status, 202)
       const job = await next(remote())
       assert.equal((await getJob(job.id)).state, 'succeeded')
+      const listed = await api('GET', '/servers?page_size=1&status=normal')
+      assert.equal(listed.status, 200)
+      assert.equal(listed.body.items.length, 1)
+      assert.equal(listed.body.items[0].status.code, 'normal')
+      assert.equal(listed.body.items[0].installRequiredSoftware.applicability, 'not-applicable')
+      assert.equal(listed.body.page_size, 1)
     })
     await t.test(
       'whole-bundle registration rolls back on invalid references, persists identity and drains leases',

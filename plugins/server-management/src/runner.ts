@@ -216,6 +216,7 @@ async function reconcile(
       db,
       job,
       result.state === 'running' ? '远端安装仍在进行。' : '远端结果尚不能确定，已保留服务器执行锁。',
+      result.state === 'running' ? 'running' : 'unknown',
     )
     return
   }

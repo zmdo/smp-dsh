@@ -161,7 +161,21 @@
     "taskPagination": "Task pagination",
     "taskRange": "Showing {from}–{to} of {count} tasks",
     "taskTotal": "{count} tasks",
-    "tasksPageSize": "Tasks per page"
+    "tasksPageSize": "Tasks per page",
+    "filterServerStatus": "Filter server status",
+    "serverOrder": "Server order",
+    "orderByName": "Sort by name",
+    "orderByLastCheck": "Sort by last check",
+    "installRequiredSoftware": "Install required software",
+    "resourceOverview": "Resources",
+    "notApplicable": "Not applicable",
+    "yes": "Yes",
+    "no": "No",
+    "installationUnavailable": "Currently unavailable",
+    "resourceSampledAt": "Resources sampled: {time}",
+    "resourcesUnknown": "No resource information yet",
+    "resourcesStale": "Resource data expired",
+    "connectionStatus": "SSH connection"
   },
   "reach": {
     "online": "Online",
@@ -304,7 +318,8 @@
     "definition_reference": "A definition reference is unavailable or incompatible.",
     "connection_test_required": "Test the connection again with the current authentication details.",
     "task_query_invalid": "Invalid task query. Check pagination, time range and filters.",
-    "inspection_software_failed": "Detection or health check failed for {software}."
+    "inspection_software_failed": "Detection or health check failed for {software}.",
+    "server_query_invalid": "Invalid server query. Check the group, status, order and pagination."
   },
   "jobMessages": {
     "prepared": "Check complete; missing software is handled by a separate installation plan.",
@@ -312,5 +327,29 @@
     "installed": "Installation completed and verified.",
     "recovering": "Reconciling the remote operation. New changes are blocked until its outcome is known.",
     "inspection_issues": "Inspection found errors."
+  },
+  "serverStatus": {
+    "unverified": "Unverified",
+    "normal": "Normal",
+    "disconnected": "Disconnected",
+    "installing": "Installing",
+    "upgrading": "Upgrading",
+    "attention": "Needs attention"
+  },
+  "statusReasons": {
+    "connection_failed": "The latest SSH connection failed. {detail}",
+    "connection_unknown": "The SSH connection has not been verified.",
+    "connection_stale": "The connection check has expired. Check again.",
+    "os_unverified": "The actual OS is unverified or its check has expired.",
+    "os_mismatch": "The declared and actual operating systems differ.",
+    "type_unavailable": "The type or a required software recipe is unavailable.",
+    "os_unsupported": "The type or required software does not support this OS or architecture.",
+    "software_missing": "Required software {software} is missing.",
+    "software_unknown": "The state of required software {software} is unverified or expired.",
+    "software_unhealthy": "The health check failed for required software {software}.",
+    "software_version": "The version of required software {software} does not meet its requirement.",
+    "operation_running": "A software change is running.",
+    "operation_recovering": "The remote software change has an unknown outcome and needs reconciliation.",
+    "operation_expired": "The task lease expired. Reconcile the remote operation."
   }
 }

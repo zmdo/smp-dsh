@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
 import {
   componentText,
@@ -8,6 +8,7 @@ import {
   groupName as localizedGroupName,
   serverCopy,
   versionRequirement,
+  statusReason,
   ServerError,
   type LocaleFace,
 } from '../i18n.ts'
@@ -36,6 +37,8 @@ import {
   type OsSupport,
 } from '../operating-systems.ts'
 import serversStyle from './servers.css'
+import { SERVER_STATES, type ServerListItem, type ServerListPage, type DisplayStatus, type ServerGroupSummary } from '../server-list-contract.ts'
+import type { ServerPageState, ServerPageSnapshot, ServerListView as ListView } from './server-page-state.ts'
 
 interface ServerRow {
   id: string
@@ -72,6 +75,7 @@ interface ServerRow {
   >
   host_fingerprint: string | null
   reachability: string
+  status: DisplayStatus
   docker_version: string | null
   compose_version: string | null
   cpu_percent: number | null
@@ -104,15 +108,6 @@ interface KeyRow {
   fingerprint: string
 }
 
-type Screen = 'list' | 'form' | 'detail' | 'terminal'
-
-interface ListView {
-  groupId: string | null
-  query: string
-  page: number
-  pageSize: number
-}
-
 export function installServersStyle(): () => void {
   const tag = document.createElement('style')
   tag.dataset.plugin = '@smp/console-server-management'
@@ -123,12 +118,13 @@ export function installServersStyle(): () => void {
   }
 }
 
-export function ServersPage(props: { locale: LocaleFace }) {
+export function ServersPage(props: { locale: LocaleFace; pageState: ServerPageState }) {
   const active = useActiveLocale(props.locale)
-  const [screen, setScreen] = useState<Screen>('list')
-  const [serverId, setServerId] = useState('')
-  const [editing, setEditing] = useState(false)
-  const [listView, setListView] = useState<ListView>({ groupId: null, query: '', page: 1, pageSize: 10 })
+  const { screen, serverId, editing, listView } = useSyncExternalStore(props.pageState.subscribe, props.pageState.getSnapshot)
+  const setScreen = (screen: ServerPageSnapshot['screen']) => props.pageState.update({ screen })
+  const setServerId = (serverId: string) => props.pageState.update({ serverId })
+  const setEditing = (editing: boolean) => props.pageState.update({ editing })
+  const setListView = useCallback((listView: ListView) => props.pageState.update({ listView }), [props.pageState])
   if (screen === 'form') {
     return (
       <ServerForm
@@ -183,11 +179,6 @@ export function ServersPage(props: { locale: LocaleFace }) {
         setEditing(false)
         setScreen('detail')
       }}
-      onEdit={(id) => {
-        setServerId(id)
-        setEditing(true)
-        setScreen('form')
-      }}
       onCreate={() => {
         setServerId('')
         setEditing(false)
@@ -202,94 +193,67 @@ function ServerList(props: {
   view: ListView
   onView: (view: ListView) => void
   onOpen: (id: string) => void
-  onEdit: (id: string) => void
   onCreate: () => void
 }) {
   const { active } = props
   const copy = serverCopy(active).ui
-  const [servers, setServers] = useState<ServerRow[]>([])
-  const [groups, setGroups] = useState<GroupRow[]>([])
-  const [loaded, setLoaded] = useState(false)
+  const { view, onView } = props
+  const [result, setResult] = useState<{ key: string; data: ServerListPage }>()
+  const [groups, setGroups] = useState<ServerGroupSummary[]>([])
+  const [counts, setCounts] = useState({ all: 0, ungrouped: 0 })
   const [loadError, setLoadError] = useState<ServerError | null>(null)
   const [actionError, setActionError] = useState<ServerError | null>(null)
   const [groupError, setGroupError] = useState<ServerError | null>(null)
   const [groupName, setGroupName] = useState('')
   const [addingGroup, setAddingGroup] = useState(false)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [refresh, setRefresh] = useState(0)
   const dataVersion = useRef(0)
   const tableScroll = useRef<HTMLDivElement>(null)
+  const params = new URLSearchParams({ q: view.query, status: view.status, order: view.order, page: String(view.page), page_size: String(view.pageSize) })
+  if (view.groupId !== null) params.set('group_id', view.groupId || 'ungrouped')
+  const key = params.toString()
+  const latestKey = useRef(key)
+  latestKey.current = key
+  const data = result?.key === key ? result.data : undefined
+  const loaded = data !== undefined
+  const groupId = view.groupId
+  const selectedGroup = groups.find(group => group.id === groupId)
+  const groupLabel = groupId === null ? copy.allServers : groupId === '' ? copy.ungrouped
+    : selectedGroup ? localizedGroupName(active, selectedGroup) : ''
+  const total = data?.total ?? 0
+  const page = data?.page ?? view.page
+  const pages = Math.max(1, Math.ceil(total / view.pageSize))
+  const rows = data?.items ?? []
 
   useEffect(() => {
     let stopped = false
-    let loading = false
-    const load = () => {
-      if (loading) return
-      loading = true
-      const version = dataVersion.current
-      void Promise.all([api<ServerRow[]>('/console-api/servers'), api<GroupRow[]>('/console-api/server-groups')])
-        .then(([nextServers, nextGroups]) => {
-          if (stopped || version !== dataVersion.current) return
-          setServers(nextServers)
-          setGroups(nextGroups)
-          setLoaded(true)
-          setLoadError(null)
-        })
-        .catch((cause: unknown) => {
-          if (!stopped && version === dataVersion.current) setLoadError(requestError(cause))
-        })
-        .finally(() => {
-          loading = false
-        })
+    let timer: ReturnType<typeof setTimeout>
+    const controller = new AbortController()
+    const version = dataVersion.current
+    setLoadError(null)
+    async function load() {
+      try {
+        const next = await api<ServerListPage>(`/console-api/servers?${key}`, { signal: controller.signal })
+        if (stopped || version !== dataVersion.current || latestKey.current !== key) return
+        setResult({ key, data: next })
+        setGroups(next.groups.map(group => ({ ...group, server_count: group.server_count ?? 0 })))
+        setCounts(next.counts)
+        setLoadError(null)
+        if (next.page !== view.page || next.group_id !== view.groupId) onView({ ...view, page: next.page, groupId: next.group_id })
+      } catch (cause) {
+        if (!stopped && version === dataVersion.current && latestKey.current === key) setLoadError(requestError(cause))
+      } finally {
+        if (!stopped) timer = setTimeout(() => { void load() }, 1000)
+      }
     }
-    load()
-    const timer = setInterval(load, 1000)
-    return () => {
-      stopped = true
-      clearInterval(timer)
-    }
-  }, [])
-
-  const { view, onView } = props
-  const groupId = loaded && view.groupId && !groups.some((group) => group.id === view.groupId) ? null : view.groupId
-  const selectedGroup = groups.find((group) => group.id === groupId)
-  const groupLabel =
-    groupId === null
-      ? copy.allServers
-      : groupId === ''
-        ? copy.ungrouped
-        : selectedGroup === undefined
-          ? ''
-          : localizedGroupName(active, selectedGroup)
-  const filtered = useMemo(() => {
-    const needle = view.query.trim().toLowerCase()
-    return servers.filter(
-      (server) =>
-        (groupId === null || (server.group_id ?? '') === groupId) &&
-        (needle === '' ||
-          [
-            server.name,
-            server.host,
-            server.ssh_user,
-            server.region ?? '',
-            server.group_name ?? '',
-            server.group_name_i18n?.zh ?? '',
-            server.group_name_i18n?.en ?? '',
-            server.type_name_i18n.zh,
-            server.type_name_i18n.en,
-          ].some((value) => value.toLowerCase().includes(needle))),
-    )
-  }, [view.query, groupId, servers])
-  const pages = Math.max(1, Math.ceil(filtered.length / view.pageSize))
-  const page = Math.min(view.page, pages)
-  const rows = filtered.slice((page - 1) * view.pageSize, page * view.pageSize)
-
-  useEffect(() => {
-    if (loaded && (groupId !== view.groupId || page !== view.page)) onView({ ...view, groupId, page })
-  }, [loaded, groupId, page, view, onView])
+    timer = setTimeout(() => { void load() }, 150)
+    return () => { stopped = true; controller.abort(); clearTimeout(timer) }
+  }, [key, refresh, onView])
 
   useEffect(() => {
     if (tableScroll.current !== null) tableScroll.current.scrollTop = 0
-  }, [groupId, view.query, page, view.pageSize])
+  }, [key])
 
   function selectGroup(id: string | null): void {
     onView({ ...view, groupId: id, page: 1 })
@@ -307,6 +271,7 @@ function ServerList(props: {
         body: JSON.stringify({ name: groupName }),
       })
       dataVersion.current += 1
+      setRefresh(value => value + 1)
       setGroups((current) => [...current, group])
       selectGroup(group.id)
       setGroupName('')
@@ -323,12 +288,8 @@ function ServerList(props: {
     try {
       await api(`/console-api/server-groups/${id}`, { method: 'DELETE' })
       dataVersion.current += 1
+      setRefresh(value => value + 1)
       setGroups((current) => current.filter((group) => group.id !== id))
-      setServers((current) =>
-        current.map((server) =>
-          server.group_id === id ? { ...server, group_id: null, group_name: null, group_name_i18n: null } : server,
-        ),
-      )
       if (groupId === id) selectGroup('')
     } catch (cause) {
       setActionError(requestError(cause))
@@ -399,7 +360,7 @@ function ServerList(props: {
           <GroupChoice
             active={active}
             label={copy.allServers}
-            count={servers.length}
+            count={counts.all}
             selected={groupId === null}
             onSelect={() => selectGroup(null)}
           />
@@ -411,7 +372,7 @@ function ServerList(props: {
               system={group.kind === 'system'}
               available={group.available}
               source={group.plugin_id ?? undefined}
-              count={servers.filter((server) => server.group_id === group.id).length}
+              count={group.server_count}
               selected={groupId === group.id}
               onSelect={() => selectGroup(group.id)}
               onDelete={
@@ -426,7 +387,7 @@ function ServerList(props: {
           <GroupChoice
             active={active}
             label={copy.ungrouped}
-            count={servers.filter((server) => server.group_id === null).length}
+            count={counts.ungrouped}
             selected={groupId === ''}
             onSelect={() => selectGroup('')}
           />
@@ -446,12 +407,20 @@ function ServerList(props: {
                 type="search"
                 className="search"
                 aria-label={copy.searchServers}
+                maxLength={200}
                 value={view.query}
                 placeholder={copy.searchServers}
                 onChange={(event) => {
                   onView({ ...view, query: event.target.value, page: 1 })
                 }}
               />
+              <select aria-label={copy.filterServerStatus} value={view.status} onChange={event => onView({ ...view, status: event.target.value, page: 1 })}>
+                <option value="">{copy.allStatuses}</option>
+                {SERVER_STATES.map(state => <option key={state} value={state}>{serverCopy(active).serverStatus[state]}</option>)}
+              </select>
+              <select aria-label={copy.serverOrder} value={view.order} onChange={event => onView({ ...view, order: event.target.value as ListView['order'], page: 1 })}>
+                <option value="name">{copy.orderByName}</option><option value="last_checked">{copy.orderByLastCheck}</option>
+              </select>
               <button className="primary" type="button" onClick={props.onCreate}>
                 {copy.registerServer}
               </button>
@@ -469,17 +438,12 @@ function ServerList(props: {
                 <tr>
                   <th>{copy.name}</th>
                   <th>{copy.address}</th>
+                  <th>{copy.operatingSystem}</th>
                   <th>{copy.serverType}</th>
-                  <th>{copy.region}</th>
-                  <th>{copy.reachability}</th>
-                  <th>{copy.softwareState}</th>
-                  <th>CPU</th>
-                  <th>{copy.memory}</th>
-                  <th>{copy.disk}</th>
-                  <th>Docker</th>
-                  <th>{copy.containersCount}</th>
+                  <th>{copy.status}</th>
+                  <th>{copy.installRequiredSoftware}</th>
+                  <th>{copy.resourceOverview}</th>
                   <th>{copy.lastCheck}</th>
-                  <th>{copy.group}</th>
                 </tr>
               </thead>
               <tbody>
@@ -489,7 +453,6 @@ function ServerList(props: {
                     key={server.id}
                     server={server}
                     onOpen={props.onOpen}
-                    onEdit={props.onEdit}
                   />
                 ))}
               </tbody>
@@ -500,7 +463,7 @@ function ServerList(props: {
                   ? loadError
                     ? copy.cannotLoadServers
                     : copy.loadingServers
-                  : view.query.trim() !== ''
+                  : view.query.trim() !== '' || view.status !== ''
                     ? copy.noMatches
                     : groupId === null
                       ? copy.noServers
@@ -510,10 +473,10 @@ function ServerList(props: {
           </div>
           <footer className="smp-server-pager" aria-label={copy.pagination}>
             <span>
-              {format(filtered.length > 0 ? copy.range : copy.total, {
-                count: filtered.length,
+              {format(total > 0 ? copy.range : copy.total, {
+                count: total,
                 from: (page - 1) * view.pageSize + 1,
-                to: Math.min(page * view.pageSize, filtered.length),
+                to: Math.min(page * view.pageSize, total),
               })}
             </span>
             <div className="row">
@@ -526,7 +489,7 @@ function ServerList(props: {
                     onView({ ...view, pageSize: Number(event.target.value), page: 1 })
                   }}
                 >
-                  {[10, 20, 50].map((size) => (
+                  {[10, 20, 50, 100].map((size) => (
                     <option key={size} value={size}>
                       {size}
                     </option>
@@ -536,7 +499,7 @@ function ServerList(props: {
               <button
                 className="secondary"
                 type="button"
-                disabled={page === 1}
+                disabled={!loaded || page <= 1}
                 onClick={() => {
                   onView({ ...view, page: page - 1 })
                 }}
@@ -547,7 +510,7 @@ function ServerList(props: {
               <button
                 className="secondary"
                 type="button"
-                disabled={page === pages}
+                disabled={!loaded || page >= pages}
                 onClick={() => {
                   onView({ ...view, page: page + 1 })
                 }}
@@ -617,70 +580,35 @@ function GroupChoice(props: {
   )
 }
 
-function ServerLine(props: {
-  active: string
-  server: ServerRow
-  onOpen: (id: string) => void
-  onEdit: (id: string) => void
-}) {
+function ServerLine(props: { active: string; server: ServerListItem; onOpen: (id: string) => void }) {
   const { server, active } = props
   const copy = serverCopy(active).ui
+  const resources = server.resources
+  const installation = server.installRequiredSoftware
+  const installationLabel = installation.applicability === 'not-applicable' ? copy.notApplicable : installation.enabled ? copy.yes : copy.no
   return (
-    <tr
-      onClick={() => {
-        props.onOpen(server.id)
-      }}
-    >
-      <td>
-        <button
-          className="smp-server-open"
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            props.onOpen(server.id)
-          }}
-        >
-          {server.name}
-        </button>
+    <tr onClick={() => props.onOpen(server.id)}>
+      <td><button className="smp-server-open" type="button" onClick={event => { event.stopPropagation(); props.onOpen(server.id) }}>{server.name}</button></td>
+      <td className="mono">{server.address.host}:{server.address.port}</td>
+      <td>{server.operatingSystem.label}</td>
+      <td title={server.type.available ? undefined : copy.typeUnavailable}>{localized(server.type.name, active)}</td>
+      <td><ServerStatus active={active} status={server.status} /></td>
+      <td>{installationLabel}{installation.applicability === 'unavailable' && <small className="muted">{copy.installationUnavailable}</small>}</td>
+      <td className="smp-server-resources" title={resources.sampledAt ? format(copy.resourceSampledAt, { time: formatDate(resources.sampledAt, active) }) : copy.resourcesUnknown}>
+        <span>CPU {resources.fresh ? meter(resources.cpuPercent, '%') : '—'}</span>
+        <span>{copy.memory} {resources.fresh ? meter(ratio(resources.memoryUsed, resources.memoryTotal), bytes(resources.memoryUsed)) : '—'}</span>
+        <span>{copy.disk} {resources.fresh ? meter(ratio(resources.diskUsed, resources.diskTotal), bytes(resources.diskUsed)) : '—'}</span>
+        {resources.sampledAt && !resources.fresh && <small className="muted">{copy.resourcesStale}</small>}
       </td>
-      <td className="mono">
-        {server.host}:{server.ssh_port}
-      </td>
-      <td title={server.type_available ? undefined : copy.typeUnavailable}>
-        {localized(server.type_name_i18n, active)}
-      </td>
-      <td>{server.region || '—'}</td>
-      <td>
-        <span className={`pill ${server.reachability}`}>
-          {enumLabel(serverCopy(active).reach, server.reachability)}
-        </span>
-      </td>
-      <td>
-        <SoftwareState state={server.software_state} active={active} />
-      </td>
-      <td>{meter(server.cpu_percent, '%')}</td>
-      <td>{meter(ratio(server.mem_used_bytes, server.mem_total_bytes), bytes(server.mem_used_bytes))}</td>
-      <td>{meter(ratio(server.disk_used_bytes, server.disk_total_bytes), bytes(server.disk_used_bytes))}</td>
-      <td>{server.docker_version || '—'}</td>
-      <td>{server.container_count ?? '—'}</td>
-      <td className="nowrap">{formatDate(server.last_checked_at, active)}</td>
-      <td
-        onClick={(event) => {
-          event.stopPropagation()
-        }}
-      >
-        <button
-          className="link"
-          type="button"
-          title={copy.adjustGroup}
-          aria-label={format(copy.serverGroup, { name: server.name })}
-          onClick={() => props.onEdit(server.id)}
-        >
-          {server.group_name_i18n ? localized(server.group_name_i18n, active) : (server.group_name ?? copy.ungrouped)}
-        </button>
-      </td>
+      <td>{formatDate(server.lastCheckedAt, active)}</td>
     </tr>
   )
+}
+
+function ServerStatus({ active, status }: { active: string; status: DisplayStatus }) {
+  return <span className={`pill smp-server-status ${status.code}`} title={status.reasons.map(reason => statusReason(active, reason)).join('\n')}>
+    {serverCopy(active).serverStatus[status.code]}
+  </span>
 }
 
 function ServerForm(props: {
@@ -1532,11 +1460,11 @@ function ServerDetail(props: {
           <span className="name-text">
             {server.host}:{server.ssh_port}
           </span>
-          <span className={`pill ${server.reachability}`}>
-            {enumLabel(serverCopy(active).reach, server.reachability)}
-          </span>
+          <ServerStatus active={active} status={server.status} />
         </div>
+        {server.status.reasons.length > 0 && <ul className="smp-server-status-reasons">{server.status.reasons.map((reason, index) => <li key={index}>{statusReason(active, reason)}</li>)}</ul>}
         <div className="node-grid">
+          <div><span>{copy.connectionStatus}</span>{enumLabel(serverCopy(active).reach, server.reachability)}</div>
           <div>
             <span>{copy.user}</span>
             {server.ssh_user}
@@ -1738,6 +1666,7 @@ function meter(percent: number | null, label: string): string {
 }
 
 function ratio(used: number | string | null, total: number | string | null): number | null {
+  if (used === null || total === null) return null
   const left = Number(used)
   const right = Number(total)
   if (!Number.isFinite(left) || !Number.isFinite(right) || right <= 0) return null
@@ -1745,6 +1674,7 @@ function ratio(used: number | string | null, total: number | string | null): num
 }
 
 function bytes(value: number | string | null): string {
+  if (value === null) return '—'
   const size = Number(value)
   if (!Number.isFinite(size)) return '—'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']

@@ -28,13 +28,21 @@
 .smp-server-current-group { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; font-size: 12px; color: var(--muted); }
 .smp-server-tools { margin-left: auto; }
 .smp-console .smp-server-tools .search { width: 180px; }
+.smp-server-tools { flex-wrap: wrap; }
+.smp-console .smp-server-tools select { width: auto; max-width: 160px; }
 .smp-console .smp-server-main .banner { margin: 12px 16px 0; flex: none; }
 .smp-server-table-scroll { flex: 1; min-height: 0; }
-.smp-console .smp-server-table { min-width: 1340px; }
-.smp-console .smp-server-table th { position: sticky; top: 0; z-index: 1; height: 36px; padding: 8px 12px; box-sizing: border-box; background: var(--dsw-alias-bg-layer-2); white-space: nowrap; }
-.smp-console .smp-server-table td { height: 36px; padding: 3px 12px; box-sizing: border-box; white-space: nowrap; }
-.smp-console .smp-server-table th:last-child { right: 0; z-index: 3; }
-.smp-console .smp-server-table td:last-child { position: sticky; right: 0; background: var(--dsw-alias-bg-layer-1); box-shadow: -1px 0 var(--line); }
+.smp-console .smp-server-table { min-width: 920px; font-size: 12px; }
+.smp-console .smp-server-table th { position: sticky; top: 0; z-index: 1; height: 36px; padding: 8px; box-sizing: border-box; background: var(--dsw-alias-bg-layer-2); white-space: nowrap; }
+.smp-console .smp-server-table td { height: 56px; padding: 8px; box-sizing: border-box; }
+.smp-console .smp-server-table td:last-child { max-width: 130px; font-size: 11px; white-space: normal; }
+.smp-console .smp-server-table td small { display: block; margin-top: 4px; }
+.smp-server-resources { min-width: 130px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.smp-server-resources > span { display: block; white-space: nowrap; }
+.smp-server-status-reasons { padding-left: 18px; color: var(--muted); font-size: 12px; }
+.smp-console .pill.smp-server-status.normal { color: var(--green); background: var(--green-bg); }
+.smp-console .pill.smp-server-status.disconnected, .smp-console .pill.smp-server-status.attention { color: var(--red); background: var(--red-bg); }
+.smp-console .pill.smp-server-status.installing, .smp-console .pill.smp-server-status.upgrading { color: var(--primary); background: var(--primary-soft); }
 .smp-server-group-source { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
 .smp-server-form-section { min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .smp-console .smp-server-form-section > h2 { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--dsw-alias-bg-layer-2); font-size: 14px; font-weight: 600; }

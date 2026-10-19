@@ -11,6 +11,7 @@ import {
   format,
   formatDate,
   serverCopy,
+  statusReason,
 } from '../src/i18n.ts'
 import { pageLabel } from '../src/page-label.ts'
 import { displayError, displayJobError, responseError } from '../src/pages/api.ts'
@@ -86,6 +87,8 @@ test('dates use the platform locale and external names and output remain intact'
   const component = { id: 'custom', name: '自定义软件', summary: 'Original description' }
   assert.equal(componentText('en', component), component)
   assert.equal(errorText('en', 'ssh_failed', { detail: '原始输出' }), 'Unable to connect to SSH. 原始输出')
+  assert.equal(statusReason('zh', { code: 'software_missing', parameters: { software: 'builtin/docker-engine' } }), '必要软件 builtin/docker-engine 尚未安装。')
+  assert.equal(statusReason('en', { code: 'software_missing', parameters: { software: 'builtin/docker-engine' } }), 'Required software builtin/docker-engine is missing.')
 })
 
 const noDb: Db = {

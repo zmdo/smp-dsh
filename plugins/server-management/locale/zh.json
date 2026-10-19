@@ -161,7 +161,21 @@
     "taskPagination": "任务分页",
     "taskRange": "共 {count} 条，第 {from}–{to} 条",
     "taskTotal": "共 {count} 条",
-    "tasksPageSize": "每页任务数量"
+    "tasksPageSize": "每页任务数量",
+    "filterServerStatus": "筛选服务器状态",
+    "serverOrder": "服务器排序",
+    "orderByName": "按名称排序",
+    "orderByLastCheck": "按最近检查排序",
+    "installRequiredSoftware": "是否安装必要软件",
+    "resourceOverview": "资源概览",
+    "notApplicable": "不适用",
+    "yes": "是",
+    "no": "否",
+    "installationUnavailable": "当前不可执行",
+    "resourceSampledAt": "资源采样：{time}",
+    "resourcesUnknown": "尚未取得资源信息",
+    "resourcesStale": "资源数据已过期",
+    "connectionStatus": "SSH 连接"
   },
   "reach": {
     "online": "在线",
@@ -304,7 +318,8 @@
     "definition_reference": "定义引用不可用或不兼容。",
     "connection_test_required": "请先使用当前认证信息重新测试连接。",
     "task_query_invalid": "任务查询条件无效，请检查分页、时间范围和筛选条件。",
-    "inspection_software_failed": "{software} 检测失败或健康检查未通过。"
+    "inspection_software_failed": "{software} 检测失败或健康检查未通过。",
+    "server_query_invalid": "服务器查询条件无效，请检查分组、状态、排序与分页。"
   },
   "jobMessages": {
     "prepared": "检查完成；缺失软件由独立安装计划处理。",
@@ -312,5 +327,29 @@
     "installed": "已完成安装并验证。",
     "recovering": "正在核对远端操作；结果明确前不能进行新的变更。",
     "inspection_issues": "巡检发现检测异常。"
+  },
+  "serverStatus": {
+    "unverified": "待验证",
+    "normal": "正常",
+    "disconnected": "断开",
+    "installing": "安装中",
+    "upgrading": "升级中",
+    "attention": "需处理"
+  },
+  "statusReasons": {
+    "connection_failed": "最近一次 SSH 连接失败。{detail}",
+    "connection_unknown": "尚未确认 SSH 连接。",
+    "connection_stale": "连接检查已过期，请重新检查。",
+    "os_unverified": "实际系统尚未核对，或系统检查已过期。",
+    "os_mismatch": "登记系统与实际系统不一致。",
+    "type_unavailable": "类型或必要软件配方当前不可用。",
+    "os_unsupported": "当前类型或必要软件不支持该系统／架构。",
+    "software_missing": "必要软件 {software} 尚未安装。",
+    "software_unknown": "必要软件 {software} 的状态尚未确认或已过期。",
+    "software_unhealthy": "必要软件 {software} 健康检查未通过。",
+    "software_version": "必要软件 {software} 的版本不符合要求。",
+    "operation_running": "软件变更正在执行。",
+    "operation_recovering": "远端软件变更结果尚未确定，需要核对。",
+    "operation_expired": "执行任务的租约已过期，需要核对远端结果。"
   }
 }

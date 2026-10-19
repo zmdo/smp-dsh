@@ -460,6 +460,17 @@ export class DefinitionRegistry {
     if (!row) throw new ServerError('group_not_found')
     return this.view(row, os)
   }
+  /** Read all rows synchronously after the database snapshot; no execution lease or script is exposed. */
+  describeType(group: GroupRecord | null, key: string, os: DeclaredOs | DetectedOs) {
+    if (this.closed) return
+    const options = group ? this.view(group) : this.defaultOptions()
+    if (!options.available || !options.types.some(type => type.key === key)) return
+    const owner = group?.plugin_id ? this.owners.get(group.plugin_id) : undefined
+    const { type, components } = this.resolveType(key, owner, this.owners, os)
+    return { type, components: components.map(component => ({
+      software_key: component.software_key, adapter: component.adapter, versions: component.versions,
+    })) }
+  }
   async lease(groupId: string | null, key: string, os?: DeclaredOs | DetectedOs): Promise<TypeLease | undefined> {
     if (this.closed) return
     const options = await this.options(groupId)
