@@ -23,6 +23,7 @@ import {
 } from '../definitions.ts'
 import { api, displayError, requestError, responseError } from './api.ts'
 import { useActiveLocale } from './locale.ts'
+import { EnrollmentPreview, type ConnectionResult } from './enrollment-preview.ts'
 import {
   OS_CATALOG,
   osLabel,
@@ -82,22 +83,6 @@ interface ServerRow {
   containers_checked_at: string | null
   containers?: ContainerRow[]
   jobs?: JobRow[]
-}
-
-interface ConnectionResult {
-  fingerprint: string
-  connection_token: string
-  expires_at: number
-}
-
-interface IdentificationResult {
-  declared_os: DeclaredOs
-  detected_os: DetectedOs
-  type_key: string
-  required_software: SoftwareView[]
-  software_status: ServerRow['software_status']
-  software_available: boolean
-  detected_at: string
 }
 
 interface ContainerRow {
@@ -751,11 +736,11 @@ function ServerForm(props: {
   const [serverLoaded, setServerLoaded] = useState(!props.editing)
   const [error, setError] = useState<ServerError | null>(null)
   const [connection, setConnection] = useState<(ConnectionResult & { revision: number }) | undefined>()
-  const [identification, setIdentification] = useState<
-    (IdentificationResult & { revision: number; groupId: string }) | undefined
-  >()
   const [loadedServer, setLoadedServer] = useState<ServerRow | undefined>()
   const [pending, setPending] = useState<'test' | 'identify' | null>(null)
+  const [previews] = useState(() => new EnrollmentPreview())
+  const [cachedIdentification, setCachedIdentification] = useState(false)
+  const automaticIdentification = useRef<string | undefined>(undefined)
   const requests = useRef(0)
   const authRevision = useRef({ key: '', revision: 0 })
   const identityRevision = useRef({ key: '', revision: 0 })
@@ -771,6 +756,7 @@ function ServerForm(props: {
   const authenticationKey = JSON.stringify(authentication)
   if (authRevision.current.key !== authenticationKey)
     authRevision.current = { key: authenticationKey, revision: authRevision.current.revision + 1 }
+  previews.sync(authRevision.current.revision)
   const currentConnection =
     connection?.revision === authRevision.current.revision && connection.expires_at > Date.now()
       ? connection
@@ -799,6 +785,7 @@ function ServerForm(props: {
   useEffect(
     () => () => {
       requests.current += 1
+      previews.clear()
     },
     [],
   )
@@ -902,14 +889,8 @@ function ServerForm(props: {
   const identityKey = JSON.stringify([authRevision.current.revision, groupId, typeKey, declaredOs])
   if (identityRevision.current.key !== identityKey)
     identityRevision.current = { key: identityKey, revision: identityRevision.current.revision + 1 }
-  const identified =
-    identification?.revision === authRevision.current.revision &&
-    identification.groupId === groupId &&
-    identification.type_key === typeKey &&
-    declaredOs !== undefined &&
-    sameDeclaredOs(identification.declared_os, declaredOs)
-      ? identification
-      : undefined
+  const selection = { groupId, typeKey, os: declaredOs, types: choices?.types ?? [] }
+  const identified = currentConnection ? previews.cached(authRevision.current.revision, selection) : undefined
   const savedSystemCurrent =
     loadedServer !== undefined &&
     authenticationKey === savedAuthenticationKey &&
@@ -935,6 +916,18 @@ function ServerForm(props: {
     if (defaultType !== undefined) setTypeKey(defaultType.key)
   }, [serverLoaded, declaredOs, typeKey, choices, applicableTypes])
 
+  useEffect(() => {
+    if (automaticIdentification.current !== identityKey) return
+    automaticIdentification.current = undefined
+    if (canTest && available && !busy) void identify(false)
+  }, [identityKey, canTest, available, busy])
+
+  function queueIdentification(nextGroup: string, nextType: string): void {
+    automaticIdentification.current = JSON.stringify([
+      authRevision.current.revision, nextGroup, nextType, declaredOs,
+    ])
+  }
+
   function changeGroup(id: string): void {
     const next = id === '' ? defaults : groups.find((group) => group.id === id)
     const allowed =
@@ -943,6 +936,7 @@ function ServerForm(props: {
       allowed.find((item) => item.key === typeKey) ??
       allowed.find((item) => item.key === defaultTypeForOs(next, declaredOs))
     if (selected === undefined || type === undefined || !sameSoftware(selected, type)) setAuto(false)
+    if (type && (groupId !== id || type.key !== typeKey)) queueIdentification(id, type.key)
     setGroupId(id)
     setTypeKey(type?.key ?? '')
   }
@@ -952,13 +946,9 @@ function ServerForm(props: {
       revision = authRevision.current.revision
     setError(null)
     setConnection(undefined)
-    setIdentification(undefined)
     setPending('test')
     try {
-      const result = await api<ConnectionResult>('/console-api/servers/test-connection', {
-        method: 'POST',
-        body: JSON.stringify(authentication),
-      })
+      const result = await previews.test(revision, authentication, true)
       if (request === requests.current && revision === authRevision.current.revision)
         setConnection({ ...result, revision })
     } catch (cause) {
@@ -968,30 +958,31 @@ function ServerForm(props: {
     }
   }
 
-  async function identify(): Promise<void> {
-    if (!currentConnection) return
+  async function identify(force = true): Promise<void> {
+    if (!canTest || (force && !currentConnection)) return
     const request = ++requests.current,
       revision = authRevision.current.revision,
       scope = identityRevision.current.revision
-    setPending('identify')
+    setPending(currentConnection ? 'identify' : 'test')
     setError(null)
-    setIdentification(undefined)
     try {
-      const result = await api<IdentificationResult>('/console-api/servers/identify-system', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...authentication,
-          connection_token: currentConnection.connection_token,
-          group_id: groupId || null,
-          type_key: typeKey,
-        }),
-      })
+      const connection = await previews.test(revision, authentication)
+      if (
+        request !== requests.current || revision !== authRevision.current.revision ||
+        scope !== identityRevision.current.revision
+      ) return
+      setConnection({ ...connection, revision })
+      setPending('identify')
+      const preview = await previews.identify(revision, authentication, selection, force)
       if (
         request !== requests.current ||
         revision !== authRevision.current.revision ||
         scope !== identityRevision.current.revision
       )
         return
+      const result = preview.identification
+      setConnection({ ...preview.connection, revision })
+      setCachedIdentification(preview.cached)
       const os = result.declared_os
       setSavedOs(os)
       setOsFamily(os.kind === 'custom' ? 'custom' : os.family)
@@ -999,7 +990,6 @@ function ServerForm(props: {
       setOsText(os.kind === 'custom' ? os.text : '')
       if (result.type_key !== typeKey) setAuto(false)
       setTypeKey(result.type_key)
-      setIdentification({ ...result, revision, groupId })
     } catch (cause) {
       if (
         request === requests.current &&
@@ -1308,6 +1298,7 @@ function ServerForm(props: {
               <select
                 value={typeKey}
                 onChange={(event) => {
+                  queueIdentification(groupId, event.target.value)
                   setTypeKey(event.target.value)
                   setAuto(false)
                 }}
@@ -1344,6 +1335,7 @@ function ServerForm(props: {
             {identified && (
               <p className="muted">
                 {format(copy.systemIdentified, { time: formatDate(identified.detected_at, active) })}
+                {cachedIdentification && ` ${copy.cachedSystemInformation}`}
               </p>
             )}
             {identified && !identified.software_available && <p className="muted">{copy.typeUnavailable}</p>}

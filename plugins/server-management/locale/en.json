@@ -125,6 +125,7 @@
     "systemInfo": "Server system information",
     "identifySystem": "Identify system information",
     "identifyingSystem": "Identifying…",
+    "cachedSystemInformation": "(Cached result; select Identify system information to refresh.)",
     "testingConnection": "Testing…",
     "identifySystemHint": "Test the connection successfully before identifying system information.",
     "systemIdentified": "Identified at {time}; information is read without installing software.",

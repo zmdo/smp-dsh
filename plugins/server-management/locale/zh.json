@@ -125,6 +125,7 @@
     "systemInfo": "服务器系统信息",
     "identifySystem": "识别系统信息",
     "identifyingSystem": "正在识别…",
+    "cachedSystemInformation": "（已复用缓存，点击“识别系统信息”可刷新）",
     "testingConnection": "正在测试…",
     "identifySystemHint": "请先测试连接，连接成功后可识别系统信息。",
     "systemIdentified": "识别时间：{time}；仅获取信息，不安装软件。",
