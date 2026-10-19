@@ -288,3 +288,45 @@ else:raise RuntimeError('fixture refuses mutations')
   assert.equal(JSON.parse(denied.stdout).result.state, 'unknown')
   assert.match(JSON.parse(denied.stdout).result.detail, /permission denied on Docker socket/)
 })
+
+test('the real remote supervisor upgrades an installed target and preserves deferred missing software', {timeout:10_000},async t=>{
+ const root=await mkdtemp(join(tmpdir(),'smp-upgrade-'))
+ t.after(()=>rm(root,{recursive:true,force:true}))
+ const source=REMOTE_SUPERVISOR.replace("ROOT='/var/lib/smp-server-management'",`ROOT=${JSON.stringify(root)}`).replace("if os.geteuid()!=0:raise RuntimeError('root_required')","if False:raise RuntimeError('root_required')").replace('st.st_uid!=0','st.st_uid!=os.geteuid()')
+ const before={state:'installed',version:'1.0.0',targetIdentity:'tool=1',packages:[],healthy:true},after={...before,version:'2.0.0',targetIdentity:'tool=2'},marker=join(root,'executed')
+ const detect=script(`if [ -f ${quote(marker)} ]; then ${response({operation:'detect',result:after})}; else ${response({operation:'detect',result:before})}; fi`)
+ const steps=[{environment:{software:'tool'},request:{change:{software:'tool',action:'upgrade',before,target:{targetIdentity:'tool=2'}}},detect,execute:script(`printf x >> ${quote(marker)}; ${response({operation:'execute',state:'completed',changes:[{name:'tool',version:'2'}]})}`),verify:script(response({operation:'verify',healthy:true,result:after}))},
+ {environment:{software:'missing'},request:{change:{software:'missing',action:'defer-install',before:{state:'missing'}}},detect:script(response({operation:'detect',result:{state:'missing'}})),execute:script('exit 99')}]
+ const operationId=randomUUID(),request={operation:'start',operationId,digest:'confirmed-upgrade',steps}
+ assert.equal((await python(source,request)).code,0)
+ let result:any
+ for(let i=0;i<50;i++){result=JSON.parse((await python(source,{...request,operation:'recover'})).stdout);if(result.state!=='running')break;await new Promise(r=>setTimeout(r,40))}
+ assert.equal(result.state,'completed');assert.equal(result.steps[1].after.state,'missing')
+ assert.equal(await readFile(marker,'utf8'),'x')
+ assert.equal(JSON.parse((await python(source,request)).stdout).state,'completed')
+ assert.equal(await readFile(marker,'utf8'),'x')
+})
+test('apt preflight permits dependency replacement only for explicitly selected upgrade or replace actions',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'smp-apt-upgrade-'))
+ t.after(()=>rm(directory,{recursive:true,force:true}))
+ const stub=`#!/usr/bin/env python3
+import os,sys
+name=os.path.basename(sys.argv[0]);args=sys.argv[1:]
+if name=='apt-get':
+ if '--simulate' not in args:raise RuntimeError('fixture forbids real mutations')
+ print('Inst docker-ce [5:27.3.0-1] (5:27.3.1-1 repository [amd64])\\nInst dependency [1.0.0-1] (1.1.0-1 repository [amd64])')
+elif name=='apt-cache':
+ pkg,v=args[1].split('=',1);print('Package: '+pkg+'\\nVersion: '+v+'\\nArchitecture: amd64\\nFilename: pool/'+pkg+'.deb\\nSHA256: '+'a'*64)
+else:sys.exit(1)
+`
+ for(const name of ['apt-get','apt-cache','dpkg-query','docker'])await writeFile(join(directory,name),stub,{mode:0o755})
+ const env={...process.env,PATH:directory+':'+process.env.PATH},before={state:'installed',version:'27.3.0',targetIdentity:'docker-ce=5:27.3.0-1',packages:[],healthy:true}
+ const target={version:'27.3.1',targetIdentity:'docker-ce=5:27.3.1-1',channel:'stable',packages:[{manager:'apt',name:'docker-ce',version:'5:27.3.1-1',architecture:'amd64',source:'pool/docker-ce.deb',checksum:'a'.repeat(64)}]}
+ const base={operation:'resolve',software:'builtin/docker-engine',recipe:'builtin/docker-apt',recipeRevision:'fixture',installed:before,target}
+ assert.equal((await python(APT_RECIPE,{...base,action:'install'},env)).code,1)
+ for(const action of ['upgrade','replace']){
+  const result=await python(APT_RECIPE,{...base,action},env)
+  assert.equal(result.code,0,result.stderr);const change=JSON.parse(result.stdout).change
+  assert.equal(change.action,action);assert.equal(change.payload.packages.length,2);assert.equal(change.effects[0].kind,'service-restart')
+ }
+})

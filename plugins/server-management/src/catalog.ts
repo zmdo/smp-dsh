@@ -57,7 +57,7 @@ export function builtinCatalog(): Component[] {
       verify: script,
       recover: script,
     },
-    actions: ['install'],
+    actions: ['install', 'upgrade', 'replace'],
     revision: digest({
       software: id,
       supportedOs: APT_SOFTWARE_OS,

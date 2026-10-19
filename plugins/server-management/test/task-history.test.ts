@@ -30,7 +30,7 @@ test('inspection reports and filtered task pages preserve errors without floodin
     await admin.query(`create schema ${schema}`)
     const db = new Pool({ connectionString: process.env.SMP_TEST_DATABASE_URL, options: `-c search_path=${schema}` })
     t.after(async () => { await db.end(); await admin.query(`drop schema ${schema} cascade`); await admin.end() })
-    for (const file of ['0010_server_management.sql', '0012_server_types.sql', '0013_server_observations.sql', '0014_server_execution.sql'])
+    for (const file of ['0010_server_management.sql', '0012_server_types.sql', '0013_server_observations.sql', '0014_server_execution.sql', '0016_server_version_policies.sql'])
       await db.query(await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), 'utf8'))
     const server = randomUUID(), other = randomUUID()
     for (const id of [server, other]) {

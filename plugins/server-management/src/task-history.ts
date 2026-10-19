@@ -1,7 +1,7 @@
 import { HttpError, type Db } from './store.ts'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = ['inspect', 'inspection_report', 'test_connection', 'install_components', 'detect_updates', 'deploy', 'start', 'stop', 'restart', 'logs']
+const ACTIONS = ['inspect', 'inspection_report', 'test_connection', 'install_components', 'detect_updates', 'preflight_move', 'preflight_upgrade', 'move_server', 'upgrade_software', 'deploy', 'start', 'stop', 'restart', 'logs']
 const STATES = ['queued', 'claimed', 'running', 'recovering', 'succeeded', 'failed', 'blocked', 'cancelled']
 
 export interface TaskQuery {
@@ -48,6 +48,7 @@ export async function taskHistory(db: Db, query: TaskQuery): Promise<unknown> {
       select id::text,coalesce(request_snapshot->>'action',purpose) as action,state as status,phase,
         result,output_excerpt,created_at,started_at,finished_at
       from server_jobs where server_identity=$1
+        and not (purpose='detect_updates' and request_snapshot->>'automatic'='true' and state='succeeded')
         and (not (purpose='inspect' and request_snapshot->>'action'='inspect'
           and request_snapshot->>'prepare' is distinct from 'true') or state in ('failed','blocked'))
       union all

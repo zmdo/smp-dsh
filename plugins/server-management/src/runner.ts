@@ -1,3 +1,6 @@
+import { readPolicies, restrictLease } from './policies.ts'
+import { preflightRequest, savePreflight, type ChangeRequest } from './changes.ts'
+import { detectUpdates, saveUpdateChecks } from './upgrades.ts'
 import type { DefinitionRegistry, TypeLease } from './registry.ts'
 import { typeSupportsOs } from './definitions.ts'
 import { osVerification } from './operating-systems.ts'
@@ -6,8 +9,24 @@ import { errorPayload, ServerError } from './i18n.ts'
 import { scrub, scrubValue } from './parse.ts'
 import { connectSsh, type SshSession } from './ssh.ts'
 import { detectSoftware, inspectContainers, type SoftwareStatus } from './software.ts'
-import { markConnected, saveComponentStatus, saveObservation, saveOsProbe, serverSecret, type Db } from './store.ts'
-import { finishJob, heartbeat, loadPlan, owned, phase, recovering, savePlan, type JobRecord } from './job-store.ts'
+import {
+  markConnected,
+  saveComponentStatus,
+  saveObservation,
+  saveOsProbe,
+  serverSecret,
+  type Db,
+} from './store.ts'
+import {
+  finishJob,
+  heartbeat,
+  loadPlan,
+  owned,
+  phase,
+  recovering,
+  savePlan,
+  type JobRecord,
+} from './job-store.ts'
 import { canonical, validObservation } from './recipe.ts'
 import { checkPlan, preparePlan, type PreparedPlan } from './plans.ts'
 import { remoteOperation, type RemoteResult } from './remote-operation.ts'
@@ -22,6 +41,7 @@ export async function executeJob(
   definitions: DefinitionRegistry,
   job: JobRecord,
   connect: typeof connectSsh = connectSsh,
+  updateCheckIntervalSeconds = 3600,
 ): Promise<void> {
   let session: SshSession | undefined,
     lease: TypeLease | undefined,
@@ -74,15 +94,31 @@ export async function executeJob(
       await reconcile(db, job, result, secret, saved.plan)
       return
     }
+    let explicit: ChangeRequest | undefined
+    if (job.target_id && job.purpose !== 'apply_plan') explicit = await preflightRequest(db, job)
+    if (job.purpose === 'apply_plan') {
+      const accepted = await loadPlan(db, job)
+      if (!accepted) throw new ServerError('plan_not_ready')
+      explicit = accepted.request
+    }
     const probe = await probeOs(session, server.declared_os)
     await owned(db, job, (client) => saveOsProbe(client, server!.id, probe, server!.config_revision))
-    const verified = osVerification(server.declared_os, probe.state === 'detected' ? probe.os : null, probe.state)
+    const verified = osVerification(
+      server.declared_os,
+      probe.state === 'detected' ? probe.os : null,
+      probe.state,
+    )
     if (verified === 'mismatch') throw new ServerError('os_mismatch')
     lease = await definitions.lease(
-      server.group_id,
-      server.type_key,
+      explicit?.selection?.binding ? explicit.selection.binding.groupId : server.group_id,
+      explicit?.selection?.binding?.typeKey ?? server.type_key,
       probe.state === 'detected' ? probe.os : server.declared_os,
     )
+    if (lease)
+      lease = restrictLease(
+        lease,
+        explicit?.selection?.binding?.policies ?? (await readPolicies(db, server.id)),
+      )
     if (job.purpose === 'apply_plan' || job.request_snapshot.prepare) {
       if (!lease) throw new ServerError('type_unavailable')
       if (job.definition_revision !== lease.signature) throw new ServerError('job_definition_changed')
@@ -93,6 +129,45 @@ export async function executeJob(
     }
     server = (await serverSecret(db, job.server_id))!
     await phase(db, job, 'preflight')
+    if (job.purpose === 'detect_updates') {
+      if (!lease || probe.state !== 'detected' || verified !== 'matched')
+        throw new ServerError('os_unverified')
+      const enabled = job.request_snapshot.automatic
+        ? (await readPolicies(db, server.id)).filter((p) => p.detect_updates).map((p) => p.software_key)
+        : undefined
+      const checks = await detectUpdates(session, lease, probe.os, enabled)
+      await saveUpdateChecks(db, job, server, lease, scrubValue(checks, secret), updateCheckIntervalSeconds)
+      const issues = checks.filter(
+        (c) =>
+          c.reason === 'detection_failed' ||
+          c.reason === 'version_conflict' ||
+          c.reason === 'unhealthy' ||
+          c.errors.length,
+      )
+      await finishJob(
+        db,
+        job,
+        issues.length ? 'failed' : 'succeeded',
+        issues.length ? '升级检测发现异常。' : '升级检测完成；未执行软件变更。',
+        { summary: 'updates_detected', checks: scrubValue(checks, secret) },
+      )
+      return
+    }
+    if (job.target_id && job.purpose !== 'apply_plan' && explicit) {
+      if (!lease || probe.state !== 'detected' || verified !== 'matched')
+        throw new ServerError('os_unverified')
+      const plan = await preparePlan(session, lease, probe.os, {
+        mode: explicit.selection.binding ? 'move' : 'upgrade',
+        versions: explicit.selection.versions,
+        installMissing: explicit.selection.binding?.installMissing,
+      })
+      if (explicit.selection.binding) plan.targetType = lease.type
+      await owned(db, job, (c) => savePreflight(c, job, server!, plan))
+      await finishJob(db, job, 'succeeded', '预检完成，等待确认；未执行软件变更。', {
+        summary: 'preflight_ready',
+      })
+      return
+    }
     if (job.purpose === 'apply_plan') {
       const saved = await loadPlan(db, job)
       if (
@@ -105,9 +180,22 @@ export async function executeJob(
         throw new ServerError('plan_conflict')
       await checkPlan(session, lease, saved.plan)
       await guard()
-      await phase(db, job, 'installing')
+      const admitted = await loadPlan(db, job, true)
+      if (!admitted) throw new ServerError('plan_not_ready')
       mutation = true
-      let result = await remoteOperation(session, 'start', job.operation_id, saved.digest, saved.plan, lease)
+      const changing = saved.plan.changes.some((c) => ['install', 'upgrade', 'replace'].includes(c.action))
+      let result: RemoteResult = changing
+        ? await remoteOperation(session, 'start', job.operation_id, saved.digest, saved.plan, lease)
+        : {
+            state: 'completed',
+            steps: saved.plan.changes.map((change, index) => ({
+              ordinal: index + 1,
+              software: change.software,
+              state: 'succeeded',
+              changes: [],
+              after: change.before,
+            })),
+          }
       while (result.state === 'running') {
         await new Promise((resolve) => setTimeout(resolve, 1000))
         await guard()
@@ -122,7 +210,9 @@ export async function executeJob(
       return
     }
     const status =
-      lease && probe.state === 'detected' ? await detectSoftware(session, lease.components, probe.os) : undefined
+      lease && probe.state === 'detected'
+        ? await detectSoftware(session, lease.components, probe.os)
+        : undefined
     const observation =
       verified === 'matched' && probe.state === 'detected' && probe.os.family !== 'builtin/windows-server'
         ? await inspectContainers(session)
@@ -144,13 +234,16 @@ export async function executeJob(
       if (!lease) issues.push(errorPayload(new ServerError('type_unavailable')))
       for (const [software, item] of Object.entries(status ?? {})) {
         if (item.state === 'unknown' || (item.state === 'installed' && item.healthy === false))
-          issues.push(errorPayload(new ServerError('inspection_software_failed', { software, detail: item.detail })))
+          issues.push(
+            errorPayload(new ServerError('inspection_software_failed', { software, detail: item.detail })),
+          )
       }
       if (observation.state === 'error')
         issues.push(errorPayload(new ServerError('containers_failed', { detail: observation.detail ?? '' })))
       if (issues.length) {
         await finishJob(db, job, 'failed', '巡检发现检测异常。', {
-          summary: 'inspection_issues', issues: scrubValue(issues, secret),
+          summary: 'inspection_issues',
+          issues: scrubValue(issues, secret),
         })
         return
       }
@@ -222,7 +315,11 @@ async function reconcile(
   }
   for (const step of result.steps) {
     const change = plan.changes[step.ordinal - 1]
-    if (!change || change.software !== step.software || (step.after !== undefined && !validObservation(step.after)))
+    if (
+      !change ||
+      change.software !== step.software ||
+      (step.after !== undefined && !validObservation(step.after))
+    )
       throw new ServerError('recipe_protocol')
   }
   if (
@@ -232,21 +329,29 @@ async function reconcile(
       result.steps.some((step) => {
         const change = plan.changes[step.ordinal - 1]!,
           actual = step.after
+        if (step.state !== 'succeeded' || !validObservation(actual)) return true
+        if (change.action === 'keep' || change.action === 'defer-install')
+          return canonical(actual) !== canonical(change.before)
         return (
-          step.state !== 'succeeded' ||
-          !validObservation(actual) ||
           actual.state !== 'installed' ||
           !actual.healthy ||
-          (change.action === 'install'
-            ? actual.targetIdentity !== change.target?.targetIdentity
-            : canonical(actual) !== canonical(change.before))
+          actual.targetIdentity !== change.target?.targetIdentity
         )
       }))
   )
     throw new ServerError('recipe_protocol')
   const cleaned = {
     ...scrubValue(result, secret),
-    ...(result.state === 'completed' ? { summary: 'installed' } : {}),
+    ...(result.state === 'completed'
+      ? {
+          summary:
+            job.request_snapshot.action === 'upgrade_software'
+              ? 'upgraded'
+              : job.request_snapshot.action === 'move_server'
+                ? 'moved'
+                : 'installed',
+        }
+      : {}),
   } as RemoteResult
   await owned(db, job, async (client) => {
     for (const step of cleaned.steps) {
@@ -275,7 +380,7 @@ async function reconcile(
     for (const step of cleaned.steps)
       await client.query(
         `insert into server_job_steps(id,job_id,ordinal,software_key,phase,state,after_snapshot,changes,error,finished_at)
-      values($1,$2,$3,$4,'installing',$5,$6,$7,$8,now()) on conflict(job_id,ordinal) do update set state=excluded.state,after_snapshot=excluded.after_snapshot,changes=excluded.changes,error=excluded.error,finished_at=excluded.finished_at`,
+      values($1,$2,$3,$4,$9,$5,$6,$7,$8,now()) on conflict(job_id,ordinal) do update set state=excluded.state,after_snapshot=excluded.after_snapshot,changes=excluded.changes,error=excluded.error,finished_at=excluded.finished_at`,
         [
           randomUUID(),
           job.id,
@@ -285,6 +390,7 @@ async function reconcile(
           JSON.stringify(step.after ?? null),
           JSON.stringify(step.changes),
           result.error ? JSON.stringify({ message: scrub(result.error, secret) }) : null,
+          job.mutation_phase ?? 'installing',
         ],
       )
   })

@@ -143,3 +143,72 @@ test('optional container inspection distinguishes absent Docker from a failed in
   assert.equal(compose.state, 'error')
   assert.match(compose.detail!, /compose detection failed/)
 })
+
+function containerFixture(options: { sudo?: boolean; denySudo?: boolean; sudoThrows?: boolean; psFails?: boolean; composeMissing?: boolean } = {}) {
+  const calls: string[] = []
+  const session = fixture().session
+  session.exec = async command => {
+    calls.push(command)
+    if (command === 'command -v docker >/dev/null 2>&1') return { code: 0, stdout: '', stderr: '' }
+    if (command.startsWith('sudo -n ')) {
+      if (options.sudoThrows) throw Error('sudo read timed out')
+      if (options.denySudo) return { code: 1, stdout: '', stderr: 'sudo: a password is required' }
+    }
+    if (options.sudo && command.startsWith('docker version'))
+      return { code: 1, stdout: '', stderr: 'permission denied while trying to connect to the docker API at unix:///var/run/docker.sock' }
+    const plain = command.replace(/^sudo -n /, '')
+    if (plain.startsWith('docker version')) return { code: 0, stdout: '{"Server":{"Version":"29.1.3"}}', stderr: '' }
+    if (plain.startsWith('docker compose version')) return options.composeMissing
+      ? { code: 1, stdout: '', stderr: "docker: 'compose' is not a docker command." }
+      : { code: 0, stdout: '{"version":"2.40.3"}', stderr: '' }
+    if (plain.startsWith('docker ps -a')) return options.psFails
+      ? { code: 1, stdout: '', stderr: 'container list permission denied' }
+      : { code: 0, stdout: '{"ID":"abc","Names":"web","Image":"nginx","State":"running","Ports":"80/tcp"}\n', stderr: '' }
+    throw Error(`Unexpected command: ${command}`)
+  }
+  return { session, calls }
+}
+
+test('container inspection uses ordinary read access when available and supports absent optional Compose', async () => {
+  const f = containerFixture(), result = await inspectContainers(f.session)
+  assert.equal(result.state, 'ready')
+  assert.equal(result.docker, '29.1.3')
+  assert.equal(result.compose, '2.40.3')
+  assert.equal(result.containers?.[0]?.name, 'web')
+  assert.equal(f.calls.some(command => command.startsWith('sudo ')), false)
+  const missing = containerFixture({ composeMissing: true })
+  const withoutCompose = await inspectContainers(missing.session)
+  assert.equal(withoutCompose.state, 'ready')
+  assert.equal(withoutCompose.compose, null)
+  assert.equal(withoutCompose.containers?.length, 1)
+})
+
+test('existing non-interactive sudo access is reused for every subsequent Docker read', async () => {
+  const f = containerFixture({ sudo: true }), result = await inspectContainers(f.session)
+  assert.equal(result.state, 'ready')
+  assert.equal(result.containers?.length, 1)
+  assert.deepEqual(f.calls, [
+    'command -v docker >/dev/null 2>&1',
+    "docker version --format '{{json .}}'",
+    "sudo -n docker version --format '{{json .}}'",
+    'sudo -n docker compose version --format json',
+    "sudo -n docker ps -a --no-trunc --format '{{json .}}'",
+  ])
+})
+
+test('failed sudo preserves the ordinary permission error and reports the sudo failure without prompting', async () => {
+  for (const failure of [{ denySudo: true }, { sudoThrows: true }]) {
+    const f = containerFixture({ sudo: true, ...failure }), result = await inspectContainers(f.session)
+    assert.equal(result.state, 'error')
+    assert.match(result.detail!, /permission denied.*docker API/)
+    assert.match(result.detail!, failure.denySudo ? /password is required/ : /sudo read timed out/)
+    assert.equal(f.calls.length, 3)
+  }
+})
+
+test('an ordinary Docker context is not replaced with a different sudo context after a later read fails', async () => {
+  const f = containerFixture({ psFails: true }), result = await inspectContainers(f.session)
+  assert.equal(result.state, 'error')
+  assert.match(result.detail!, /container list permission denied/)
+  assert.equal(f.calls.some(command => command.startsWith('sudo ')), false)
+})

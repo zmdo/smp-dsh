@@ -18,6 +18,7 @@ export interface DisplayStatus {
 export interface ServerListItem {
   id: string
   name: string
+  upgradeCount: number
   address: { host: string; port: number }
   operatingSystem: { declared: DeclaredOs; label: string; verification: string }
   type: { key: string; name: LocalizedText; available: boolean }

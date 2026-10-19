@@ -1,3 +1,6 @@
+import { SoftwarePolicies } from './SoftwarePolicies.tsx'
+import { MoveServer } from './MoveServer.tsx'
+import type { SoftwarePolicy } from '../policies.ts'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
 import {
@@ -42,6 +45,8 @@ import type { ServerPageState, ServerPageSnapshot, ServerListView as ListView } 
 
 interface ServerRow {
   id: string
+  software_policies: SoftwarePolicy[]
+  upgrade_count:number
   name: string
   host: string
   ssh_port: number
@@ -118,7 +123,7 @@ export function installServersStyle(): () => void {
   }
 }
 
-export function ServersPage(props: { locale: LocaleFace; pageState: ServerPageState }) {
+export function ServersPage(props: { locale: LocaleFace; pageState: ServerPageState;openConsole?:(key:string)=>void }) {
   const active = useActiveLocale(props.locale)
   const { screen, serverId, editing, listView } = useSyncExternalStore(props.pageState.subscribe, props.pageState.getSnapshot)
   const setScreen = (screen: ServerPageSnapshot['screen']) => props.pageState.update({ screen })
@@ -147,6 +152,7 @@ export function ServersPage(props: { locale: LocaleFace; pageState: ServerPageSt
       <ServerDetail
         active={active}
         id={serverId}
+        onUpgrades={()=>{props.pageState.update({upgradeContext:{serverId}});props.openConsole?.('server-upgrades')}}
         onEdit={() => {
           setEditing(true)
           setScreen('form')
@@ -174,6 +180,7 @@ export function ServersPage(props: { locale: LocaleFace; pageState: ServerPageSt
       active={active}
       view={listView}
       onView={setListView}
+      onUpgrades={()=>{props.pageState.update({upgradeContext:{groupId:listView.groupId||undefined}});props.openConsole?.('server-upgrades')}}
       onOpen={(id) => {
         setServerId(id)
         setEditing(false)
@@ -194,6 +201,7 @@ function ServerList(props: {
   onView: (view: ListView) => void
   onOpen: (id: string) => void
   onCreate: () => void
+  onUpgrades:()=>void
 }) {
   const { active } = props
   const copy = serverCopy(active).ui
@@ -211,6 +219,7 @@ function ServerList(props: {
   const dataVersion = useRef(0)
   const tableScroll = useRef<HTMLDivElement>(null)
   const params = new URLSearchParams({ q: view.query, status: view.status, order: view.order, page: String(view.page), page_size: String(view.pageSize) })
+  if(view.needsUpgrade)params.set('needs_upgrade','true')
   if (view.groupId !== null) params.set('group_id', view.groupId || 'ungrouped')
   const key = params.toString()
   const latestKey = useRef(key)
@@ -394,6 +403,7 @@ function ServerList(props: {
         </nav>
       </aside>
       <div className="smp-server-main">
+        <div className="row"><label><input type="checkbox" checked={view.needsUpgrade??false} onChange={e=>onView({...view,needsUpgrade:e.target.checked,page:1})}/>{serverCopy(active).upgrades.needsUpgrade}</label><button className="link" onClick={props.onUpgrades}>{serverCopy(active).upgrades.openUpgrades}</button></div>
         <Panel
           title={
             <>
@@ -588,7 +598,7 @@ function ServerLine(props: { active: string; server: ServerListItem; onOpen: (id
   const installationLabel = installation.applicability === 'not-applicable' ? copy.notApplicable : installation.enabled ? copy.yes : copy.no
   return (
     <tr onClick={() => props.onOpen(server.id)}>
-      <td><button className="smp-server-open" type="button" onClick={event => { event.stopPropagation(); props.onOpen(server.id) }}>{server.name}</button></td>
+      <td><button className="smp-server-open" type="button" onClick={event => { event.stopPropagation(); props.onOpen(server.id) }}>{server.name}</button>{server.upgradeCount>0&&<small>{serverCopy(active).upgrades.needsUpgrade} ({server.upgradeCount})</small>}</td>
       <td className="mono">{server.address.host}:{server.address.port}</td>
       <td>{server.operatingSystem.label}</td>
       <td title={server.type.available ? undefined : copy.typeUnavailable}>{localized(server.type.name, active)}</td>
@@ -704,6 +714,7 @@ function ServerForm(props: {
     return () => clearTimeout(timer)
   }, [connection])
   const [busy, setBusy] = useState(false)
+  const [policies,setPolicies]=useState<SoftwarePolicy[]>([])
 
   useEffect(() => {
     let stopped = false
@@ -733,6 +744,7 @@ function ServerForm(props: {
       .then((server) => {
         if (stopped) return
         setLoadedServer(server)
+        setPolicies(server.software_policies)
         setName(server.name)
         setHost(server.host)
         setPort(String(server.ssh_port))
@@ -944,6 +956,7 @@ function ServerForm(props: {
         declared_os: declaredOs,
         region,
         install_required_software: software.length > 0 && auto,
+        software_policies:software.map(s=>policies.find(p=>p.software_key===s.software_key)??{software_key:s.software_key,restriction:{kind:'any'},detect_updates:false}),
         inspect_after_save: identified !== undefined,
         ssh_key_id: method === 'private_key' ? nextKey : undefined,
         secret: method === 'password' && secret.trim() !== '' ? secret : undefined,
@@ -996,6 +1009,7 @@ function ServerForm(props: {
             {copy.group}
             <select
               value={groupId}
+                disabled={props.editing}
               onChange={(event) => {
                 changeGroup(event.target.value)
               }}
@@ -1211,7 +1225,7 @@ function ServerForm(props: {
                   setTypeKey(event.target.value)
                   setAuto(false)
                 }}
-                disabled={!choices?.available || declaredOs === undefined}
+                disabled={props.editing || !choices?.available || declaredOs === undefined}
               >
                 {selected !== undefined && !applicableTypes.some((type) => type.key === typeKey) && (
                   <option value={typeKey} disabled>
@@ -1235,7 +1249,7 @@ function ServerForm(props: {
                 {choices.available ? serverCopy(active).errors.os_type_unsupported : copy.typeUnavailable}
               </p>
             )}
-            {props.editing && !originalBinding && <p className="muted">{copy.typeChangeNote}</p>}
+            {props.editing && <p className="muted">{serverCopy(active).upgrades.moveEditing}</p>}
             {architecture && (
               <p className="muted">
                 {copy.architecture}: {architecture}
@@ -1249,6 +1263,7 @@ function ServerForm(props: {
             )}
             {identified && !identified.software_available && <p className="muted">{copy.typeUnavailable}</p>}
             <RequiredSoftware active={active} software={software} status={softwareStatus} />
+            <SoftwarePolicies active={active} software={configuredSoftware} value={policies} onChange={setPolicies} installed={softwareStatus}/>
             <label className="smp-server-auto-install">
               <input
                 type="checkbox"
@@ -1371,12 +1386,14 @@ function ServerDetail(props: {
   id: string
   onEdit: () => void
   onTerminal: () => void
+  onUpgrades:()=>void
   onBack: () => void
 }) {
   const { active } = props
   const copy = serverCopy(active).ui
   const [server, setServer] = useState<ServerRow | undefined>()
   const [error, setError] = useState<ServerError | null>(null)
+  const [moving,setMoving]=useState(false)
   const [queued, setQueued] = useState(false)
   const [taskRefresh, setTaskRefresh] = useState(0)
 
@@ -1504,7 +1521,10 @@ function ServerDetail(props: {
             <b className="mono">{server.host_fingerprint || copy.notPinned}</b>
           </div>
         </div>
+        {moving&&<MoveServer active={active} server={server} onClose={()=>setMoving(false)}/>}
         <div className="node-actions">
+          <button className="secondary" type="button" onClick={()=>setMoving(true)}>{serverCopy(active).upgrades.moveServer}</button>
+          <button className="secondary" type="button" onClick={props.onUpgrades}>{serverCopy(active).upgrades.openUpgrades} ({server.upgrade_count})</button>
           <button
             className="secondary"
             type="button"

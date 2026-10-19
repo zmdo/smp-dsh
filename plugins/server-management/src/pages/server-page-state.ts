@@ -4,6 +4,7 @@ export interface ServerListView {
   page: number
   pageSize: number
   status: string
+  needsUpgrade?:boolean
   order: 'name' | 'last_checked'
 }
 export interface ServerPageSnapshot {
@@ -11,6 +12,7 @@ export interface ServerPageSnapshot {
   serverId: string
   editing: boolean
   listView: ServerListView
+  upgradeContext?: {serverId?:string;groupId?:string}
 }
 
 /** Owned by one client plugin instance, so settings navigation does not erase the server page. */

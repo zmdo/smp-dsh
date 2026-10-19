@@ -49,12 +49,12 @@ def worker(request,path,lock):
    if observed.get('operation')!='detect':raise RuntimeError('invalid_detection')
    target=change.get('target')
    satisfied=actual.get('state')=='installed' and actual.get('healthy') and target and actual.get('targetIdentity')==target['targetIdentity']
-   if change['action']=='keep':
+   if change['action'] in ('keep','defer-install'):
     if actual!=change['before']:raise RuntimeError('software_drift')
     result.update(state='succeeded',after=actual)
    else:
     if not satisfied:
-     if actual!=change['before'] or actual.get('state')!='missing':raise RuntimeError('software_drift')
+     if actual!=change['before']:raise RuntimeError('software_drift')
      execution=run(step['execute'],dict(step['request'],operation='execute'))
      result['changes']=execution.get('changes',[]);write(path+'/result.json',record)
      if execution.get('operation')!='execute' or execution.get('state')!='completed':raise RuntimeError('execution_failed')

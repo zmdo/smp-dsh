@@ -68,7 +68,7 @@ def detect():
   p=subprocess.run(['docker','compose','version'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   if p.returncode==0: return dict(state='unknown',code='unmanaged_installation')
  return dict(state='missing')
-def resolve(target):
+def resolve(target,action="install"):
  root=target['packages'][0]
  output=run(['apt-get','--simulate','--no-install-recommends','--no-remove','install',root['name']+'='+root['version']])
  if any(line.startswith('Remv ') for line in output.splitlines()): raise RuntimeError('Package removal requires confirmation')
@@ -78,13 +78,13 @@ def resolve(target):
   match=re.match(r'Inst (\S+)(?: \[([^]]+)\])? \((\S+)',line)
   if not match: raise RuntimeError('Unrecognized dependency resolution')
   name,previous,version=match.groups()
-  if previous: raise RuntimeError('Changing an installed dependency requires confirmation: '+name)
+  if previous and action=='install': raise RuntimeError('Changing an installed dependency requires confirmation: '+name)
   result.append(package(name,version))
  for line in output.splitlines():
   if line.startswith('Conf ') and line.split()[1] not in [p['name'] for p in result]: raise RuntimeError('Configuring an existing package requires confirmation')
  if not any(p['name']==root['name'] and p['version']==root['version'] for p in result): raise RuntimeError('Target changed during preflight')
  return result
-def guarded_install(expected,current):
+def guarded_install(expected,current,action):
  hook="""import sys,json,subprocess,hashlib
 expected=json.load(open(sys.argv[1]))
 allowed={(p['name'],p['version'],p['architecture']):p['checksum'] for p in expected}
@@ -101,28 +101,28 @@ for path in sys.stdin.read().splitlines():
   hookpath=directory+'/verify.py';planpath=directory+'/packages.json'
   with open(hookpath,'w') as f:f.write(hook)
   with open(planpath,'w') as f:json.dump(expected,f)
-  run(['apt-get','--yes','--no-install-recommends','--no-remove','-o','APT::Get::AllowUnauthenticated=false','-o','DPkg::Pre-Install-Pkgs::=python3 '+hookpath+' '+planpath,'install']+[p['name']+'='+p['version'] for p in current])
+  run(['apt-get','--yes','--no-install-recommends','--no-remove','-o','APT::Get::AllowUnauthenticated=false','-o','DPkg::Pre-Install-Pkgs::=python3 '+hookpath+' '+planpath,'install']+(['--allow-downgrades'] if action=='replace' else [])+[p['name']+'='+p['version'] for p in current])
 try:
  if op=='detect': result=dict(operation=op,result=detect())
  elif op=='list-candidates': result=dict(operation=op,candidates=candidates())
  elif op=='resolve':
-  packages=resolve(r['target'])
-  result=dict(operation=op,change=dict(software=software,recipe=r['recipe'],recipeRevision=r['recipeRevision'],action='install',before=r['installed'],target=r['target'],dependencies=[],effects=[dict(kind='service-restart',description=dict(zh='安装软件并启动相关服务。',en='Install software and start its services.'))],payload=dict(packages=packages)),additionalRequirements=[])
+  action=r.get('action','install');packages=resolve(r['target'],action)
+  result=dict(operation=op,change=dict(software=software,recipe=r['recipe'],recipeRevision=r['recipeRevision'],action=action,before=r['installed'],target=r['target'],dependencies=[],effects=[dict(kind='service-restart',description=dict(zh='软件变更可能重启服务或中断容器，请安排维护时间。',en='Software changes may restart services or interrupt containers. Schedule a maintenance window.'))],payload=dict(packages=packages)),additionalRequirements=[])
  elif op=='execute':
   change=r['change']; expected=change['payload']['packages']; root=change['target']['packages'][0]
   actual=detect()
   if actual['state']=='installed' and actual['targetIdentity']==change['target']['targetIdentity']:
    result=dict(operation=op,state='completed',changes=[])
   else:
-   if actual['state']!='missing': raise RuntimeError('Software changed after preflight')
-   current=resolve(change['target'])
+   if actual!=change['before']: raise RuntimeError('Software changed after preflight')
+   current=resolve(change['target'],change['action'])
    allowed={p['name']:p for p in expected}
    if any(allowed.get(p['name'])!=p for p in current): raise RuntimeError('Dependency plan changed')
    for p in expected:
     if not any(q['name']==p['name'] for q in current):
      found=installed(p['name'])
      if not found or found[0]!=p['version']: raise RuntimeError('Dependency changed')
-   guarded_install(expected,current)
+   guarded_install(expected,current,change['action'])
    result=dict(operation=op,state='completed',changes=expected)
  elif op=='verify':
   actual=detect(); ok=actual['state']=='installed' and actual['targetIdentity']==r['change']['target']['targetIdentity']

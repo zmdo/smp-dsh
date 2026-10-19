@@ -1,6 +1,7 @@
+import { finishPreflight, commitBinding, type ChangeRequest } from './changes.ts'
 import { randomUUID } from 'node:crypto'
 import type { Db, DbClient, ServerSecret } from './store.ts'
-import { ServerError } from './i18n.ts'
+import { ServerError, errorPayload } from './i18n.ts'
 import { digest } from './recipe.ts'
 import type { PreparedPlan } from './plans.ts'
 
@@ -8,7 +9,7 @@ export interface JobRecord {
   id: string
   server_id: string
   server_identity: string
-  purpose: 'inspect' | 'apply_plan'
+  purpose: 'inspect' | 'apply_plan' | 'detect_updates'
   state: string
   phase: string
   mutation_phase: string | null
@@ -20,7 +21,14 @@ export interface JobRecord {
   worker_id: string
   fence: string
   lease_expires_at: Date
-  request_snapshot: { action: string; prepare?: boolean }
+  request_snapshot: {
+    action: string
+    prepare?: boolean
+    automatic?: boolean
+    intervalSeconds?: number
+    planId?: string
+    digest?: string
+  }
   result: unknown
   output_excerpt: string
   created_at: Date
@@ -96,7 +104,7 @@ export async function claimNext(db: Db, workerId: string): Promise<JobRecord | u
     const found = (
       await client.query<JobRecord>(`select j.* from server_jobs j
       where (j.state in ('claimed','running','recovering') and j.lease_expires_at<now())
-        or (j.state='queued' and not exists(select 1 from server_jobs active where active.server_id=j.server_id and active.state in ('claimed','running','recovering')))
+        or (j.state='queued' and (j.purpose<>'apply_plan' or exists(select 1 from server_change_targets t join server_change_plans p on p.id=t.plan_id where t.id=j.target_id and p.state in ('scheduled','running') and p.window_start<=now() and p.window_end>now())) and not exists(select 1 from server_jobs active where active.server_id=j.server_id and active.state in ('claimed','running','recovering')))
       order by case when j.state='queued' then 1 else 0 end,j.created_at,j.id for update of j skip locked limit 1`)
     ).rows[0]
     if (!found) {
@@ -104,7 +112,8 @@ export async function claimNext(db: Db, workerId: string): Promise<JobRecord | u
       return
     }
     if (
-      !(await client.query('select id from servers where id=$1 for update skip locked', [found.server_id])).rows.length
+      !(await client.query('select id from servers where id=$1 for update skip locked', [found.server_id]))
+        .rows.length
     ) {
       await client.query('commit')
       return
@@ -120,6 +129,36 @@ export async function claimNext(db: Db, workerId: string): Promise<JobRecord | u
     ) {
       await client.query('commit')
       return
+    }
+    if (found.state === 'queued' && found.purpose === 'apply_plan') {
+      const plan = (
+        await client.query<{
+          id: string
+          state: string
+          concurrency: number
+          window_start: Date
+          window_end: Date
+        }>(
+          `select p.* from server_change_plans p join server_change_targets t on t.plan_id=p.id where t.id=$1 for update of p`,
+          [found.target_id],
+        )
+      ).rows[0]
+      const count = (
+        await client.query<{ count: string }>(
+          `select count(*) from server_jobs j join server_change_targets t on t.id=j.target_id where t.plan_id=$1 and j.purpose='apply_plan' and j.state in ('claimed','running','recovering')`,
+          [plan?.id],
+        )
+      ).rows[0]!
+      if (
+        !plan ||
+        !['scheduled', 'running'].includes(plan.state) ||
+        plan.window_start.getTime() > Date.now() ||
+        plan.window_end.getTime() <= Date.now() ||
+        Number(count.count) >= plan.concurrency
+      ) {
+        await client.query('commit')
+        return
+      }
     }
     const state = found.state === 'queued' ? 'running' : 'recovering'
     const claimed = (
@@ -169,7 +208,7 @@ export async function owned<T>(db: Db, job: JobRecord, run: (client: DbClient) =
 export async function phase(db: Db, job: JobRecord, next: string): Promise<void> {
   await owned(db, job, async (client) => {
     await client.query(
-      "update server_jobs set phase=$2,mutation_phase=case when $2='installing' then 'installing' else mutation_phase end where id=$1",
+      "update server_jobs set phase=$2,mutation_phase=case when $2 in ('installing','replacing','upgrading') then $2 else mutation_phase end where id=$1",
       [job.id, next],
     )
   })
@@ -187,7 +226,11 @@ export async function finishJob(
       "update server_jobs set state=$2,phase='finished',output_excerpt=$3,result=$4,finished_at=now() where id=$1",
       [job.id, state, message.slice(-4000), JSON.stringify(result)],
     )
-    if (job.purpose === 'inspect' && job.request_snapshot.action === 'inspect' && !job.request_snapshot.prepare) {
+    if (
+      job.purpose === 'inspect' &&
+      job.request_snapshot.action === 'inspect' &&
+      !job.request_snapshot.prepare
+    ) {
       await client.query(
         `insert into server_inspection_reports(server_identity,hour_start,succeeded,failed,last_checked_at)
         select server_identity,date_trunc('hour',finished_at at time zone 'UTC') at time zone 'UTC',
@@ -200,21 +243,92 @@ export async function finishJob(
         [job.id],
       )
     }
-    if (job.target_id) {
+    if (job.purpose === 'detect_updates' && state !== 'succeeded') {
+      await client.query(
+        `update server_software_policies set check_error=$2,last_check_at=now(),next_check_at=case when detect_updates then now()+make_interval(secs=>$3) else null end where server_id=$1`,
+        [job.server_id, JSON.stringify(result ?? { message }), job.request_snapshot.intervalSeconds ?? 3600],
+      )
+    }
+    if (job.target_id && job.purpose !== 'apply_plan') await finishPreflight(client, job, state, result)
+    if (job.target_id && job.purpose === 'apply_plan') {
+      if (state === 'succeeded') {
+        const target = (
+          await client.query<{ target_snapshot: PreparedPlan }>(
+            'select target_snapshot from server_change_targets where id=$1',
+            [job.target_id],
+          )
+        ).rows[0]
+        await client.query('savepoint binding_commit')
+        try {
+          await commitBinding(client, job, target?.target_snapshot.targetType)
+          await client.query('release savepoint binding_commit')
+        } catch (cause) {
+          await client.query('rollback to savepoint binding_commit')
+          await client.query('release savepoint binding_commit')
+          state = 'failed'
+          const error = errorPayload(new ServerError('binding_commit_failed', {}, { cause }))
+          result = {
+            ...(result && typeof result === 'object' ? result : {}),
+            summary: 'binding_failed',
+            error,
+          }
+          await client.query('update server_jobs set state=$2,result=$3,output_excerpt=$4 where id=$1', [
+            job.id,
+            state,
+            JSON.stringify(result),
+            error.detail,
+          ])
+        }
+        if (state === 'succeeded')
+          await client.query(
+            "update server_upgrade_suggestions set validity='satisfied' where server_id=$1 and target_identity in (select target_snapshot->'changes'->i->'target'->>'targetIdentity' from server_change_targets,generate_series(0,jsonb_array_length(target_snapshot->'changes')-1) i where id=$2)",
+            [job.server_id, job.target_id],
+          )
+      }
       const target = (
         await client.query<{ plan_id: string }>(
           'update server_change_targets set state=$2,result=$3,finished_at=now() where id=$1 returning plan_id',
-          [job.target_id, state === 'succeeded' ? 'succeeded' : state, JSON.stringify(result)],
+          [job.target_id, state, JSON.stringify(result)],
         )
       ).rows[0]!
-      await client.query("update server_change_plans set state=$2,updated_at=now() where id=$1 and state<>'missed'", [
+      const parent = (
+        await client.query<{ state: string }>(
+          'select state from server_change_plans where id=$1 for update',
+          [target.plan_id],
+        )
+      ).rows[0]!
+      const targets = (
+        await client.query<{ state: string }>('select state from server_change_targets where plan_id=$1', [
+          target.plan_id,
+        ])
+      ).rows
+      const pending = targets.some((t) => ['pending', 'running'].includes(t.state)),
+        failed = targets.some((t) => ['failed', 'blocked'].includes(t.state)),
+        skipped = targets.some((t) => t.state === 'skipped')
+      const next = ['cancelled', 'missed', 'paused'].includes(parent.state)
+        ? parent.state
+        : state !== 'succeeded' && pending
+          ? 'paused'
+          : pending
+            ? 'running'
+            : skipped
+              ? 'missed'
+              : failed
+                ? 'partial_failure'
+                : 'completed'
+      await client.query('update server_change_plans set state=$2,updated_at=now() where id=$1', [
         target.plan_id,
-        state === 'succeeded' ? 'completed' : 'partial_failure',
+        next,
       ])
     }
   })
 }
-export async function recovering(db: Db, job: JobRecord, message: string, remoteState: 'running' | 'unknown' = 'unknown'): Promise<void> {
+export async function recovering(
+  db: Db,
+  job: JobRecord,
+  message: string,
+  remoteState: 'running' | 'unknown' = 'unknown',
+): Promise<void> {
   await owned(db, job, async (client) => {
     await client.query(
       `update server_jobs set state='recovering',phase='reconciling',output_excerpt=$2,lease_expires_at=now()+interval '30 seconds',
@@ -223,10 +337,17 @@ export async function recovering(db: Db, job: JobRecord, message: string, remote
     )
   })
 }
-export async function savePlan(db: Db, job: JobRecord, server: ServerSecret, plan: PreparedPlan): Promise<void> {
+export async function savePlan(
+  db: Db,
+  job: JobRecord,
+  server: ServerSecret,
+  plan: PreparedPlan,
+): Promise<void> {
   await owned(db, job, async (client) => {
     const current = (
-      await client.query<{ config_revision: string }>('select config_revision from servers where id=$1', [server.id])
+      await client.query<{ config_revision: string }>('select config_revision from servers where id=$1', [
+        server.id,
+      ])
     ).rows[0]!
     if (String(current.config_revision) !== String(server.config_revision))
       throw new ServerError('job_configuration_changed')
@@ -250,7 +371,9 @@ export async function savePlan(db: Db, job: JobRecord, server: ServerSecret, pla
       [
         id,
         fingerprint,
-        job.request_snapshot.action === 'install_components' ? 'authenticated-install-request' : 'saved-install-choice',
+        job.request_snapshot.action === 'install_components'
+          ? 'authenticated-install-request'
+          : 'saved-install-choice',
         window.start,
         window.end,
         JSON.stringify(confirmation),
@@ -286,40 +409,60 @@ export async function savePlan(db: Db, job: JobRecord, server: ServerSecret, pla
     )
   })
 }
-export async function loadPlan(db: Db, job: JobRecord): Promise<{ plan: PreparedPlan; digest: string } | undefined> {
+export async function loadPlan(
+  db: Db,
+  job: JobRecord,
+  beginMutation = false,
+): Promise<{ plan: PreparedPlan; digest: string; request?: ChangeRequest } | undefined> {
   return owned(db, job, async (client) => {
     const row = (
       await client.query<{
         target_snapshot: PreparedPlan
         confirmation_digest: string
         state: string
+        window_start: Date
         window_end: Date
-        request_snapshot: unknown
+        request_snapshot: ChangeRequest & { plan?: PreparedPlan }
       }>(
-        `select t.target_snapshot,p.confirmation_digest,p.state,p.window_end,p.request_snapshot from server_change_targets t join server_change_plans p on p.id=t.plan_id
-      where t.id=$1 and t.server_id=$2 and t.expected_config_revision=$3 and t.definition_revision=$4 and p.confirmed_at is not null for update of p,t`,
+        `select t.target_snapshot,p.confirmation_digest,p.state,p.window_start,p.window_end,p.request_snapshot from server_change_targets t join server_change_plans p on p.id=t.plan_id
+    where t.id=$1 and t.server_id=$2 and t.expected_config_revision=$3 and t.definition_revision=$4 and p.confirmed_at is not null for update of p,t`,
         [job.target_id, job.server_id, job.expected_config_revision, job.definition_revision],
       )
     ).rows[0]
     if (
       !row ||
-      !['scheduled', 'running'].includes(row.state) ||
       digest(row.request_snapshot) !== row.confirmation_digest ||
-      digest((row.request_snapshot as { plan: unknown }).plan) !== digest(row.target_snapshot)
+      job.request_snapshot.digest !== row.confirmation_digest
     )
       return
-    if (job.mutation_phase === null && row.window_end.getTime() < Date.now()) {
+    const frozen =
+      row.request_snapshot.targets?.find((t) => t.id === job.target_id)?.plan ?? row.request_snapshot.plan
+    if (!frozen || digest(frozen) !== digest(row.target_snapshot)) return
+    if (!job.mutation_phase) {
+      if (
+        !['scheduled', 'running'].includes(row.state) ||
+        row.window_start.getTime() > Date.now() ||
+        row.window_end.getTime() <= Date.now()
+      )
+        return
+    }
+    if (beginMutation) {
+      const phase = row.target_snapshot.changes.some((c) => c.action === 'replace')
+        ? 'replacing'
+        : row.target_snapshot.changes.some((c) => c.action === 'upgrade')
+          ? 'upgrading'
+          : 'installing'
+      await client.query('update server_jobs set phase=$2,mutation_phase=$2 where id=$1', [job.id, phase])
       await client.query(
-        "update server_change_plans p set state='missed' from server_change_targets t where p.id=t.plan_id and t.id=$1",
+        "update server_change_targets set state='running',mutation_started_at=coalesce(mutation_started_at,now()) where id=$1",
         [job.target_id],
       )
-      return
+      await client.query(
+        "update server_change_plans p set state='running' from server_change_targets t where p.id=t.plan_id and t.id=$1",
+        [job.target_id],
+      )
+      job.mutation_phase = phase
     }
-    await client.query("update server_change_targets set state='running' where id=$1", [job.target_id])
-    await client.query(
-      "update server_change_plans p set state='running' from server_change_targets t where p.id=t.plan_id and t.id=$1",
-      [job.target_id],
-    )
-    return { plan: row.target_snapshot, digest: row.confirmation_digest }
+    return { plan: row.target_snapshot, digest: row.confirmation_digest, request: row.request_snapshot }
   })
 }

@@ -10,6 +10,8 @@ export interface PreparedPlan {
   definitionRevision: string
   os: DetectedOs
   changes: ResolvedSoftwareChange[]
+  risks?: { major: boolean; replacement: boolean; serviceImpact: boolean }
+  targetType?: import('./definitions.ts').ServerTypeView
 }
 export function environment(component: Component, os: DetectedOs) {
   return {
@@ -21,7 +23,11 @@ export function environment(component: Component, os: DetectedOs) {
     effectiveVersions: component.versions,
   }
 }
-export async function observe(session: SshSession, component: Component, os: DetectedOs): Promise<SoftwareObservation> {
+export async function observe(
+  session: SshSession,
+  component: Component,
+  os: DetectedOs,
+): Promise<SoftwareObservation> {
   try {
     const result = await invokeRecipe(session, component.scripts.detect, {
       ...environment(component, os),
@@ -38,66 +44,108 @@ export async function observe(session: SshSession, component: Component, os: Det
     }
   }
 }
-export async function preparePlan(session: SshSession, lease: TypeLease, os: DetectedOs): Promise<PreparedPlan> {
+export async function candidatesFor(
+  session: SshSession,
+  component: Component,
+  os: DetectedOs,
+  before: SoftwareObservation,
+): Promise<Candidate[]> {
+  if (!component.scripts.listCandidates) throw new ServerError('recipe_unavailable')
+  const result = await invokeRecipe(session, component.scripts.listCandidates, {
+    ...environment(component, os),
+    operation: 'list-candidates',
+    installed: before,
+  })
+  if (result.operation !== 'list-candidates') throw new ServerError('recipe_protocol')
+  return result.candidates
+    .filter((c) => c.channel === 'stable' && component.adapter.contains(component.versions, c.version))
+    .sort(
+      (a, b) =>
+        component.adapter.compare(b.version, a.version) || a.targetIdentity.localeCompare(b.targetIdentity),
+    )
+}
+export interface PlanSelection {
+  mode: 'prepare' | 'move' | 'upgrade'
+  versions?: Record<string, string>
+  installMissing?: boolean
+}
+export async function preparePlan(
+  session: SshSession,
+  lease: TypeLease,
+  os: DetectedOs,
+  selection: PlanSelection = { mode: 'prepare', installMissing: true },
+): Promise<PreparedPlan> {
   const changes: ResolvedSoftwareChange[] = []
   for (const component of lease.components) {
     const before = await observe(session, component, os)
     if (before.state === 'unknown')
-      throw new ServerError('software_detection_unknown', {
-        detail: before.detail ?? before.code,
-      })
+      throw new ServerError('software_detection_unknown', { detail: before.detail ?? before.code })
     const base = {
       software: component.software_key,
       recipe: component.recipe,
       recipeRevision: component.revision,
       before,
-      dependencies: component.requires.map((id) => lease.components.find((item) => item.id === id)!.software_key),
+      dependencies: component.requires.map(
+        (id) => lease.components.find((item) => item.id === id)!.software_key,
+      ),
     }
-    if (before.state === 'installed') {
-      if (!before.healthy || !component.adapter.contains(component.versions, before.version))
-        throw new ServerError('plan_conflict')
+    const requested = selection.versions?.[component.software_key]
+    const compliant =
+      before.state === 'installed' &&
+      before.healthy &&
+      component.adapter.contains(component.versions, before.version)
+    if (!requested && compliant) {
       changes.push({ ...base, action: 'keep', effects: [], payload: null })
       continue
     }
+    if (before.state === 'missing' && selection.mode === 'upgrade') {
+      if (requested) throw new ServerError('plan_conflict')
+      changes.push({ ...base, action: 'defer-install', effects: [], payload: null })
+      continue
+    }
+    if (before.state === 'missing' && selection.mode === 'move' && !selection.installMissing) {
+      changes.push({ ...base, action: 'defer-install', effects: [], payload: null })
+      continue
+    }
+    if (selection.mode === 'prepare' && before.state === 'installed') throw new ServerError('plan_conflict')
+    if (selection.mode === 'upgrade' && !requested) throw new ServerError('plan_conflict')
+    const eligible = await candidatesFor(session, component, os, before)
+    const target = requested
+      ? eligible.find((c) => component.adapter.compare(c.version, requested) === 0)
+      : eligible[0]
+    if (!target) throw new ServerError('recipe_unavailable')
     if (
-      !component.scripts.listCandidates ||
+      selection.mode === 'upgrade' &&
+      before.state === 'installed' &&
+      component.adapter.compare(target.version, before.version) <= 0
+    )
+      throw new ServerError('plan_conflict')
+    const action =
+      before.state === 'missing' ? 'install' : selection.mode === 'upgrade' ? 'upgrade' : 'replace'
+    if (
+      !component.actions.includes(action) ||
       !component.scripts.resolve ||
       !component.scripts.execute ||
       !component.scripts.verify ||
-      !component.scripts.recover ||
-      !component.actions.includes('install')
+      !component.scripts.recover
     )
       throw new ServerError('recipe_unavailable')
-    const candidates = await invokeRecipe(session, component.scripts.listCandidates, {
-      ...environment(component, os),
-      operation: 'list-candidates',
-      installed: before,
-    })
-    if (candidates.operation !== 'list-candidates') throw new ServerError('recipe_protocol')
-    const eligible = candidates.candidates
-      .filter((item) => item.channel === 'stable' && component.adapter.contains(component.versions, item.version))
-      .sort(
-        (a, b) => component.adapter.compare(b.version, a.version) || a.targetIdentity.localeCompare(b.targetIdentity),
-      )
-    const target = eligible[0]
-    if (!target) throw new ServerError('recipe_unavailable')
     const resolved = await invokeRecipe(session, component.scripts.resolve, {
       ...environment(component, os),
       operation: 'resolve',
+      action,
       target,
       installed: before,
     })
     if (
       resolved.operation !== 'resolve' ||
-      resolved.change.action !== 'install' ||
+      resolved.change.action !== action ||
       canonical(resolved.change.before) !== canonical(before) ||
-      canonical(resolved.change.target) !== canonical(target)
+      canonical(resolved.change.target) !== canonical(target) ||
+      resolved.change.dependencies.some((key) => !base.dependencies.includes(key))
     )
       throw new ServerError('plan_conflict')
-    // Only the current type's required closure is covered by the saved install choice.
-    if (resolved.change.dependencies.some((key) => !base.dependencies.includes(key)))
-      throw new ServerError('plan_conflict')
-    changes.push({ ...resolved.change, ...base, action: 'install', target })
+    changes.push({ ...resolved.change, ...base, action, target })
   }
   const packages = new Map<string, string>()
   for (const change of changes) {
@@ -118,7 +166,32 @@ export async function preparePlan(session: SshSession, lease: TypeLease, os: Det
       packages.set(key, snapshot)
     }
   }
-  return { definitionRevision: lease.signature, os, changes }
+  for (const change of changes) {
+    if (change.before.state !== 'installed') continue
+    const expected = change.target?.packages ?? change.before.packages
+    for (const pkg of expected) {
+      const key = `${pkg.manager}/${pkg.name}/${pkg.architecture}`
+      const planned = packages.get(key)
+      if (planned && (JSON.parse(planned) as { version: string }).version !== pkg.version)
+        throw new ServerError('plan_conflict')
+    }
+  }
+  return {
+    targetType: lease.type,
+    definitionRevision: lease.signature,
+    os,
+    changes,
+    risks: {
+      major: changes.some(
+        (ch, i) =>
+          ch.before.state === 'installed' &&
+          !!ch.target &&
+          lease.components[i]!.adapter.isMajorChange(ch.before.version, ch.target.version),
+      ),
+      replacement: changes.some((ch) => ch.action === 'replace'),
+      serviceImpact: changes.some((ch) => ch.effects.length > 0),
+    },
+  }
 }
 export async function checkPlan(session: SshSession, lease: TypeLease, plan: PreparedPlan): Promise<void> {
   if (lease.signature !== plan.definitionRevision || plan.changes.length !== lease.components.length)
@@ -129,12 +202,17 @@ export async function checkPlan(session: SshSession, lease: TypeLease, plan: Pre
     if (change.software !== component.software_key || change.recipeRevision !== component.revision)
       throw new ServerError('job_definition_changed')
     const actual = await observe(session, component, plan.os)
-    if (change.action === 'keep') {
+    if (change.action === 'keep' || change.action === 'defer-install') {
       if (canonical(actual) !== canonical(change.before)) throw new ServerError('plan_conflict')
       continue
     }
-    if (change.action !== 'install' || !change.target) throw new ServerError('plan_conflict')
-    if (actual.state === 'installed' && actual.healthy && actual.targetIdentity === change.target.targetIdentity)
+    if (!['install', 'upgrade', 'replace'].includes(change.action) || !change.target)
+      throw new ServerError('plan_conflict')
+    if (
+      actual.state === 'installed' &&
+      actual.healthy &&
+      actual.targetIdentity === change.target.targetIdentity
+    )
       continue
     if (canonical(actual) !== canonical(change.before)) throw new ServerError('plan_conflict')
     const candidates = await invokeRecipe(session, component.scripts.listCandidates!, {
@@ -150,6 +228,7 @@ export async function checkPlan(session: SshSession, lease: TypeLease, plan: Pre
     const current = await invokeRecipe(session, component.scripts.resolve!, {
       ...environment(component, plan.os),
       operation: 'resolve',
+      action: change.action as 'install' | 'upgrade' | 'replace',
       target: change.target,
       installed: actual,
     })

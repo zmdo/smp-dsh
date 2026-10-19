@@ -114,6 +114,7 @@ CREATE TABLE server_software_policies (
   last_check_at timestamptz,
   next_check_at timestamptz,
   check_error jsonb,
+  check_snapshot jsonb,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (server_id, software_key),
   CHECK (detect_updates OR next_check_at IS NULL)
@@ -175,6 +176,9 @@ CREATE TABLE server_change_targets (
   expected_environment_revision bigint NOT NULL CHECK (expected_environment_revision >= 0),
   definition_revision text NOT NULL,
   target_snapshot jsonb NOT NULL CHECK (jsonb_typeof(target_snapshot) = 'object'),
+  preflight_state text NOT NULL DEFAULT 'ready' CHECK (preflight_state IN ('queued', 'ready', 'failed')),
+  preflight_error jsonb,
+  mutation_started_at timestamptz,
   state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'running', 'succeeded', 'failed', 'blocked', 'cancelled', 'skipped')),
   result jsonb,
   finished_at timestamptz,
@@ -210,7 +214,8 @@ CREATE TABLE server_jobs (
   started_at timestamptz,
   finished_at timestamptz,
   CHECK (server_id IS NULL OR server_id = server_identity),
-  CHECK ((purpose = 'apply_plan' AND target_id IS NOT NULL) OR (purpose <> 'apply_plan' AND target_id IS NULL)),
+  CHECK ((purpose = 'apply_plan' AND target_id IS NOT NULL) OR (purpose = 'inspect' AND target_id IS NOT NULL AND request_snapshot->>'action' IN ('preflight_move', 'preflight_upgrade'))
+    OR (purpose <> 'apply_plan' AND target_id IS NULL)),
   CHECK (state NOT IN ('queued', 'claimed', 'running', 'recovering') OR server_id IS NOT NULL),
   CHECK (state NOT IN ('claimed', 'running', 'recovering') OR (worker_id IS NOT NULL AND fence > 0 AND lease_expires_at IS NOT NULL)),
   CHECK (purpose = 'apply_plan' OR (mutation_phase IS NULL AND phase NOT IN ('installing', 'replacing', 'upgrading', 'committing'))),
@@ -218,7 +223,7 @@ CREATE TABLE server_jobs (
 );
 CREATE UNIQUE INDEX server_jobs_one_active_per_server ON server_jobs (server_id)
   WHERE state IN ('claimed', 'running', 'recovering');
-CREATE UNIQUE INDEX server_jobs_target_attempt ON server_jobs (target_id, attempt) WHERE target_id IS NOT NULL;
+CREATE UNIQUE INDEX server_jobs_target_attempt ON server_jobs (target_id, attempt) WHERE target_id IS NOT NULL AND purpose = 'apply_plan';
 CREATE INDEX server_jobs_queue ON server_jobs (created_at, id) WHERE state = 'queued';
 CREATE INDEX server_jobs_expired ON server_jobs (lease_expires_at) WHERE state IN ('claimed', 'running', 'recovering');
 CREATE INDEX server_jobs_history ON server_jobs (server_identity, created_at DESC, id);

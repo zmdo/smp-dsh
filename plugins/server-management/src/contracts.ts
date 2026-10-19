@@ -205,7 +205,7 @@ export type RecipeRequest = RecipeEnvironment &
   (
     | { readonly operation: 'detect' }
     | { readonly operation: 'list-candidates'; readonly installed: SoftwareObservation }
-    | { readonly operation: 'resolve'; readonly target: Candidate; readonly installed: SoftwareObservation }
+    | { readonly operation: 'resolve'; readonly target: Candidate; readonly installed: SoftwareObservation; readonly action?: 'install' | 'upgrade' | 'replace' }
     | {
         readonly operation: 'execute' | 'verify' | 'recover'
         readonly operationId: string

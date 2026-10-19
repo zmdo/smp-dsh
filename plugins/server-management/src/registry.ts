@@ -467,7 +467,7 @@ export class DefinitionRegistry {
     if (!options.available || !options.types.some(type => type.key === key)) return
     const owner = group?.plugin_id ? this.owners.get(group.plugin_id) : undefined
     const { type, components } = this.resolveType(key, owner, this.owners, os)
-    return { type, components: components.map(component => ({
+    return { type,signature:definitionSignature(type,components), components: components.map(component => ({
       software_key: component.software_key, adapter: component.adapter, versions: component.versions,
     })) }
   }
@@ -491,11 +491,7 @@ export class DefinitionRegistry {
     return {
       type: structuredClone(type),
       components,
-      signature: digest({
-        key,
-        supportedOs: type.supportedOs,
-        software: components.map((c) => ({ software: c.software_key, revision: c.revision })),
-      }),
+      signature:definitionSignature(type,components),
       release() {
         if (released) return
         released = true
@@ -528,4 +524,8 @@ function adapterOf(software: SoftwareDefinition): VersionAdapter {
 function validateText(text: LocalizedText): void {
   if (!text.zh.trim() || !text.en.trim() || text.zh.length > 80 || text.en.length > 80)
     throw new ServerError('group_definition_invalid')
+}
+
+function definitionSignature(type:ServerTypeView,components:readonly Component[]):string {
+ return digest({key:type.key,supportedOs:type.supportedOs,software:components.map(c=>({software:c.software_key,revision:c.revision}))})
 }

@@ -8,6 +8,6 @@ test('built-in recipes have exact planning capabilities and preserve dependency 
   for (const component of catalog) {
     assert.ok(component.scripts.resolve)
     assert.ok(component.scripts.recover)
-    assert.deepEqual(component.actions, ['install'])
+    assert.deepEqual(component.actions, ['install', 'upgrade', 'replace'])
   }
 })

@@ -1,3 +1,4 @@
+import { UpgradesPage } from './pages/UpgradesPage.tsx'
 import { pageLabel } from './page-label.ts'
 import { serverCopy, type LocaleFace } from './i18n.ts'
 import { KeysPage } from './pages/KeysPage.tsx'
@@ -30,6 +31,7 @@ export function apply(ctx: ClientCtx): void {
     order: 0,
     inject: () => ({ locale: ctx.locale, pageState }),
   }, ServersPage))
+  ctx.slots.inject('console.page',()=>ctx.slots.register({name:'console.page',key:'server-upgrades',label:pageLabel(()=>serverCopy(ctx.locale.getSnapshot().active).upgrades.title,group),order:2,inject:()=>({locale:ctx.locale,pageState})},UpgradesPage))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: 'ssh-keys',

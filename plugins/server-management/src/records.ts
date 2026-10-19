@@ -1,3 +1,5 @@
+import { parsePolicies, readPolicies, restrictLease, writePolicies } from './policies.ts'
+import { canonical } from './recipe.ts'
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Component } from './catalog.ts'
@@ -39,6 +41,7 @@ export interface Deps {
   definitions: DefinitionRegistry
   enrollment: Enrollment
   freshnessMs?: number
+  updateCheckIntervalSeconds?:number
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -170,7 +173,8 @@ async function serverDetail(deps: Deps, id: string): Promise<unknown> {
     [id],
   )
   const scan = (await deps.db.query<{ state: string; last_success_at: Date | null }>('select state,last_success_at from server_container_scans where server_id=$1', [id])).rows[0]
-  return { ...server, containers: containers.rows, containers_state: scan?.state ?? 'unknown', containers_checked_at: scan?.last_success_at ?? null }
+  const policies = (await deps.db.query('select * from server_software_policies where server_id=$1 order by software_key',[id])).rows
+  return { ...server, software_policies: policies, containers: containers.rows, containers_state: scan?.state ?? 'unknown', containers_checked_at: scan?.last_success_at ?? null }
 }
 
 async function selectType(
@@ -217,12 +221,14 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
   } else {
     secret = required(text(field(body, 'secret')), 'password_required')
   }
-  const lease = await selectType(
+  const policies = parsePolicies(field(body,'software_policies'))
+  let lease = await selectType(
     deps.definitions,
     groupId,
     os,
     field(body, 'type_key') === undefined ? undefined : text(field(body, 'type_key')),
   )
+  try { lease = restrictLease(lease,policies) } catch (cause) { lease.release(); throw cause }
   const id = randomUUID()
   try {
     const client = await deps.db.connect()
@@ -254,6 +260,7 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
         ],
       )
       await client.query('insert into server_runtime(server_id) values ($1)', [id])
+      await writePolicies(client,id,lease.components.map(c=>policies.find(p=>p.software_key===c.software_key)??{software_key:c.software_key,restriction:{kind:'any'},detect_updates:false}))
       if (auto || field(body, 'inspect_after_save') === true)
         await enqueue(client, id, 'test_connection', { configRevision: 1, typeSignature: lease.signature }, auto)
       await client.query('commit')
@@ -332,35 +339,17 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
         ? row.declared_os
         : parseDeclaredOs(field(body, 'declared_os'), row.declared_os)
     const osChanged = !sameDeclaredOs(os, row.declared_os)
-    if (bindingChanged) {
-      const runtime = (
-        await client.query<{
-          detected_os: DetectedOs | null
-          os_probe_state: string
-          observed_config_revision: string
-        }>('select detected_os,os_probe_state,observed_config_revision from server_runtime where server_id=$1', [id])
-      ).rows[0]!
-      if (
-        osVerification(
-          os,
-          runtime.detected_os,
-          String(runtime.observed_config_revision) === String(row.config_revision) ? runtime.os_probe_state : 'unknown',
-        ) === 'mismatch'
-      )
-        throw new HttpError(409, 'os_mismatch')
-    }
+    if (bindingChanged) throw new HttpError(409,'type_change_requires_preflight')
     lease =
       bindingChanged || osChanged
         ? await selectType(deps.definitions, groupId, os, key)
         : await deps.definitions.lease(groupId, key, os)
+    const oldPolicies = await readPolicies(client,id)
+    const policies = field(body,'software_policies')===undefined ? oldPolicies : parsePolicies(field(body,'software_policies'))
+    if (lease) lease = restrictLease(lease,policies)
+    const ranges=(items:typeof policies)=>items.map(p=>({key:p.software_key,restriction:p.restriction})).sort((a,b)=>a.key.localeCompare(b.key))
+    const rangeChanged = canonical(ranges(oldPolicies))!==canonical(ranges(policies))
     const prior = row.type_snapshot ?? deps.definitions.defaultOptions().types.find((type) => type.key === row.type_key)
-    if (
-      bindingChanged &&
-      lease !== undefined &&
-      lease.components.length > 0 &&
-      (prior === undefined || !sameSoftware(prior, lease.type))
-    )
-      throw new HttpError(409, 'type_change_requires_preflight')
     if (field(body, 'name') !== undefined) assign('name', required(text(field(body, 'name')), 'name_required'))
     if (field(body, 'host') !== undefined) {
       after.host = required(text(field(body, 'host')), 'host_required')
@@ -420,6 +409,7 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
     }
     const definitionChanged = lease !== undefined && lease.signature !== row.type_revision
     const critical =
+      rangeChanged ||
       osChanged ||
       bindingChanged ||
       definitionChanged ||
@@ -433,14 +423,15 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
       after.secretWritten
     if (critical) await notRunning(client, id)
     const revision = critical ? String(BigInt(row.config_revision) + 1n) : row.config_revision
-    if (critical) assign('config_revision', revision)
+    if (critical) { assign('config_revision', revision);await client.query("update server_upgrade_suggestions set validity='obsolete' where server_id=$1 and validity in ('eligible','blocked')",[id]) }
     await client.query(`update servers set ${sets.join(', ')}, updated_at = now() where id = $1`, params)
+    if (lease) await writePolicies(client,id,lease.components.map(c=>policies.find(p=>p.software_key===c.software_key)??{software_key:c.software_key,restriction:{kind:'any'},detect_updates:false}))
     if (critical)
       await client.query(
         "update server_runtime set connection_state='unknown', connection_error=null, connection_checked_at=null where server_id=$1",
         [id],
       )
-    if (osChanged || retestAfterEdit(before, after) || field(body, 'inspect_after_save') === true)
+    if (rangeChanged || osChanged || retestAfterEdit(before, after) || field(body, 'inspect_after_save') === true)
       await enqueue(
         client,
         id,
@@ -486,6 +477,7 @@ async function enqueueExisting(deps: Deps, id: string, action: string): Promise<
     ).rows[0]
     if (row === undefined) throw new HttpError(404, 'server_not_found')
     lease = await deps.definitions.lease(row.group_id, row.type_key, row.declared_os)
+    if (lease) lease = restrictLease(lease,await readPolicies(client,id))
     if (action === 'install_components' && lease === undefined) throw new HttpError(409, 'type_unavailable')
     if (action === 'install_components' && lease?.components.length === 0)
       throw new HttpError(422, 'no_required_software')

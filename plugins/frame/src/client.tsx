@@ -563,7 +563,7 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
   const pages = withoutPages(usePages(props.slots, props.locale), hidden)
   const copy = useCopy(props.locale)
   const tabs = groupOf(pages, current)?.pages ?? []
-  const body = props.renderSlot?.('console.page', {}, { entryKey: current }) ?? null
+  const body = props.renderSlot?.('console.page', {openConsole:props.openConsole}, { entryKey: current }) ?? null
   return (
     <div className="smp-console">
       {auth.authenticated && (

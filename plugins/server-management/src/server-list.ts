@@ -1,3 +1,5 @@
+import {policySignature} from './policies.ts'
+import type { SoftwarePolicy } from './policies.ts'
 import { typeSupportsOs, type GroupRecord, type ServerTypeView, type LocalizedText } from './definitions.ts'
 import { DefinitionRegistry } from './registry.ts'
 import { osLabel, osVerification, type DeclaredOs, type DetectedOs } from './operating-systems.ts'
@@ -69,6 +71,7 @@ export interface ServerListQuery {
   order: 'name' | 'last_checked'
   page: number
   pageSize: number
+  needsUpgrade?: boolean
 }
 export function parseServerListQuery(params: URLSearchParams): ServerListQuery {
   const group = params.get('group_id')
@@ -85,7 +88,7 @@ export function parseServerListQuery(params: URLSearchParams): ServerListQuery {
     if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > maximum) throw new HttpError(422, 'server_query_invalid')
     return Number(value)
   }
-  return { groupId, query, status: status as ServerListQuery['status'], order, page: integer('page', 1, 1_000_000), pageSize: integer('page_size', 10, 100) }
+  return { needsUpgrade: params.get('needs_upgrade')==='true', groupId, query, status: status as ServerListQuery['status'], order, page: integer('page', 1, 1_000_000), pageSize: integer('page_size', 10, 100) }
 }
 
 function recent(date: Date | null, now: number, maxAge: number): boolean {
@@ -163,6 +166,8 @@ async function readSnapshot<T>(deps: ReadDeps, query: ServerListQuery | { id: st
     const observations = (await client.query<SoftwareFact>('select * from server_software_observations where server_id=any($1::uuid[])', [ids])).rows
     const operations = (await client.query<ActiveOperation>(`select id,server_id,state,phase,mutation_phase,lease_expires_at,result from server_jobs
       where server_id=any($1::uuid[]) and state in ('claimed','running','recovering')`, [ids])).rows
+    const policies=(await client.query<SoftwarePolicy & {server_id:string}>('select server_id,software_key,restriction,detect_updates from server_software_policies where server_id=any($1::uuid[])',[ids])).rows
+    const upgrades=(await client.query<{server_id:string;count:number;definition:string}>(`select u.server_id,u.basis_snapshot->>'definitionRevision' as definition,count(*)::int as count from server_upgrade_suggestions u join servers s on s.id=u.server_id join server_runtime r on r.server_id=s.id where u.server_id=any($1::uuid[]) and u.validity='eligible' and u.decision='none' and u.basis_snapshot->>'configRevision'=s.config_revision::text and u.basis_snapshot->>'environmentRevision'=r.environment_revision::text group by u.server_id,u.basis_snapshot->>'definitionRevision'`,[ids])).rows
     const byServer = new Map<string, Map<string, SoftwareFact>>()
     for (const observation of observations) {
       if (!byServer.has(observation.server_id)) byServer.set(observation.server_id, new Map())
@@ -172,7 +177,7 @@ async function readSnapshot<T>(deps: ReadDeps, query: ServerListQuery | { id: st
     const byGroup = new Map(groups.map(group => [group.id, group]))
     // No await while resolving definitions, deriving status and filtering the entire candidate set.
     const rows = records.map(row => enrich(row, row.group_id ? byGroup.get(row.group_id)! : null,
-      byServer.get(row.id), byOperation.get(row.id), deps.definitions, now, deps.freshnessMs ?? 90_000))
+      byServer.get(row.id), byOperation.get(row.id), deps.definitions, now, deps.freshnessMs ?? 90_000,policies.filter(p=>p.server_id===row.id),upgrades.filter(u=>u.server_id===row.id)))
     const result = project({ rows, groups: groups.map(group => deps.definitions.view(group)), counts, groupId, now })
     await client.query('commit')
     return result
@@ -183,7 +188,7 @@ async function readSnapshot<T>(deps: ReadDeps, query: ServerListQuery | { id: st
 }
 
 function enrich(row: ServerFact, group: GroupRecord | null, observations: Map<string, SoftwareFact> | undefined,
-  operation: ActiveOperation | undefined, definitions: DefinitionRegistry, now: number, maxAge: number) {
+  operation: ActiveOperation | undefined, definitions: DefinitionRegistry, now: number, maxAge: number, policies:SoftwarePolicy[],upgradeCounts:{count:number;definition:string}[]) {
   const osState = String(row.observed_config_revision) === String(row.config_revision) ? row.os_probe_state : 'unknown'
   const verification = osVerification(row.declared_os, row.detected_os, osState)
   let resolved: ReturnType<DefinitionRegistry['describeType']>
@@ -191,7 +196,11 @@ function enrich(row: ServerFact, group: GroupRecord | null, observations: Map<st
   catch (cause) { if (!(cause instanceof ServerError)) throw cause }
   const type = resolved?.type ?? row.type_snapshot
   const available = resolved !== undefined
-  const required = type.software
+  const upgradeCount=resolved?upgradeCounts.filter(u=>u.definition===policySignature(resolved.signature,policies)).reduce((n,u)=>n+u.count,0):0
+  const required = type.software.map(item=>{
+    const component=resolved?.components.find(c=>c.software_key===item.software_key),policy=policies.find(p=>p.software_key===item.software_key)
+    return {...item,versions:component&&policy?component.adapter.intersect([component.versions,policy.restriction])??component.versions:item.versions}
+  })
   const components = new Map((resolved?.components ?? []).map(component => [component.software_key, component]))
   const software_status: Record<string, { state: string; installed: boolean; version?: string; last_known_version?: string | null; detail?: string; revision?: string }> = {}
   const software = required.map(item => {
@@ -203,7 +212,7 @@ function enrich(row: ServerFact, group: GroupRecord | null, observations: Map<st
     const component = components.get(item.software_key)
     let compliant = false
     if (state === 'installed' && fact?.product_version && component) {
-      try { compliant = component.adapter.contains(component.versions, fact.product_version) }
+      try { compliant = component.adapter.contains(required.find(s=>s.software_key===item.software_key)?.versions??component.versions, fact.product_version) }
       catch (cause) { if (!(cause instanceof ServerError)) throw cause }
     }
     software_status[item.id] = { state, installed: state === 'installed', version: state === 'installed' ? fact?.product_version ?? undefined : undefined,
@@ -216,7 +225,7 @@ function enrich(row: ServerFact, group: GroupRecord | null, observations: Map<st
     applicability: !available ? 'unavailable' as const : required.length ? 'applicable' as const : 'not-applicable' as const }
   const softwareState = !available ? 'unavailable' : software.some(item => item.state === 'missing') ? 'pending'
     : software.every(item => item.state === 'installed' && item.healthy === true && item.compliant) ? 'ready' : 'unknown'
-  return { ...row, group_name: group?.name ?? null, group_name_i18n: group?.name_i18n ?? null,
+  return { ...row, upgrade_count:upgradeCount, software_policies:policies, group_name: group?.name ?? null, group_name_i18n: group?.name_i18n ?? null,
     software_status, os_verification: verification, type_supported_os: type.supportedOs, type_os_compatible: compatible,
     docker_version: observations?.get('builtin/docker-engine')?.product_version ?? null,
     compose_version: observations?.get('builtin/docker-compose')?.product_version ?? null,
@@ -225,7 +234,7 @@ function enrich(row: ServerFact, group: GroupRecord | null, observations: Map<st
 }
 
 function listItem(row: ReturnType<typeof enrich>): ServerListItem {
-  return { id: row.id, name: row.name, address: { host: row.host, port: row.ssh_port },
+  return { id: row.id, name: row.name, upgradeCount:row.upgrade_count, address: { host: row.host, port: row.ssh_port },
     operatingSystem: { declared: row.declared_os, label: osLabel(row.declared_os), verification: row.os_verification },
     type: { key: row.type_key, name: row.type_name_i18n, available: row.type_available }, status: row.status,
     installRequiredSoftware: row.installation,
@@ -237,7 +246,7 @@ function listItem(row: ReturnType<typeof enrich>): ServerListItem {
 export async function serverList(deps: ReadDeps, query: ServerListQuery): Promise<ServerListPage> {
   return readSnapshot(deps, query, ({ rows, groups, counts, groupId }) => {
     const needle = query.query.toLocaleLowerCase()
-    const selected = rows.filter(row => (!query.status || row.status.code === query.status)
+    const selected = rows.filter(row => (!query.needsUpgrade||row.upgrade_count>0) && (!query.status || row.status.code === query.status)
       && (!needle || [row.name, row.host, `${row.host}:${row.ssh_port}`, row.ssh_user, row.region,
         row.group_name ?? '', row.group_name_i18n?.zh ?? '', row.group_name_i18n?.en ?? '', row.type_key,
         row.type_name_i18n.zh, row.type_name_i18n.en, osLabel(row.declared_os),

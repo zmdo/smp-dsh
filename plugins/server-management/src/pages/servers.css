@@ -21,7 +21,7 @@
 .smp-server-group-delete { position: absolute; right: 4px; display: grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; }
 .smp-server-group:hover .smp-server-group-delete, .smp-server-group:focus-within .smp-server-group-delete { opacity: 1; }
 .smp-server-group-delete:hover { color: var(--red); background: var(--red-bg); }
-.smp-server-main { flex: 1; min-width: 0; min-height: 0; display: flex; padding: 20px 24px 24px; }
+.smp-server-main { flex-direction:column; gap:12px; flex: 1; min-width: 0; min-height: 0; display: flex; padding: 20px 24px 24px; }
 .smp-console .smp-server-main > .panel { flex: 1; min-width: 0; min-height: 0; margin: 0; display: flex; flex-direction: column; overflow: hidden; }
 .smp-console .smp-server-main .panel-head { flex: none; flex-wrap: wrap; min-height: 56px; padding: 12px 16px; box-sizing: border-box; }
 .smp-console .smp-server-main .panel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0; }
@@ -89,3 +89,16 @@
   .smp-server-group-head { flex-wrap: wrap; }
   .smp-server-main { padding: 12px; }
 }
+
+.smp-console .smp-upgrade-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:16px 0; }
+.smp-console .smp-upgrade-scroll { overflow:auto; margin:12px 0; }
+.smp-console .smp-upgrade-scroll table { min-width:680px; width:100%; }
+.smp-console .smp-upgrade-scroll small { display:block; color:var(--muted); overflow-wrap:anywhere; }
+.smp-console .smp-upgrade-modal { position:fixed; inset:0; z-index:1000; background:#0007; display:flex; align-items:center; justify-content:center; padding:24px; }
+.smp-console .smp-upgrade-dialog { background:var(--dsw-alias-bg-layer-1); color:var(--text); border:1px solid var(--line); border-radius:12px; width:min(1100px,100%); max-height:90vh; overflow:auto; padding:24px; box-shadow:0 12px 48px #0004; }
+.smp-console .smp-plan-target,.smp-console .smp-plan-confirm,.smp-console .smp-version-policies { margin:16px 0; padding:16px; border:1px solid var(--line); border-radius:8px; }
+.smp-console .smp-plan-target h3,.smp-console .smp-version-policies h3 { font-size:14px; margin:0 0 8px; }
+.smp-console .smp-rule-editor { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.smp-console .smp-rule-editor input { width:110px; min-width:0; }
+.smp-console .smp-upgrade-ack { display:block; margin:12px 0; }
+.smp-console .smp-change-plan pre,.smp-console .smp-upgrade-dialog pre { max-height:260px; overflow:auto; font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; }

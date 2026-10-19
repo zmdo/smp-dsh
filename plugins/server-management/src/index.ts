@@ -1,3 +1,5 @@
+import { routeChanges } from './change-routes.ts'
+import { scheduleChanges } from './upgrades.ts'
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Context } from '@deepseek-ai/cordis'
@@ -58,11 +60,13 @@ export interface Config {
   inspectIntervalSeconds: number
   metricsIntervalSeconds: number
   sshReadyTimeoutSeconds: number
+  updateCheckIntervalSeconds:number
 }
 
 export const Config: Schema<Config> = Schema.object({
   inspectIntervalSeconds: Schema.number().default(30),
   metricsIntervalSeconds: Schema.number().default(1),
+  updateCheckIntervalSeconds:Schema.natural().min(60).max(604800).default(3600),
   sshReadyTimeoutSeconds: Schema.natural().min(1).max(300).default(30),
 })
 
@@ -78,7 +82,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const connect: typeof connectSsh = (input) =>
     connectSsh({ ...input, readyTimeoutMs: config.sshReadyTimeoutSeconds * 1000 })
   const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions }, connect)
-  const deps = { db, secrets: ctx.secrets, catalog, definitions, enrollment, freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000 }
+  const deps = { db, secrets: ctx.secrets, catalog, definitions, enrollment, updateCheckIntervalSeconds:config.updateCheckIntervalSeconds, freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000 }
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield startJobs(ctx, db, config, definitions, connect)
@@ -160,6 +164,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
           routeJobs(db, request, response, suffix(request, '/console-api/server-jobs')),
         ),
     })
+    yield ctx.webServer.register({kind:'prefix',path:'/console-api/server-changes',handler:(request,response)=>guard(ctx,request,response,()=>routeChanges(deps,request,response,suffix(request,'/console-api/server-changes')))})
     const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession, connect)
     yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
     yield () => terminal.close()
@@ -195,8 +200,10 @@ function startJobs(
   }, 400)
   const inspect = setInterval(() => {
     launch(queueInspects)
+    launch(()=>scheduleChanges(db,config.updateCheckIntervalSeconds))
   }, 5000)
   launch(pump)
+  launch(()=>scheduleChanges(db,config.updateCheckIntervalSeconds))
   return async () => {
     stopped = true
     clearInterval(claim)
@@ -213,7 +220,7 @@ function startJobs(
         const job = await claimNext(db, workerId)
         if (job === undefined) return
         active += 1
-        const task = executeJob(db, ctx.secrets, definitions, job, connect)
+        const task = executeJob(db, ctx.secrets, definitions, job, connect,config.updateCheckIntervalSeconds)
           .catch((cause: unknown) => {
             ctx.logger.error(cause)
           })
