@@ -105,7 +105,8 @@ function removal(overrides: Partial<SessionRemoval> = {}): SessionRemoval {
   }
 }
 
-test('archive labels show the workspace group even when the membership row is missing', () => {
-  assert.equal(archiveWorkspaceLabel(undefined, 'default-workspace', '默认工作区'), '普通工作区组/默认工作区')
+test('archive labels preserve the resolved group language and translate only the default workspace title', () => {
+  assert.equal(archiveWorkspaceLabel('默认组', 'default-workspace', '默认工作区'), '默认组/默认工作区')
+  assert.equal(archiveWorkspaceLabel('Default Group', 'default-workspace', 'Default workspace'), 'Default Group/Default workspace')
   assert.equal(archiveWorkspaceLabel('临时工作区组', '运维', '默认工作区'), '临时工作区组/运维')
 })

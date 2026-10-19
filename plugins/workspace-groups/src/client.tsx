@@ -18,6 +18,7 @@ export function apply(ctx: ClientCtx): void {
     subscribe: client.subscribe,
     getSnapshot: client.getSnapshot,
     selectedId: client.selectedId,
+    labelOf: client.labelOf,
     hiddenPages: client.hiddenPages,
     select: client.select,
     refresh: () => client.refresh(),

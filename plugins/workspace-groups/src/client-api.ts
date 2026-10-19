@@ -1,6 +1,8 @@
 import type { ConflictOwner, GroupSnapshot, ListSource, SessionSnapshot, Workspace, WorkspaceSnapshot } from './contract.ts'
 import { GroupStore } from './store.ts'
 import { NavigationEpoch, restoration } from './navigation.ts'
+import { groupCopy, localizedGroupLabel } from './copy.ts'
+import { GENERAL_GROUP_ID, UNASSIGNED_GROUP_ID } from './rules.ts'
 
 export interface ClientContext {
   sessions: { list: ListSource<SessionSnapshot>; refresh(): Promise<void> }
@@ -61,6 +63,13 @@ export class GroupClient {
   subscribe = (listener: () => void) => this.store.subscribe(listener)
   getSnapshot = () => this.store.getSnapshot()
   selectedId = () => this.store.selectedId()
+  labelOf = (groupId: string): string => {
+    const active = this.ctx.locale.getSnapshot().active
+    const group = this.store.getSnapshot().groups.find(item => item.id === groupId)
+    if (group !== undefined) return localizedGroupLabel(group, active)
+    const copy = groupCopy(active)
+    return groupId === GENERAL_GROUP_ID ? copy.general : groupId === UNASSIGNED_GROUP_ID ? copy.unassigned : groupId
+  }
   hiddenPages = () => this.store.hiddenPages()
   select = (groupId: string) => { void this.enter(groupId).catch(cause => this.report(cause)) }
   private error = ''
