@@ -1,3 +1,5 @@
+import { DetectionResults } from './DetectionResults.tsx'
+import type { DetectionResult } from './detection-result.ts'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Panel } from '@smp/console-kit'
 import { serverCopy, format, formatDate, enumLabel, type LocaleFace, groupName } from '../i18n.ts'
@@ -29,14 +31,7 @@ interface Suggestions {
   page: number
   page_size: number
   filtered_server_ids: string[]
-  checks: {
-    server_id: string
-    server_name: string
-    software_key: string
-    last_check_at: string
-    check_error: unknown
-    check_snapshot?: { reason: string; eligible: unknown[] }
-  }[]
+  checks: DetectionResult[]
 }
 interface Inventory {
   type_name_i18n: LocalizedText
@@ -209,7 +204,7 @@ export function UpgradesPage(props: {
     setSelected((ids) => (ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id]))
   if (plan)
     return (
-      <Panel title={c.title}>
+      <Panel className="smp-upgrade-page" title={c.title}>
         <ChangePlan
           key={plan}
           active={active}
@@ -224,6 +219,7 @@ export function UpgradesPage(props: {
     )
   return (
     <Panel
+      className="smp-upgrade-page"
       title={c.title}
       extra={
         context?.serverId ? (
@@ -239,7 +235,7 @@ export function UpgradesPage(props: {
         ) : undefined
       }
     >
-      <nav className="tabs">
+      <nav className="tabs smp-upgrade-tabs" aria-label={c.title}>
         {(['suggestions', 'plans', 'records'] as const).map((t) => (
           <button
             key={t}
@@ -261,164 +257,176 @@ export function UpgradesPage(props: {
       {notice && <p className="banner ok">{notice}</p>}
       {tab === 'suggestions' && (
         <>
-          <p className="muted">{c.detectHint}</p>
-          <div className="row">
-            <button
-              className="secondary"
-              disabled={busy || !filteredServers.length}
-              onClick={() =>
-                void run(async () => {
-                  await api('/console-api/server-changes/detect', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      server_ids: selected.length ? selected : filteredServers.map((s) => s.id),
-                    }),
+          <div className="smp-upgrade-toolbar">
+            <p className="muted">{c.detectHint}</p>
+            <div className="row">
+              <button
+                className="secondary"
+                disabled={busy || !filteredServers.length}
+                onClick={() =>
+                  void run(async () => {
+                    await api('/console-api/server-changes/detect', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        server_ids: selected.length ? selected : filteredServers.map((s) => s.id),
+                      }),
+                    })
+                    setNotice(c.detectQueued)
                   })
-                  setNotice(c.detectQueued)
-                })
-              }
-            >
-              {selected.length ? c.detect : c.detectAll}
-            </button>
-            {context?.serverId && (
-              <button className="link" onClick={() => props.pageState.update({ upgradeContext: undefined })}>
-                {c.all}
+                }
+              >
+                {selected.length ? c.detect : c.detectAll}
               </button>
-            )}
+              {context?.serverId && (
+                <button
+                  className="link"
+                  onClick={() => props.pageState.update({ upgradeContext: undefined })}
+                >
+                  {c.all}
+                </button>
+              )}
+            </div>
           </div>
-          <div className="smp-upgrade-fields">
-            <label className="field">
-              {c.search}
-              <input
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value)
-                  setPage(1)
-                }}
-              />
-            </label>
-            <label className="field">
-              {c.group}
-              <select
-                value={group}
-                onChange={(e) => {
-                  setGroup(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option value="">{c.all}</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {groupName(active, g)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              {c.type}
-              <select
-                value={type}
-                onChange={(e) => {
-                  setType(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option value="">{c.all}</option>
-                {[...new Set(inventory.map((s) => s.type_key))].map((key) => (
-                  <option key={key} value={key}>
-                    {localized(inventory.find((s) => s.type_key === key)!.type_name_i18n, active)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              {c.software}
-              <select
-                value={software}
-                onChange={(e) => {
-                  setSoftware(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option value="">{c.all}</option>
-                {[
-                  ...new Set(
-                    inventory.flatMap((s) => (s.required_software ?? []).map((item) => item.software_key)),
-                  ),
-                ].map((key) => (
-                  <option key={key} value={key}>
-                    {softwareName(key)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              {c.current}
-              <input
-                value={current}
-                onChange={(e) => {
-                  setCurrent(e.target.value)
-                  setPage(1)
-                }}
-              />
-            </label>
-            <label className="field">
-              {c.target}
-              <input
-                value={target}
-                onChange={(e) => {
-                  setTarget(e.target.value)
-                  setPage(1)
-                }}
-              />
-            </label>
-            <label className="field">
-              {c.connection}
-              <select
-                value={connection}
-                onChange={(e) => {
-                  setConnection(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option value="">{c.all}</option>
-                {['online', 'offline', 'unknown'].map((s) => (
-                  <option key={s} value={s}>
-                    {enumLabel(c, s)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              {c.decision}
-              <select
-                value={decision}
-                onChange={(e) => {
-                  setDecision(e.target.value)
-                  setPage(1)
-                }}
-              >
-                {['pending', 'all', 'deferred', 'rejected', 'scheduled', 'detection_failed'].map((s) => (
-                  <option key={s} value={s}>
-                    {enumLabel(c, s)}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="smp-upgrade-filter-region">
+            <div className="smp-upgrade-fields smp-upgrade-filters" role="group" aria-label={c.filters}>
+              <label className="field">
+                {c.search}
+                <input
+                  value={q}
+                  onChange={(e) => {
+                    setQ(e.target.value)
+                    setPage(1)
+                  }}
+                />
+              </label>
+              <label className="field">
+                {c.group}
+                <select
+                  value={group}
+                  onChange={(e) => {
+                    setGroup(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">{c.all}</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {groupName(active, g)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                {c.type}
+                <select
+                  value={type}
+                  onChange={(e) => {
+                    setType(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">{c.all}</option>
+                  {[...new Set(inventory.map((s) => s.type_key))].map((key) => (
+                    <option key={key} value={key}>
+                      {localized(inventory.find((s) => s.type_key === key)!.type_name_i18n, active)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                {c.software}
+                <select
+                  value={software}
+                  onChange={(e) => {
+                    setSoftware(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">{c.all}</option>
+                  {[
+                    ...new Set(
+                      inventory.flatMap((s) => (s.required_software ?? []).map((item) => item.software_key)),
+                    ),
+                  ].map((key) => (
+                    <option key={key} value={key}>
+                      {softwareName(key)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                {c.current}
+                <input
+                  value={current}
+                  onChange={(e) => {
+                    setCurrent(e.target.value)
+                    setPage(1)
+                  }}
+                />
+              </label>
+              <label className="field">
+                {c.target}
+                <input
+                  value={target}
+                  onChange={(e) => {
+                    setTarget(e.target.value)
+                    setPage(1)
+                  }}
+                />
+              </label>
+              <label className="field">
+                {c.connection}
+                <select
+                  value={connection}
+                  onChange={(e) => {
+                    setConnection(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">{c.all}</option>
+                  {['online', 'offline', 'unknown'].map((s) => (
+                    <option key={s} value={s}>
+                      {enumLabel(c, s)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                {c.decision}
+                <select
+                  value={decision}
+                  onChange={(e) => {
+                    setDecision(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  {['pending', 'all', 'deferred', 'rejected', 'scheduled', 'detection_failed'].map((s) => (
+                    <option key={s} value={s}>
+                      {enumLabel(c, s)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
-          <div className="row">
+          <div className="row smp-upgrade-selection" role="group" aria-label={c.selection}>
             <button
               className="secondary"
+              disabled={!shown.length}
               onClick={() => setSelected([...new Set([...selected, ...shown.map((s) => s.server_id)])])}
             >
               {c.selectPage}
             </button>
-            <button className="secondary" onClick={() => setSelected(data?.filtered_server_ids ?? [])}>
+            <button
+              className="secondary"
+              disabled={!data?.filtered_server_ids.length}
+              onClick={() => setSelected(data?.filtered_server_ids ?? [])}
+            >
               {c.selectFiltered}
             </button>
             <span>{format(c.selected, { count: selected.length })}</span>
           </div>
-          <div className="smp-upgrade-scroll">
+          <div className="smp-upgrade-scroll smp-upgrade-suggestions">
             <table>
               <thead>
                 <tr>
@@ -493,9 +501,15 @@ export function UpgradesPage(props: {
                     </td>
                   </tr>
                 ))}
+                {!shown.length && (
+                  <tr>
+                    <td colSpan={7} className="smp-upgrade-empty">
+                      {c.noSuggestions}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
-            {!shown.length && <p className="muted">{c.noSuggestions}</p>}
           </div>
           <Pager active={active} page={page} total={data?.total ?? 0} onPage={setPage} />
           {selected.length > 0 && (
@@ -553,31 +567,15 @@ export function UpgradesPage(props: {
               </button>
             </section>
           )}
-          <details open={decision === 'detection_failed' ? true : undefined}>
-            <summary>{c.checks}</summary>
-            {data?.checks
-              .filter((check) => !context?.serverId || check.server_id === context.serverId)
-              .map((check) => (
-                <div key={check.server_id + check.software_key} className="smp-plan-target">
-                  <b>
-                    {check.server_name} · {softwareName(check.software_key)}
-                  </b>
-                  <p>
-                    {enumLabel(
-                      c,
-                      check.check_snapshot?.reason ??
-                        (check.check_error
-                          ? 'detection_failed'
-                          : check.check_snapshot?.eligible?.length
-                            ? 'has_updates'
-                            : 'up_to_date'),
-                    )}{' '}
-                    · {formatDate(check.last_check_at, active)}
-                  </p>
-                  {!!check.check_error && <pre>{JSON.stringify(check.check_error, null, 2)}</pre>}
-                </div>
-              ))}
-          </details>
+          <DetectionResults
+            active={active}
+            checks={(data?.checks ?? []).filter(
+              (check) => !context?.serverId || check.server_id === context.serverId,
+            )}
+            loading={!data}
+            failuresOnly={decision === 'detection_failed'}
+            softwareName={softwareName}
+          />
           {defer && (
             <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={c.defer}>
               <div className="smp-upgrade-dialog">

@@ -496,6 +496,18 @@
     "preflightReady": "Preflight complete. Review changes and confirm the maintenance schedule.",
     "rejectedHint": "Only this target version for this software on this server is rejected. You can undo it.",
     "up_to_date": "No newer eligible version in the configured repositories",
-    "has_updates": "Eligible updates found"
+    "has_updates": "Eligible updates found",
+    "filters": "Filter upgrade suggestions",
+    "checkCount": "{count} results",
+    "checkedAt": "Checked at",
+    "checkReason": "Result and reason",
+    "noChecks": "No detection results. Check the servers first.",
+    "noCheckFailures": "No failed checks match the current filters.",
+    "checkCurrent": "Up to date",
+    "checkFailedHint": "The check could not complete. Retry or check the server connection and repositories.",
+    "checkUnavailable": "No usable check result is available. Run the check again.",
+    "checkAvailableHint": "Eligible target versions are available. Schedule an upgrade from the suggestions.",
+    "selection": "Select servers for an upgrade plan",
+    "emptyPlans": "No upgrade plans."
   }
 }

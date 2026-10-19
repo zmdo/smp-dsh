@@ -496,6 +496,18 @@
     "preflightReady": "预检完成。请检查变更明细，再确认维护安排。",
     "rejectedHint": "只拒绝此服务器上此软件的这个目标版本，可撤销。",
     "up_to_date": "当前软件源中没有更新",
-    "has_updates": "发现可升级版本"
+    "has_updates": "发现可升级版本",
+    "filters": "筛选升级建议",
+    "checkCount": "共 {count} 项",
+    "checkedAt": "检测时间",
+    "checkReason": "结果与原因",
+    "noChecks": "暂无检测结果，请先检测服务器。",
+    "noCheckFailures": "当前筛选条件下没有检测失败的记录。",
+    "checkCurrent": "无需升级",
+    "checkFailedHint": "本次检测未完成，请重试或检查服务器连接与软件源。",
+    "checkUnavailable": "未获得可用的检测结果，请重新检测。",
+    "checkAvailableHint": "存在符合版本要求的升级目标，可在升级建议中安排。",
+    "selection": "选择需要安排升级的服务器",
+    "emptyPlans": "暂无升级计划。"
   }
 }

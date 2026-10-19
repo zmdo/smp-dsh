@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 
 /** Console card. Pages use this instead of copying the panel markup. */
-export function Panel(props: { title: ReactNode; extra?: ReactNode; children: ReactNode }) {
+export function Panel(props: { title: ReactNode; extra?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className="panel">
+    <section className={props.className ? `panel ${props.className}` : 'panel'}>
       <header className="panel-head">
         <h1><i className="mark" />{props.title}</h1>
         {props.extra}

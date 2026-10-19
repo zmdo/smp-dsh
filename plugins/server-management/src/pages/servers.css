@@ -90,7 +90,10 @@
   .smp-server-main { padding: 12px; }
 }
 
-.smp-console .smp-upgrade-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:16px 0; }
+.smp-console .smp-upgrade-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); align-items: end; gap: 16px; margin: 16px 0; }
+.smp-console .smp-upgrade-fields > .field, .smp-console .smp-plan-confirm > .field, .smp-console .smp-upgrade-dialog > .field { display: grid; gap: 6px; min-width: 0; font-size: 12px; color: var(--muted); }
+.smp-console .smp-upgrade-fields .field > input, .smp-console .smp-upgrade-fields .field > select,
+.smp-console .smp-plan-confirm > .field > select, .smp-console .smp-upgrade-dialog > .field > input { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; height: 34px; font-size: 13px; }
 .smp-console .smp-upgrade-scroll { overflow:auto; margin:12px 0; }
 .smp-console .smp-upgrade-scroll table { min-width:680px; width:100%; }
 .smp-console .smp-upgrade-scroll small { display:block; color:var(--muted); overflow-wrap:anywhere; }
@@ -102,3 +105,47 @@
 .smp-console .smp-rule-editor input { width:110px; min-width:0; }
 .smp-console .smp-upgrade-ack { display:block; margin:12px 0; }
 .smp-console .smp-change-plan pre,.smp-console .smp-upgrade-dialog pre { max-height:260px; overflow:auto; font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+
+.smp-console .smp-upgrade-page { min-width: 0; }
+.smp-console .smp-upgrade-filter-region { container-type: inline-size; }
+.smp-console .smp-upgrade-tabs { gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.smp-console .smp-upgrade-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.smp-console .smp-upgrade-toolbar > p { margin: 0; font-size: 13px; }
+.smp-console .smp-upgrade-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 16px; border: 1px solid var(--line); border-radius: 4px; background: var(--dsw-alias-bg-layer-2); }
+.smp-console .smp-upgrade-selection { margin: 16px 0 12px; }
+.smp-console .smp-upgrade-selection > span { margin-left: auto; font-size: 12px; color: var(--muted); }
+.smp-console .smp-upgrade-suggestions { margin: 0; }
+.smp-console .smp-upgrade-suggestions th:first-child { width: 32px; }
+.smp-console .smp-upgrade-suggestions th:last-child { width: 150px; }
+.smp-console .smp-upgrade-suggestions th, .smp-console .smp-detection-table th { font-size: 12px; background: var(--dsw-alias-bg-layer-2); }
+.smp-console .smp-upgrade-empty { height: 96px; padding: 24px 16px; box-sizing: border-box; text-align: center; color: var(--muted); font-size: 13px; }
+.smp-console .smp-detection-results { margin-top: 24px; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.smp-console .smp-detection-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.smp-console .smp-detection-head h2 { font-size: 14px; font-weight: 600; margin: 0; }
+.smp-console .smp-detection-head > span { color: var(--muted); font-size: 12px; }
+.smp-console .smp-detection-scroll { overflow-x: auto; }
+.smp-console .smp-detection-table { min-width: 720px; table-layout: fixed; font-size: 13px; }
+.smp-console .smp-detection-table th:nth-child(1) { width: 18%; }
+.smp-console .smp-detection-table th:nth-child(2) { width: 15%; }
+.smp-console .smp-detection-table th:nth-child(3) { width: 12%; }
+.smp-console .smp-detection-table th:nth-child(4) { width: 18%; }
+.smp-console .smp-detection-table td { vertical-align: top; overflow-wrap: anywhere; white-space: normal; line-height: 1.6; }
+.smp-console .smp-detection-table td > b { font-weight: 500; }
+.smp-console .smp-detection-table small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.smp-console .smp-detection-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.smp-console .smp-detection-reasons { margin: 0; padding-left: 16px; }
+.smp-console .smp-detection-reasons li + li { margin-top: 4px; }
+.smp-console .smp-detection-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.smp-console .smp-detection-status::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.smp-console .smp-detection-status.failed { color: var(--red); }
+.smp-console .smp-detection-status.blocked { color: var(--warn); }
+.smp-console .smp-detection-status.available { color: var(--primary); }
+.smp-console .smp-detection-status.current { color: var(--green); }
+.smp-console .smp-detection-status.unknown { color: var(--muted); }
+@container (max-width: 900px) {
+  .smp-console .smp-upgrade-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 440px) {
+  .smp-console .smp-upgrade-filters { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .smp-console .smp-upgrade-selection > span { margin-left: 0; width: 100%; }
+}
