@@ -138,7 +138,7 @@
 
 ## 8. 表
 
-迁移放在 `plugins/database/migrations/`，文件名排在 `0010_server_management.sql` 之后。已有行补默认值，不重写别的列。
+当前无服务器数据、无发布部署，允许破坏兼容性，后续纳入 [数据库重构设计](database-redesign.md)。以下 SQL 仅表达权限枚举与默认值，不要求迁移旧记录；最终字段归属应区分登记权限配置和实际登录权限探测结果。
 
 ```sql
 alter table servers add column if not exists session_access varchar(16) not null default 'none';
