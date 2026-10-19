@@ -177,9 +177,9 @@ export async function saveObservation(
       )
   }
   await client.query(
-    `insert into server_container_scans(server_id,state,checked_at,last_success_at) values($1,$2,now(),case when $2='ready' then now() else null end)
-      on conflict(server_id) do update set state=excluded.state,checked_at=excluded.checked_at,last_success_at=coalesce(excluded.last_success_at,server_container_scans.last_success_at)`,
-    [serverId, observation.state === 'error' ? 'failed' : observation.state],
+    `insert into server_container_scans(server_id,state,checked_at,last_success_at,error) values($1,$2,now(),case when $2='ready' then now() else null end,$3)
+      on conflict(server_id) do update set state=excluded.state,checked_at=excluded.checked_at,last_success_at=coalesce(excluded.last_success_at,server_container_scans.last_success_at),error=excluded.error`,
+    [serverId, observation.state === 'error' ? 'failed' : observation.state, observation.detail ? JSON.stringify({ detail: observation.detail }) : null],
   )
 }
 

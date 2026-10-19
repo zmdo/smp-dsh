@@ -65,6 +65,17 @@
 .smp-server-pager label { display: flex; align-items: center; gap: 6px; }
 .smp-console .smp-server-pager select { width: auto; }
 .smp-console .smp-server-pager button { padding: 0 10px; }
+.smp-task-history { margin-top: 24px; min-width: 0; }
+.smp-task-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.smp-task-filters label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+.smp-console .smp-task-filters input, .smp-console .smp-task-filters select { box-sizing: border-box; width: auto; min-width: 140px; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dsw-alias-bg-layer-1); color: var(--text); }
+.smp-console .smp-task-table { min-width: 720px; table-layout: fixed; }
+.smp-console .smp-task-table th:first-child { width: 160px; }
+.smp-console .smp-task-table th:nth-child(2) { width: 170px; }
+.smp-console .smp-task-table th:nth-child(3) { width: 100px; }
+.smp-console .smp-task-table td { vertical-align: top; overflow-wrap: anywhere; white-space: normal; }
+.smp-task-table small { display: block; margin-top: 4px; }
+.smp-task-table ul { margin: 6px 0; padding-left: 18px; }
 @media (max-width: 900px) {
   .smp-server-sidebar { width: 176px; }
   .smp-server-group-head { flex-wrap: wrap; }

@@ -48,6 +48,7 @@ test(
       '0012_server_types.sql',
       '0013_server_observations.sql',
       '0014_server_execution.sql',
+      '0015_server_inspection_reports.sql',
     ])
       await pool.query(await readFile(new URL(`../../database/migrations/${name}`, import.meta.url), 'utf8'))
     const catalog = builtinCatalog(),
@@ -299,12 +300,35 @@ test(
       return job
     }
     const getJob = async (id: string) => (await pool.query('select * from server_jobs where id=$1', [id])).rows[0]
+    await t.test('container inspection errors remain visible and do not mark SSH offline', async () => {
+      const created = (await api('POST', '/servers', input())).body
+      const target = remote(), connect = target.connect
+      target.connect = async () => {
+        const session = await connect(), exec = session.exec.bind(session)
+        session.exec = async (command, timeout, options) => command.startsWith('command -v')
+          ? { code: 0, stdout: '', stderr: '' }
+          : command.startsWith('docker version')
+            ? { code: 1, stdout: '', stderr: 'permission denied: docker socket' }
+            : exec(command, timeout, options)
+        return session
+      }
+      await api('POST', `/servers/${created.id}/inspect`)
+      const job = await next(target), saved = await getJob(job.id)
+      assert.equal(saved.state, 'failed')
+      assert.equal(saved.result.summary, 'inspection_issues')
+      assert.equal(saved.result.issues[0].code, 'containers_failed')
+      assert.match(saved.result.issues[0].params.detail, /permission denied/)
+      const detail = (await api('GET', `/servers/${created.id}`)).body
+      assert.equal(detail.reachability, 'online')
+      assert.equal(detail.containers_state, 'failed')
+      assert.equal((await pool.query('select failed from server_inspection_reports where server_identity=$1', [created.id])).rows[0].failed, 1)
+    })
     await t.test('vacant registration needs no software; OS and credentials remain separate', async () => {
       const created = await api('POST', '/servers', input({ install_required_software: true }))
       assert.equal(created.status, 201)
       assert.equal(created.body.type_key, VACANT_TYPE)
       assert.equal(created.body.install_required_software, false)
-      assert.deepEqual(created.body.jobs, [])
+      assert.equal(created.body.jobs, undefined)
       assert.equal(created.body.secret_ciphertext, undefined)
       assert.equal((await api('POST', '/servers', input({ declared_os: undefined }))).body.code, 'os_required')
       assert.equal(

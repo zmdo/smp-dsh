@@ -22,8 +22,9 @@ import {
   type SoftwareView,
   type TypeOptions,
 } from '../definitions.ts'
-import { api, displayError, displayJobError, requestError, responseError } from './api.ts'
+import { api, displayError, requestError, responseError } from './api.ts'
 import { useActiveLocale } from './locale.ts'
+import { TaskHistory } from './TaskHistory.tsx'
 import { EnrollmentPreview, type ConnectionResult } from './enrollment-preview.ts'
 import {
   OS_CATALOG,
@@ -83,7 +84,6 @@ interface ServerRow {
   containers_state: string
   containers_checked_at: string | null
   containers?: ContainerRow[]
-  jobs?: JobRow[]
 }
 
 interface ContainerRow {
@@ -92,26 +92,6 @@ interface ContainerRow {
   image: string
   status: string
   ports: string
-}
-
-interface JobRow {
-  id: string
-  action: string
-  status: string
-  output_excerpt: string
-  phase: string
-  result?: {
-    summary?: string
-    error?: unknown
-    steps?: {
-      ordinal: number
-      software: string
-      state: string
-      after?: { version?: string }
-      changes?: { name?: string; version?: string }[]
-    }[]
-  }
-  created_at: string
 }
 
 interface GroupRow extends GroupView {
@@ -1470,6 +1450,7 @@ function ServerDetail(props: {
   const [server, setServer] = useState<ServerRow | undefined>()
   const [error, setError] = useState<ServerError | null>(null)
   const [queued, setQueued] = useState(false)
+  const [taskRefresh, setTaskRefresh] = useState(0)
 
   useEffect(() => {
     let stopped = false
@@ -1496,6 +1477,7 @@ function ServerDetail(props: {
     try {
       await api(path, { method: 'POST' })
       setQueued(true)
+      setTaskRefresh(value => value + 1)
     } catch (cause) {
       setError(requestError(cause))
     }
@@ -1675,42 +1657,7 @@ function ServerDetail(props: {
           </tbody>
         </table>
       )}
-      <h2>{copy.jobs}</h2>
-      <ul>
-        {(server.jobs ?? []).map((job) => (
-          <li key={job.id}>
-            {enumLabel(serverCopy(active).actions, job.action)}{' '}
-            <span className={`pill ${job.status}`}>{enumLabel(serverCopy(active).jobStatus, job.status)}</span>{' '}
-            {job.result?.error
-              ? displayJobError(active, job.result.error)
-              : job.result?.summary
-                ? enumLabel(serverCopy(active).jobMessages, job.result.summary)
-                : job.status === 'recovering'
-                  ? serverCopy(active).jobMessages.recovering
-                  : job.output_excerpt}
-            {job.result?.steps && (
-              <ul>
-                {job.result.steps.map((step) => (
-                  <li key={step.ordinal}>
-                    {step.software}: {enumLabel(serverCopy(active).jobStatus, step.state)}
-                    {step.after?.version ? ` (${step.after.version})` : ''}
-                    {step.changes?.length ? (
-                      <small>
-                        {' '}
-                        —{' '}
-                        {step.changes
-                          .map((change) => `${change.name ?? ''}${change.version ? ` ${change.version}` : ''}`)
-                          .filter(Boolean)
-                          .join(', ')}
-                      </small>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </li>
-        ))}
-      </ul>
+      <TaskHistory key={props.id} active={active} serverId={props.id} refresh={taskRefresh} />
     </Panel>
   )
 }

@@ -133,11 +133,28 @@ export async function executeJob(
         server!.id,
         job.id,
         status ? clean(status, secret) : undefined,
-        observation,
+        scrubValue(observation, secret),
         '',
         lease?.components ?? [],
       ),
     )
+    if (!job.request_snapshot.prepare) {
+      const issues: ReturnType<typeof errorPayload>[] = []
+      if (probe.state === 'failed') issues.push(errorPayload(new ServerError('os_probe_failed')))
+      if (!lease) issues.push(errorPayload(new ServerError('type_unavailable')))
+      for (const [software, item] of Object.entries(status ?? {})) {
+        if (item.state === 'unknown' || (item.state === 'installed' && item.healthy === false))
+          issues.push(errorPayload(new ServerError('inspection_software_failed', { software, detail: item.detail })))
+      }
+      if (observation.state === 'error')
+        issues.push(errorPayload(new ServerError('containers_failed', { detail: observation.detail ?? '' })))
+      if (issues.length) {
+        await finishJob(db, job, 'failed', '巡检发现检测异常。', {
+          summary: 'inspection_issues', issues: scrubValue(issues, secret),
+        })
+        return
+      }
+    }
     if (job.request_snapshot.prepare && lease?.components.length) {
       if (probe.state !== 'detected') throw new ServerError('os_unverified')
       const plan = await preparePlan(session, lease, probe.os)

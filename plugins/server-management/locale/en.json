@@ -143,7 +143,25 @@
     "softwareDetectionFailed": "Detection failed",
     "lastKnownVersion": "Last known version: {version}",
     "savedPasswordHint": "Leave blank to use the saved password. Enter it again after changing the address, port or user.",
-    "softwareNotChecked": "Not detected"
+    "softwareNotChecked": "Not detected",
+    "taskKeyword": "Keyword",
+    "searchTasks": "Task ID, software or raw output",
+    "taskType": "Task type",
+    "allTypes": "All types",
+    "allStatuses": "All statuses",
+    "taskFrom": "From",
+    "taskTo": "Until (exclusive)",
+    "search": "Search",
+    "reset": "Reset",
+    "taskDetails": "Details",
+    "inspectionHistoryHint": "Individual routine inspections appear only on error. Successful inspections are summarized hourly after the hour ends.",
+    "inspectionReport": "{succeeded} inspections succeeded; {failed} had errors.",
+    "cannotLoadTasks": "Unable to load tasks.",
+    "noTasks": "No tasks match these filters.",
+    "taskPagination": "Task pagination",
+    "taskRange": "Showing {from}–{to} of {count} tasks",
+    "taskTotal": "{count} tasks",
+    "tasksPageSize": "Tasks per page"
   },
   "reach": {
     "online": "Online",
@@ -159,7 +177,9 @@
     "start": "Start",
     "stop": "Stop",
     "restart": "Restart",
-    "logs": "Logs"
+    "logs": "Logs",
+    "inspection_report": "Hourly inspection report",
+    "detect_updates": "Detect updates"
   },
   "jobStatus": {
     "queued": "Queued",
@@ -282,12 +302,15 @@
     "job_recovering": "The remote operation is being reconciled; new changes are blocked.",
     "definition_owner": "The definition owner does not match the contributing plugin.",
     "definition_reference": "A definition reference is unavailable or incompatible.",
-    "connection_test_required": "Test the connection again with the current authentication details."
+    "connection_test_required": "Test the connection again with the current authentication details.",
+    "task_query_invalid": "Invalid task query. Check pagination, time range and filters.",
+    "inspection_software_failed": "Detection or health check failed for {software}."
   },
   "jobMessages": {
     "prepared": "Check complete; missing software is handled by a separate installation plan.",
     "inspected": "Read-only check complete.",
     "installed": "Installation completed and verified.",
-    "recovering": "Reconciling the remote operation. New changes are blocked until its outcome is known."
+    "recovering": "Reconciling the remote operation. New changes are blocked until its outcome is known.",
+    "inspection_issues": "Inspection found errors."
   }
 }

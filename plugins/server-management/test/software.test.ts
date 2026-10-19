@@ -131,5 +131,15 @@ test('optional container inspection distinguishes absent Docker from a failed in
     command.startsWith('command -v')
       ? { code: 0, stdout: '', stderr: '' }
       : { code: 1, stdout: '', stderr: 'permission denied' }
-  assert.equal((await inspectContainers(f.session)).state, 'error')
+  const failed = await inspectContainers(f.session)
+  assert.equal(failed.state, 'error')
+  assert.match(failed.detail!, /permission denied/)
+  f.session.exec = async command => {
+    if (command.startsWith('command -v')) return { code: 0, stdout: '', stderr: '' }
+    if (command.startsWith('docker version')) return { code: 0, stdout: '{"Server":{"Version":"29.1.3"}}', stderr: '' }
+    return { code: 1, stdout: '', stderr: 'compose detection failed' }
+  }
+  const compose = await inspectContainers(f.session)
+  assert.equal(compose.state, 'error')
+  assert.match(compose.detail!, /compose detection failed/)
 })

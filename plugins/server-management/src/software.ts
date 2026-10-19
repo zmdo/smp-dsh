@@ -98,6 +98,7 @@ export interface ContainerObservation {
   docker: string | null
   compose: string | null
   containers?: ParsedContainer[]
+  detail?: string
 }
 
 /** Optional Docker inspection does not change SSH reachability or a type's software requirements. */
@@ -105,10 +106,11 @@ export async function inspectContainers(session: SshSession): Promise<ContainerO
   try {
     const docker = await probeBuiltin(session, 'docker')
     if (docker.state === 'missing') return { state: 'unavailable', docker: null, compose: null }
-    if (docker.state !== 'installed') return { state: 'error', docker: null, compose: null }
+    if (docker.state !== 'installed') return { state: 'error', docker: null, compose: null, detail: docker.detail }
     const compose = await probeBuiltin(session, 'compose')
+    if (compose.state === 'unknown') return { state: 'error', docker: docker.version ?? null, compose: null, detail: compose.detail }
     const listed = await session.exec(DOCKER_PS, 15_000)
-    if (listed.code !== 0) return { state: 'error', docker: docker.version ?? null, compose: compose.version ?? null }
+    if (listed.code !== 0) return { state: 'error', docker: docker.version ?? null, compose: compose.version ?? null, detail: excerpt(listed.stderr || listed.stdout) }
     return {
       state: 'ready',
       docker: docker.version ?? null,
@@ -116,7 +118,6 @@ export async function inspectContainers(session: SshSession): Promise<ContainerO
       containers: parsePs(listed.stdout),
     }
   } catch (cause) {
-    void cause
-    return { state: 'error', docker: null, compose: null }
+    return { state: 'error', docker: null, compose: null, detail: excerpt(cause instanceof Error ? cause.message : '') }
   }
 }

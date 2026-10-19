@@ -187,6 +187,19 @@ export async function finishJob(
       "update server_jobs set state=$2,phase='finished',output_excerpt=$3,result=$4,finished_at=now() where id=$1",
       [job.id, state, message.slice(-4000), JSON.stringify(result)],
     )
+    if (job.purpose === 'inspect' && job.request_snapshot.action === 'inspect' && !job.request_snapshot.prepare) {
+      await client.query(
+        `insert into server_inspection_reports(server_identity,hour_start,succeeded,failed,last_checked_at)
+        select server_identity,date_trunc('hour',finished_at at time zone 'UTC') at time zone 'UTC',
+          case when state='succeeded' then 1 else 0 end,case when state='succeeded' then 0 else 1 end,finished_at
+        from server_jobs where id=$1
+        on conflict(server_identity,hour_start) do update set
+          succeeded=server_inspection_reports.succeeded+excluded.succeeded,
+          failed=server_inspection_reports.failed+excluded.failed,
+          last_checked_at=greatest(server_inspection_reports.last_checked_at,excluded.last_checked_at)`,
+        [job.id],
+      )
+    }
     if (job.target_id) {
       const target = (
         await client.query<{ plan_id: string }>(

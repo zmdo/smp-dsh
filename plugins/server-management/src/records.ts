@@ -25,6 +25,7 @@ import { field, readJson, sendJson, text } from './reply.ts'
 import { componentView, enqueueOn as enqueue, HttpError, type Db, type JobRecord } from './store.ts'
 import { keyFingerprint, SshError } from './ssh.ts'
 import type { Enrollment } from './enrollment.ts'
+import { parseTaskQuery, taskHistory } from './task-history.ts'
 
 interface Secrets {
   encrypt(secret: string): string
@@ -138,6 +139,10 @@ export async function routeJobs(
   response: ServerResponse,
   rest: string,
 ): Promise<void> {
+  if (rest === '' && request.method === 'GET') {
+    const query = parseTaskQuery(new URL(request.url ?? '/', 'http://localhost').searchParams)
+    return sendJson(response, 200, await taskHistory(db, query))
+  }
   const id = rest.slice(1)
   if (request.method === 'GET' && UUID.test(id)) {
     const result = await db.query<JobRecord>('select * from server_jobs where id = $1', [id])
@@ -269,10 +274,7 @@ async function serverDetail(deps: Deps, id: string): Promise<unknown> {
     'select container_id, name, image, status, ports, managed, strategy_slug, observed_at from server_containers where server_id = $1 order by name',
     [id],
   )
-  const jobs = await deps.db.query('select * from server_jobs where server_id = $1 order by created_at desc limit 20', [
-    id,
-  ])
-  return { ...server, containers: containers.rows, jobs: jobs.rows.map(jobView) }
+  return { ...server, containers: containers.rows }
 }
 
 async function selectType(
