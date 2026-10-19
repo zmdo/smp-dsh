@@ -12,6 +12,7 @@ import { terminalRoute } from './terminal.ts'
 import { errorPayload, ServerError } from './i18n.ts'
 import { DefinitionRegistry } from './registry.ts'
 import { ServerManagement } from './service.ts'
+import { Enrollment } from './enrollment.ts'
 
 export { ServerManagement } from './service.ts'
 export { VACANT_TYPE, GENERAL_TYPE } from './definitions.ts'
@@ -71,13 +72,15 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const catalog = builtinCatalog()
   const db = ctx.database.pool
   const definitions = new DefinitionRegistry(db, catalog)
-  const deps = { db, secrets: ctx.secrets, catalog, definitions }
+  const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions })
+  const deps = { db, secrets: ctx.secrets, catalog, definitions, enrollment }
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield startJobs(ctx, db, config, definitions)
     yield startMetrics(db, ctx.secrets, config.metricsIntervalSeconds, (cause) => {
       ctx.logger.error(cause)
     })
+    yield () => enrollment.close()
     yield ctx.webServer.register({
       kind: 'exact',
       path: '/console-api/servers',
@@ -88,6 +91,12 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
       path: '/console-api/servers/test-connection',
       handler: (request, response) =>
         guard(ctx, request, response, () => routeServers(deps, request, response, '/test-connection')),
+    })
+    yield ctx.webServer.register({
+      kind: 'exact',
+      path: '/console-api/servers/identify-system',
+      handler: (request, response) =>
+        guard(ctx, request, response, () => routeServers(deps, request, response, '/identify-system')),
     })
     yield ctx.webServer.register({
       kind: 'prefix',

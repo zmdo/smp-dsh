@@ -2,12 +2,22 @@ import assert from 'node:assert/strict'
 import { IncomingMessage, ServerResponse } from 'node:http'
 import { Socket } from 'node:net'
 import test from 'node:test'
-import { ServerError, componentText, enumLabel, errorPayload, errorText, format, formatDate, serverCopy } from '../src/i18n.ts'
+import {
+  ServerError,
+  componentText,
+  enumLabel,
+  errorPayload,
+  errorText,
+  format,
+  formatDate,
+  serverCopy,
+} from '../src/i18n.ts'
 import { pageLabel } from '../src/page-label.ts'
 import { displayError, responseError } from '../src/pages/api.ts'
 import { routeGroups, routeKeys, routeServers } from '../src/records.ts'
 import { HttpError, type Db } from '../src/store.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
+import { Enrollment } from '../src/enrollment.ts'
 import { builtinCatalog } from './fixtures.ts'
 
 test('Chinese and English cover the same messages and placeholders', () => {
@@ -17,7 +27,7 @@ test('Chinese and English cover the same messages and placeholders', () => {
       const other = right[key as keyof typeof right]
       if (typeof value === 'string') {
         assert.equal(typeof other, 'string')
-        const params = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort()
+        const params = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort()
         assert.deepEqual(params(value), params(String(other)), key)
       } else compare(value, other)
     }
@@ -43,7 +53,10 @@ test('an existing error and dynamic navigation labels follow the active language
 })
 
 test('error codes do not rely on Chinese detail and malformed payloads fall back safely', () => {
-  const error = responseError({ code: 'component_dependency', params: { component: 'compose', dependency: 'docker', unexpected: {} } })
+  const error = responseError({
+    code: 'component_dependency',
+    params: { component: 'compose', dependency: 'docker', unexpected: {} },
+  })
   assert.equal(displayError('en', error), 'Select Docker Compose and its dependency Docker Engine.')
   assert.equal('unexpected' in error.params, false)
   assert.equal(responseError(null).code, 'request_failed')
@@ -67,11 +80,19 @@ test('dates use the platform locale and external names and output remain intact'
 })
 
 const noDb: Db = {
-  async query() { throw new Error('Validation must finish before accessing the database') },
-  async connect() { throw new Error('Validation must finish before accessing the database') },
+  async query() {
+    throw new Error('Validation must finish before accessing the database')
+  },
+  async connect() {
+    throw new Error('Validation must finish before accessing the database')
+  },
 }
 
-async function invalidPost(body: object, route: (request: IncomingMessage, response: ServerResponse) => Promise<void>, code: string): Promise<void> {
+async function invalidPost(
+  body: object,
+  route: (request: IncomingMessage, response: ServerResponse) => Promise<void>,
+  code: string,
+): Promise<void> {
   const socket = new Socket()
   const request = new IncomingMessage(socket)
   request.method = 'POST'
@@ -79,7 +100,7 @@ async function invalidPost(body: object, route: (request: IncomingMessage, respo
   request.push(null)
   const response = new ServerResponse(request)
   try {
-    await assert.rejects(route(request, response), cause => cause instanceof ServerError && cause.code === code)
+    await assert.rejects(route(request, response), (cause) => cause instanceof ServerError && cause.code === code)
   } finally {
     request.destroy()
     response.destroy()
@@ -88,15 +109,37 @@ async function invalidPost(body: object, route: (request: IncomingMessage, respo
 }
 
 test('server and key validation return stable codes without attempting a write', async () => {
-  const deps = { db: noDb, catalog: builtinCatalog(), definitions: new DefinitionRegistry(noDb, builtinCatalog()), secrets: { encrypt: (value: string) => value, decrypt: (value: string) => value } }
+  const deps = {
+    db: noDb,
+    catalog: builtinCatalog(),
+    definitions: new DefinitionRegistry(noDb, builtinCatalog()),
+    secrets: { encrypt: (value: string) => value, decrypt: (value: string) => value },
+    enrollment: new Enrollment({
+      db: noDb,
+      definitions: new DefinitionRegistry(noDb, builtinCatalog()),
+      secrets: { encrypt: (v) => v, decrypt: (v) => v },
+    }),
+  }
   await invalidPost({}, (request, response) => routeServers(deps, request, response, ''), 'name_required')
-  await invalidPost({ name: 'demo', host: '127.0.0.1', ssh_port: 70000 }, (request, response) => routeServers(deps, request, response, ''), 'port_invalid')
-  await invalidPost({ name: 'key', secret: 'invalid PEM' }, (request, response) => routeKeys(deps, request, response, ''), 'key_invalid')
+  await invalidPost(
+    { name: 'demo', host: '127.0.0.1', ssh_port: 70000 },
+    (request, response) => routeServers(deps, request, response, ''),
+    'port_invalid',
+  )
+  await invalidPost(
+    { name: 'key', secret: 'invalid PEM' },
+    (request, response) => routeKeys(deps, request, response, ''),
+    'key_invalid',
+  )
 })
 
 test('virtual group names are reserved in both supported languages', async () => {
   const definitions = new DefinitionRegistry(noDb, builtinCatalog())
   for (const name of ['未分组', '全部服务器', 'Ungrouped', 'ALL SERVERS']) {
-    await invalidPost({ name }, (request, response) => routeGroups(noDb, request, response, '', definitions), 'group_name_reserved')
+    await invalidPost(
+      { name },
+      (request, response) => routeGroups(noDb, request, response, '', definitions),
+      'group_name_reserved',
+    )
   }
 })

@@ -12,6 +12,7 @@ import type { DefinitionBundle } from '../src/contracts.ts'
 import { errorPayload, ServerError } from '../src/i18n.ts'
 import { routeGroups, routeServers, routeTypes } from '../src/records.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
+import { Enrollment } from '../src/enrollment.ts'
 import { executeJob } from '../src/runner.ts'
 import { ServerManagement } from '../src/service.ts'
 import { HttpError, type Db } from '../src/store.ts'
@@ -52,8 +53,12 @@ test(
     const catalog = builtinCatalog(),
       definitions = new DefinitionRegistry(db, catalog),
       secrets = { encrypt: (v: string) => v, decrypt: (v: string) => v },
-      deps = { db, definitions, secrets, catalog }
-    t.after(() => definitions.close())
+      enrollment = new Enrollment({ db, definitions, secrets }),
+      deps = { db, definitions, secrets, catalog, enrollment }
+    t.after(async () => {
+      await enrollment.close()
+      await definitions.close()
+    })
     const http = createServer(async (req, res) => {
       try {
         const path = new URL(req.url!, 'http://localhost').pathname
@@ -442,6 +447,38 @@ test(
       assert.equal(await claimNext(db, 'worker-one'), undefined)
     })
     await t.test(
+      'saving identified information schedules a read-only check without trusting browser versions',
+      async () => {
+        const before = Number((await pool.query('select count(*) from server_change_plans')).rows[0].count)
+        const target = remote()
+        const created = (
+          await api(
+            'POST',
+            '/servers',
+            input({
+              type_key: GENERAL_TYPE,
+              install_required_software: false,
+              inspect_after_save: true,
+              software_status: { docker: { state: 'installed', version: 'forged' } },
+            }),
+          )
+        ).body
+        assert.equal(created.software_status.docker.version, undefined)
+        const inspected = await next(target)
+        assert.equal(inspected.purpose, 'inspect')
+        assert.equal((await getJob(inspected.id)).state, 'succeeded')
+        assert.equal(target.requests.includes('start'), false)
+        assert.equal(Number((await pool.query('select count(*) from server_change_plans')).rows[0].count), before)
+        assert.equal((await api('GET', `/servers/${created.id}`)).body.software_status.docker.state, 'missing')
+        assert.equal(
+          (await api('PATCH', `/servers/${created.id}`, { name: 'checked again', inspect_after_save: true })).status,
+          200,
+        )
+        await next(target)
+        assert.equal(await claimNext(db, 'worker-one'), undefined)
+      },
+    )
+    await t.test(
       'unknown recovery holds the server lock; provider unload does not prevent journal reconciliation',
       async () => {
         const registration = definitions.registerDefinitions(bundle)
@@ -461,11 +498,7 @@ test(
         target.setUnknown(true)
         const job = await next(target)
         assert.equal((await getJob(job.id)).state, 'recovering')
-        assert.equal(
-          (await api('PATCH', `/servers/${created.id}`, { ssh_port: 2222 })).body
-            .code,
-          'server_busy',
-        )
+        assert.equal((await api('PATCH', `/servers/${created.id}`, { ssh_port: 2222 })).body.code, 'server_busy')
         assert.equal(
           (
             await api('PATCH', `/servers/${created.id}`, {

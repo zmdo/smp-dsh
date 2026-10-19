@@ -56,7 +56,17 @@ interface ServerRow {
   detected_os: DetectedOs | null
   os_verification: string
   type_supported_os: OsSupport
-  software_status: Record<string, { state?: string; installed?: boolean; detail?: string }>
+  software_status: Record<
+    string,
+    {
+      state?: string
+      installed?: boolean
+      detail?: string
+      version?: string
+      last_known_version?: string
+      revision?: string
+    }
+  >
   host_fingerprint: string | null
   reachability: string
   docker_version: string | null
@@ -72,6 +82,22 @@ interface ServerRow {
   containers_checked_at: string | null
   containers?: ContainerRow[]
   jobs?: JobRow[]
+}
+
+interface ConnectionResult {
+  fingerprint: string
+  connection_token: string
+  expires_at: number
+}
+
+interface IdentificationResult {
+  declared_os: DeclaredOs
+  detected_os: DetectedOs
+  type_key: string
+  required_software: SoftwareView[]
+  software_status: ServerRow['software_status']
+  software_available: boolean
+  detected_at: string
 }
 
 interface ContainerRow {
@@ -724,7 +750,63 @@ function ServerForm(props: {
   const [defaults, setDefaults] = useState<TypeOptions | undefined>()
   const [serverLoaded, setServerLoaded] = useState(!props.editing)
   const [error, setError] = useState<ServerError | null>(null)
-  const [fingerprint, setFingerprint] = useState<string | null>(null)
+  const [connection, setConnection] = useState<(ConnectionResult & { revision: number }) | undefined>()
+  const [identification, setIdentification] = useState<
+    (IdentificationResult & { revision: number; groupId: string }) | undefined
+  >()
+  const [loadedServer, setLoadedServer] = useState<ServerRow | undefined>()
+  const [pending, setPending] = useState<'test' | 'identify' | null>(null)
+  const requests = useRef(0)
+  const authRevision = useRef({ key: '', revision: 0 })
+  const identityRevision = useRef({ key: '', revision: 0 })
+  const authentication = {
+    server_id: props.editing ? props.serverId : undefined,
+    host: host.trim(),
+    ssh_port: Number(port),
+    ssh_user: user.trim(),
+    auth_method: method,
+    ssh_key_id: method === 'private_key' ? keyId : undefined,
+    secret: method === 'private_key' && keyId !== '' ? undefined : secret,
+  }
+  const authenticationKey = JSON.stringify(authentication)
+  if (authRevision.current.key !== authenticationKey)
+    authRevision.current = { key: authenticationKey, revision: authRevision.current.revision + 1 }
+  const currentConnection =
+    connection?.revision === authRevision.current.revision && connection.expires_at > Date.now()
+      ? connection
+      : undefined
+  const savedAuthenticationKey = loadedServer
+    ? JSON.stringify({
+        server_id: props.serverId,
+        host: loadedServer.host,
+        ssh_port: loadedServer.ssh_port,
+        ssh_user: loadedServer.ssh_user,
+        auth_method: loadedServer.auth_method,
+        ssh_key_id: loadedServer.auth_method === 'private_key' ? (loadedServer.ssh_key_id ?? '') : undefined,
+        secret: loadedServer.auth_method === 'private_key' && loadedServer.ssh_key_id ? undefined : '',
+      })
+    : ''
+  const canTest =
+    host.trim() !== '' &&
+    user.trim() !== '' &&
+    Number.isInteger(Number(port)) &&
+    Number(port) > 0 &&
+    Number(port) <= 65535 &&
+    ((method === 'private_key' && keyId !== '') ||
+      secret.trim() !== '' ||
+      (method === 'password' && authenticationKey === savedAuthenticationKey))
+
+  useEffect(
+    () => () => {
+      requests.current += 1
+    },
+    [],
+  )
+  useEffect(() => {
+    if (!connection) return
+    const timer = setTimeout(() => setConnection(undefined), Math.max(0, connection.expires_at - Date.now()))
+    return () => clearTimeout(timer)
+  }, [connection])
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -754,6 +836,7 @@ function ServerForm(props: {
     void api<ServerRow>(`/console-api/servers/${props.serverId}`)
       .then((server) => {
         if (stopped) return
+        setLoadedServer(server)
         setName(server.name)
         setHost(server.host)
         setPort(String(server.ssh_port))
@@ -811,11 +894,33 @@ function ServerForm(props: {
     choices?.types.find((type) => type.key === typeKey) ?? (savedType?.key === typeKey ? savedType : undefined)
   const originalBinding = original?.groupId === groupId && original.typeKey === typeKey
   const available = choices?.available === true && applicableTypes.some((type) => type.key === typeKey)
-  const software = (selected?.software ?? []).filter(
+  const configuredSoftware = (selected?.software ?? []).filter(
     (item) =>
       !item.whenOs ||
       (declaredOs !== undefined && supportsOs({ kind: 'explicit', selectors: item.whenOs }, declaredOs)),
   )
+  const identityKey = JSON.stringify([authRevision.current.revision, groupId, typeKey, declaredOs])
+  if (identityRevision.current.key !== identityKey)
+    identityRevision.current = { key: identityKey, revision: identityRevision.current.revision + 1 }
+  const identified =
+    identification?.revision === authRevision.current.revision &&
+    identification.groupId === groupId &&
+    identification.type_key === typeKey &&
+    declaredOs !== undefined &&
+    sameDeclaredOs(identification.declared_os, declaredOs)
+      ? identification
+      : undefined
+  const savedSystemCurrent =
+    loadedServer !== undefined &&
+    authenticationKey === savedAuthenticationKey &&
+    loadedServer.group_id === (groupId || null) &&
+    loadedServer.type_key === typeKey &&
+    declaredOs !== undefined &&
+    sameDeclaredOs(loadedServer.declared_os, declaredOs)
+  const software = identified?.required_software ?? configuredSoftware
+  const softwareStatus = identified?.software_status ?? (savedSystemCurrent ? loadedServer?.software_status : undefined)
+  const architecture =
+    identified?.detected_os.architecture ?? (savedSystemCurrent ? loadedServer?.detected_os?.architecture : undefined)
   const canSave =
     defaults !== undefined &&
     serverLoaded &&
@@ -835,35 +940,94 @@ function ServerForm(props: {
     const allowed =
       declaredOs === undefined ? [] : (next?.types ?? []).filter((type) => typeSupportsOs(type, declaredOs))
     const type =
-      allowed.find((item) => item.key === typeKey) ?? allowed.find((item) => item.key === defaultTypeForOs(next, declaredOs))
+      allowed.find((item) => item.key === typeKey) ??
+      allowed.find((item) => item.key === defaultTypeForOs(next, declaredOs))
     if (selected === undefined || type === undefined || !sameSoftware(selected, type)) setAuto(false)
     setGroupId(id)
     setTypeKey(type?.key ?? '')
   }
 
   async function preview(): Promise<void> {
+    const request = ++requests.current,
+      revision = authRevision.current.revision
     setError(null)
-    setFingerprint(null)
+    setConnection(undefined)
+    setIdentification(undefined)
+    setPending('test')
     try {
-      const result = await api<{ ok: boolean; fingerprint?: string }>('/console-api/servers/test-connection', {
+      const result = await api<ConnectionResult>('/console-api/servers/test-connection', {
         method: 'POST',
-        body: JSON.stringify({ host: host, ssh_port: Number(port), ssh_user: user, auth_method: method, secret }),
+        body: JSON.stringify(authentication),
       })
-      if (result.ok) setFingerprint(result.fingerprint ?? '')
-      else setError(responseError(result))
+      if (request === requests.current && revision === authRevision.current.revision)
+        setConnection({ ...result, revision })
     } catch (cause) {
-      setError(requestError(cause))
+      if (request === requests.current && revision === authRevision.current.revision) setError(requestError(cause))
+    } finally {
+      if (request === requests.current) setPending(null)
+    }
+  }
+
+  async function identify(): Promise<void> {
+    if (!currentConnection) return
+    const request = ++requests.current,
+      revision = authRevision.current.revision,
+      scope = identityRevision.current.revision
+    setPending('identify')
+    setError(null)
+    setIdentification(undefined)
+    try {
+      const result = await api<IdentificationResult>('/console-api/servers/identify-system', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...authentication,
+          connection_token: currentConnection.connection_token,
+          group_id: groupId || null,
+          type_key: typeKey,
+        }),
+      })
+      if (
+        request !== requests.current ||
+        revision !== authRevision.current.revision ||
+        scope !== identityRevision.current.revision
+      )
+        return
+      const os = result.declared_os
+      setSavedOs(os)
+      setOsFamily(os.kind === 'custom' ? 'custom' : os.family)
+      setOsRelease(os.kind === 'catalog' ? os.releaseKey : '')
+      setOsText(os.kind === 'custom' ? os.text : '')
+      if (result.type_key !== typeKey) setAuto(false)
+      setTypeKey(result.type_key)
+      setIdentification({ ...result, revision, groupId })
+    } catch (cause) {
+      if (
+        request === requests.current &&
+        revision === authRevision.current.revision &&
+        scope === identityRevision.current.revision
+      ) {
+        const error = requestError(cause)
+        setError(error)
+        if (
+          error.code === 'connection_test_required' ||
+          error.code === 'fingerprint_mismatch' ||
+          error.code.startsWith('ssh_')
+        )
+          setConnection(undefined)
+      }
+    } finally {
+      if (request === requests.current) setPending(null)
     }
   }
 
   async function save(event: FormEvent): Promise<void> {
     event.preventDefault()
-    if (!canSave || busy) return
+    if (!canSave || busy || pending !== null) return
     setBusy(true)
     setError(null)
     try {
       let nextKey = keyId
-      if (method === 'private_key' && secret.trim() !== '') {
+      if (method === 'private_key' && keyId === '' && secret.trim() !== '') {
         const created = await api<KeyRow>('/console-api/ssh-keys', {
           method: 'POST',
           body: JSON.stringify({ name: keyName.trim() || name.trim(), secret }),
@@ -881,6 +1045,7 @@ function ServerForm(props: {
         declared_os: declaredOs,
         region,
         install_required_software: software.length > 0 && auto,
+        inspect_after_save: identified !== undefined,
         ssh_key_id: method === 'private_key' ? nextKey : undefined,
         secret: method === 'password' && secret.trim() !== '' ? secret : undefined,
       }
@@ -912,176 +1077,22 @@ function ServerForm(props: {
           {displayError(active, error)}
         </p>
       )}
-      {fingerprint !== null && <p className="banner ok">{format(copy.connected, { fingerprint })}</p>}
       <form
         className="panel-form"
         onSubmit={(event) => {
           void save(event)
         }}
       >
-        <label className="field">
-          {copy.name}
-          <input
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value)
-            }}
-          />
-        </label>
-        <div className="smp-server-address-row">
-          <label className="field">
-            {copy.hostAddress}
-            <input
-              value={host}
-              onChange={(event) => {
-                setHost(event.target.value)
-              }}
-            />
-          </label>
-          <label className="field">
-            {copy.port}
-            <input
-              value={port}
-              onChange={(event) => {
-                setPort(event.target.value)
-              }}
-            />
-          </label>
-        </div>
-        <label className="field">
-          {copy.user}
-          <input
-            value={user}
-            onChange={(event) => {
-              setUser(event.target.value)
-            }}
-          />
-        </label>
-        <label className="field">
-          {copy.authMethod}
-          <select
-            value={method}
-            onChange={(event) => {
-              setMethod(event.target.value)
-            }}
-          >
-            <option value="private_key">{copy.privateKey}</option>
-            <option value="password">{copy.password}</option>
-          </select>
-        </label>
-        {method === 'private_key' ? (
-          <>
-            <label className="field">
-              {copy.existingKey}
-              <select
-                value={keyId}
-                onChange={(event) => {
-                  setKeyId(event.target.value)
-                }}
-              >
-                <option value="">{copy.noKey}</option>
-                {keys.map((key) => (
-                  <option key={key.id} value={key.id}>
-                    {key.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              {copy.newKeyName}
-              <input
-                value={keyName}
-                onChange={(event) => {
-                  setKeyName(event.target.value)
-                }}
-              />
-            </label>
-            <label className="field">
-              {copy.pasteKey}
-              <textarea
-                value={secret}
-                onChange={(event) => {
-                  setSecret(event.target.value)
-                }}
-                placeholder={copy.secretHint}
-              />
-            </label>
-          </>
-        ) : (
-          <label className="field">
-            {copy.password}
-            <input
-              type="password"
-              value={secret}
-              onChange={(event) => {
-                setSecret(event.target.value)
-              }}
-            />
-          </label>
-        )}
-        <label className="field">
-          {copy.operatingSystem}
-          <select
-            value={osFamily}
-            required
-            onChange={(event) => {
-              setOsFamily(event.target.value)
-              setOsRelease('')
-              setOsText('')
-              setTypeKey('')
-              setAuto(false)
-            }}
-          >
-            <option value="">{copy.osChoose}</option>
-            {OS_CATALOG.map((item) => (
-              <option key={item.key} value={item.key}>
-                {item.name}
-              </option>
-            ))}
-            <option value="custom">{copy.osOther}</option>
-          </select>
-        </label>
-        {osFamily === 'custom' ? (
-          <label className="field">
-            {copy.osCustom}
-            <input
-              value={osText}
-              required
-              maxLength={200}
-              placeholder="openSUSE Leap 15.6"
-              onChange={(event) => setOsText(event.target.value)}
-            />
-          </label>
-        ) : (
-          <label className="field">
-            {copy.osRelease}
-            <select
-              value={osRelease}
-              required
-              disabled={family === undefined}
-              onChange={(event) => {
-                setOsRelease(event.target.value)
-                setTypeKey('')
-                setAuto(false)
-              }}
-            >
-              <option value="">{copy.osChoose}</option>
-              {savedOs?.kind === 'catalog' &&
-                savedOs.family === osFamily &&
-                !family?.releases.some((item) => item.key === savedOs.releaseKey) && (
-                  <option value={savedOs.releaseKey}>{savedOs.name}</option>
-                )}
-              {family?.releases.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <p className="muted">{copy.osNote}</p>
-        {declaredOs !== undefined && applicableTypes.length === 0 && <p className="banner error">{copy.osNoTypes}</p>}
         <div className="triple">
+          <label className="field">
+            {copy.name}
+            <input
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value)
+              }}
+            />
+          </label>
           <label className="field">
             {copy.group}
             <select
@@ -1100,29 +1111,6 @@ function ServerForm(props: {
             </select>
           </label>
           <label className="field">
-            {copy.serverType}
-            <select
-              value={typeKey}
-              onChange={(event) => {
-                setTypeKey(event.target.value)
-                setAuto(false)
-              }}
-              disabled={!choices?.available || declaredOs === undefined}
-            >
-              {selected !== undefined && !applicableTypes.some((type) => type.key === typeKey) && (
-                <option value={typeKey} disabled>
-                  {localized(selected.name_i18n, active)} ({copy.typeUnavailable})
-                </option>
-              )}
-              {typeKey === '' && <option value="">{copy.osChoose}</option>}
-              {applicableTypes.map((type) => (
-                <option key={type.key} value={type.key}>
-                  {localized(type.name_i18n, active)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
             {copy.region}
             <input
               value={region}
@@ -1133,37 +1121,262 @@ function ServerForm(props: {
             />
           </label>
         </div>
-        {declaredOs !== undefined && choices !== undefined && !available && (
-          <p className="muted">
-            {choices.available ? serverCopy(active).errors.os_type_unsupported : copy.typeUnavailable}
-          </p>
-        )}
-        {props.editing && !originalBinding && <p className="muted">{copy.typeChangeNote}</p>}
-        <h2>{copy.requiredSoftware}</h2>
-        <RequiredSoftware active={active} software={software} />
-        <label className="smp-server-auto-install">
-          <input
-            type="checkbox"
-            checked={software.length > 0 && auto}
-            disabled={software.length === 0 || !available}
-            onChange={(event) => {
-              setAuto(event.target.checked)
-            }}
-          />{' '}
-          {copy.autoInstall}
-        </label>
+        <section className="smp-server-form-section" aria-label={copy.authenticationInfo}>
+          <h2>{copy.authenticationInfo}</h2>
+          <div className="smp-server-form-section-body">
+            <div className="smp-server-address-row">
+              <label className="field">
+                {copy.hostAddress}
+                <input
+                  value={host}
+                  onChange={(event) => {
+                    setHost(event.target.value)
+                  }}
+                />
+              </label>
+              <label className="field">
+                {copy.port}
+                <input
+                  value={port}
+                  onChange={(event) => {
+                    setPort(event.target.value)
+                  }}
+                />
+              </label>
+            </div>
+            <label className="field">
+              {copy.user}
+              <input
+                value={user}
+                onChange={(event) => {
+                  setUser(event.target.value)
+                }}
+              />
+            </label>
+            <label className="field">
+              {copy.authMethod}
+              <select
+                value={method}
+                onChange={(event) => {
+                  setMethod(event.target.value)
+                  setSecret('')
+                }}
+              >
+                <option value="private_key">{copy.privateKey}</option>
+                <option value="password">{copy.password}</option>
+              </select>
+            </label>
+            {method === 'private_key' ? (
+              <>
+                <label className="field">
+                  {copy.existingKey}
+                  <select
+                    value={keyId}
+                    onChange={(event) => {
+                      setKeyId(event.target.value)
+                    }}
+                  >
+                    <option value="">{copy.noKey}</option>
+                    {keys.map((key) => (
+                      <option key={key.id} value={key.id}>
+                        {key.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {keyId === '' && (
+                  <>
+                    <label className="field">
+                      {copy.newKeyName}
+                      <input
+                        value={keyName}
+                        onChange={(event) => {
+                          setKeyName(event.target.value)
+                        }}
+                      />
+                    </label>
+                    <label className="field">
+                      {copy.pasteKey}
+                      <textarea
+                        value={secret}
+                        onChange={(event) => {
+                          setSecret(event.target.value)
+                        }}
+                        placeholder={copy.secretHint}
+                      />
+                    </label>
+                  </>
+                )}
+              </>
+            ) : (
+              <label className="field">
+                {copy.password}
+                <input
+                  type="password"
+                  value={secret}
+                  onChange={(event) => {
+                    setSecret(event.target.value)
+                  }}
+                />
+              </label>
+            )}
+            {method === 'password' && loadedServer?.auth_method === 'password' && (
+              <p className="muted">{copy.savedPasswordHint}</p>
+            )}
+            {currentConnection && (
+              <p className="banner ok">{format(copy.connected, { fingerprint: currentConnection.fingerprint })}</p>
+            )}
+          </div>
+          <footer>
+            <button
+              className="secondary"
+              type="button"
+              disabled={!canTest || pending !== null || busy}
+              onClick={() => {
+                void preview()
+              }}
+            >
+              {pending === 'test' ? copy.testingConnection : copy.testConnection}
+            </button>
+          </footer>
+        </section>
+        <section className="smp-server-form-section" aria-label={copy.systemInfo}>
+          <h2>{copy.systemInfo}</h2>
+          <div className="smp-server-form-section-body">
+            <label className="field">
+              {copy.operatingSystem}
+              <select
+                value={osFamily}
+                required
+                onChange={(event) => {
+                  setOsFamily(event.target.value)
+                  setOsRelease('')
+                  setOsText('')
+                  setTypeKey('')
+                  setAuto(false)
+                }}
+              >
+                <option value="">{copy.osChoose}</option>
+                {OS_CATALOG.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.name}
+                  </option>
+                ))}
+                <option value="custom">{copy.osOther}</option>
+              </select>
+            </label>
+            {osFamily === 'custom' ? (
+              <label className="field">
+                {copy.osCustom}
+                <input
+                  value={osText}
+                  required
+                  maxLength={200}
+                  placeholder="openSUSE Leap 15.6"
+                  onChange={(event) => setOsText(event.target.value)}
+                />
+              </label>
+            ) : (
+              <label className="field">
+                {copy.osRelease}
+                <select
+                  value={osRelease}
+                  required
+                  disabled={family === undefined}
+                  onChange={(event) => {
+                    setOsRelease(event.target.value)
+                    setTypeKey('')
+                    setAuto(false)
+                  }}
+                >
+                  <option value="">{copy.osChoose}</option>
+                  {savedOs?.kind === 'catalog' &&
+                    savedOs.family === osFamily &&
+                    !family?.releases.some((item) => item.key === savedOs.releaseKey) && (
+                      <option value={savedOs.releaseKey}>{savedOs.name}</option>
+                    )}
+                  {family?.releases.map((item) => (
+                    <option key={item.key} value={item.key}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="field">
+              {copy.serverType}
+              <select
+                value={typeKey}
+                onChange={(event) => {
+                  setTypeKey(event.target.value)
+                  setAuto(false)
+                }}
+                disabled={!choices?.available || declaredOs === undefined}
+              >
+                {selected !== undefined && !applicableTypes.some((type) => type.key === typeKey) && (
+                  <option value={typeKey} disabled>
+                    {localized(selected.name_i18n, active)} ({copy.typeUnavailable})
+                  </option>
+                )}
+                {typeKey === '' && <option value="">{copy.osChoose}</option>}
+                {applicableTypes.map((type) => (
+                  <option key={type.key} value={type.key}>
+                    {localized(type.name_i18n, active)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="muted">{copy.osNote}</p>
+            {declaredOs !== undefined && applicableTypes.length === 0 && (
+              <p className="banner error">{copy.osNoTypes}</p>
+            )}
+            {declaredOs !== undefined && choices !== undefined && !available && (
+              <p className="muted">
+                {choices.available ? serverCopy(active).errors.os_type_unsupported : copy.typeUnavailable}
+              </p>
+            )}
+            {props.editing && !originalBinding && <p className="muted">{copy.typeChangeNote}</p>}
+            {architecture && (
+              <p className="muted">
+                {copy.architecture}: {architecture}
+              </p>
+            )}
+            {identified && (
+              <p className="muted">
+                {format(copy.systemIdentified, { time: formatDate(identified.detected_at, active) })}
+              </p>
+            )}
+            {identified && !identified.software_available && <p className="muted">{copy.typeUnavailable}</p>}
+            <RequiredSoftware active={active} software={software} status={softwareStatus} />
+            <label className="smp-server-auto-install">
+              <input
+                type="checkbox"
+                checked={software.length > 0 && auto}
+                disabled={software.length === 0 || !available}
+                onChange={(event) => {
+                  setAuto(event.target.checked)
+                }}
+              />{' '}
+              {copy.autoInstall}
+            </label>
+            <p className="muted">{copy.manualSystemNote}</p>
+          </div>
+          <footer>
+            <button
+                className="secondary smp-server-identify"
+              type="button"
+              disabled={!currentConnection || pending !== null || busy}
+              onClick={() => {
+                void identify()
+              }}
+            >
+              {pending === 'identify' ? copy.identifyingSystem : copy.identifySystem}
+            </button>
+            {!currentConnection && <span className="muted">{copy.identifySystemHint}</span>}
+          </footer>
+        </section>
         <div className="row">
-          <button
-            className="secondary"
-            type="button"
-            disabled={secret.trim() === ''}
-            onClick={() => {
-              void preview()
-            }}
-          >
-            {copy.testConnection}
-          </button>
-          <button className="primary" type="submit" disabled={busy || !canSave}>
+          <button className="primary" type="submit" disabled={busy || pending !== null || !canSave}>
             {copy.save}
           </button>
         </div>
@@ -1193,24 +1406,60 @@ function RequiredSoftware(props: {
   status?: ServerRow['software_status']
 }) {
   const copy = serverCopy(props.active).ui
-  if (props.software.length === 0) return <p className="muted">{copy.noRequiredSoftware}</p>
   return (
-    <ul className="smp-required-software">
-      {props.software.map((component) => {
-        const item = props.status?.[component.id]
-        const state = item?.state ?? (item?.installed === true ? 'installed' : 'unknown')
-        const status =
-          state === 'installed' ? copy.installed : state === 'missing' ? copy.notInstalled : copy.softwareUnknown
-        return (
-          <li key={component.id}>
-            <strong>{componentText(props.active, component).name}</strong>
-            {props.status !== undefined && <span>{status}</span>}
-            <small className="muted">{componentText(props.active, component).summary}</small>
-            {item?.detail && <small className="muted">{item.detail}</small>}
-          </li>
-        )
-      })}
-    </ul>
+    <section className="smp-required-software" aria-label={copy.requiredSoftware}>
+      <h3>{copy.requiredSoftware}</h3>
+      {props.software.length === 0 ? (
+        <p className="muted">{copy.noRequiredSoftware}</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{copy.softwareName}</th>
+                <th>{copy.installedVersion}</th>
+                <th>{copy.status}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {props.software.map((component) => {
+                const item = props.status?.[component.id]
+                const state = item?.state ?? (item?.installed === true ? 'installed' : 'unknown')
+                const status =
+                  state === 'installed'
+                    ? copy.installed
+                    : state === 'missing'
+                      ? copy.notInstalled
+                      : item?.detail
+                        ? copy.softwareDetectionFailed
+                        : copy.softwareNotChecked
+                const text = componentText(props.active, component)
+                return (
+                  <tr key={component.id}>
+                    <td>
+                      <strong>{text.name}</strong>
+                      {text.summary && <small className="muted">{text.summary}</small>}
+                    </td>
+                    <td className="smp-software-version">
+                      {state === 'installed' ? item?.version || '—' : '—'}
+                      {state === 'unknown' && item?.last_known_version && (
+                        <small className="muted">
+                          {format(copy.lastKnownVersion, { version: item.last_known_version })}
+                        </small>
+                      )}
+                    </td>
+                    <td>
+                      {status}
+                      {item?.detail && <small className="muted">{item.detail}</small>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -1397,7 +1646,6 @@ function ServerDetail(props: {
           </button>
         </div>
       </div>
-      <h2>{copy.requiredSoftware}</h2>
       <RequiredSoftware active={active} software={server.required_software} status={server.software_status} />
       <h2>{copy.containers}</h2>
       {containerNote !== '' && <p className="empty">{containerNote}</p>}

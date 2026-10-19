@@ -120,7 +120,22 @@
     "osMatched": "已匹配",
     "osMismatch": "系统不匹配",
     "osNote": "目录仅用于登记；类型和必要软件按支持的系统范围筛选。其他系统目前可登记为空置服务器。",
-    "osNoTypes": "该分组没有适用于所选系统的类型。"
+    "osNoTypes": "该分组没有适用于所选系统的类型。",
+    "authenticationInfo": "服务器认证信息",
+    "systemInfo": "服务器系统信息",
+    "identifySystem": "识别系统信息",
+    "identifyingSystem": "正在识别…",
+    "testingConnection": "正在测试…",
+    "identifySystemHint": "请先测试连接，连接成功后可识别系统信息。",
+    "systemIdentified": "识别时间：{time}；仅获取信息，不安装软件。",
+    "manualSystemNote": "可以手动填写并保存。未验证的信息不能授权软件变更。",
+    "architecture": "架构",
+    "installedVersion": "已安装版本",
+    "softwareName": "软件",
+    "softwareDetectionFailed": "检测失败",
+    "lastKnownVersion": "上次已知版本：{version}",
+    "savedPasswordHint": "留空使用已保存的口令；修改地址、端口或用户后需重新填写。",
+    "softwareNotChecked": "未检测"
   },
   "reach": {
     "online": "在线",
@@ -254,7 +269,8 @@
     "job_lease_lost": "任务执行权已过期，需要核对远端结果。",
     "job_recovering": "正在核对远端操作，暂不能执行新的变更。",
     "definition_owner": "定义归属与提供该定义的插件不一致。",
-    "definition_reference": "定义引用不可用或不兼容。"
+    "definition_reference": "定义引用不可用或不兼容。",
+    "connection_test_required": "请先使用当前认证信息重新测试连接。"
   },
   "jobMessages": {
     "prepared": "检查完成；缺失软件由独立安装计划处理。",

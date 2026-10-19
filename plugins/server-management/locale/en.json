@@ -120,7 +120,22 @@
     "osMatched": "Matched",
     "osMismatch": "OS mismatch",
     "osNote": "The catalogue is for registration. Types and required software are filtered by OS support. Custom systems can currently use the vacant type.",
-    "osNoTypes": "This group has no types for the selected OS."
+    "osNoTypes": "This group has no types for the selected OS.",
+    "authenticationInfo": "Server authentication",
+    "systemInfo": "Server system information",
+    "identifySystem": "Identify system information",
+    "identifyingSystem": "Identifying…",
+    "testingConnection": "Testing…",
+    "identifySystemHint": "Test the connection successfully before identifying system information.",
+    "systemIdentified": "Identified at {time}; information is read without installing software.",
+    "manualSystemNote": "You can fill in these fields manually and save. Unverified information cannot authorize software changes.",
+    "architecture": "Architecture",
+    "installedVersion": "Installed version",
+    "softwareName": "Software",
+    "softwareDetectionFailed": "Detection failed",
+    "lastKnownVersion": "Last known version: {version}",
+    "savedPasswordHint": "Leave blank to use the saved password. Enter it again after changing the address, port or user.",
+    "softwareNotChecked": "Not detected"
   },
   "reach": {
     "online": "Online",
@@ -254,7 +269,8 @@
     "job_lease_lost": "The task lease has expired; remote results must be reconciled.",
     "job_recovering": "The remote operation is being reconciled; new changes are blocked.",
     "definition_owner": "The definition owner does not match the contributing plugin.",
-    "definition_reference": "A definition reference is unavailable or incompatible."
+    "definition_reference": "A definition reference is unavailable or incompatible.",
+    "connection_test_required": "Test the connection again with the current authentication details."
   },
   "jobMessages": {
     "prepared": "Check complete; missing software is handled by a separate installation plan.",

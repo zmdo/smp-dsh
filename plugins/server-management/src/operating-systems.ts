@@ -45,6 +45,29 @@ export function parseDeclaredOs(value: unknown, previous?: DeclaredOs): Declared
 
 export function osLabel(os: DeclaredOs): string { return os.kind === 'custom' ? os.text : os.name }
 
+export function declaredOsFromDetected(os: DetectedOs): DeclaredOs {
+  const family = OS_CATALOG.find((item) => item.key === os.family)
+  const release = family?.releases.find((item) =>
+    matchesSelector(os, {
+      family: family.key,
+      versions:
+        item.precision === 'series'
+          ? { kind: 'series', prefix: item.version }
+          : { kind: 'release', version: item.version },
+    }),
+  )
+  return family && release
+    ? {
+        kind: 'catalog',
+        family: family.key,
+        releaseKey: release.key,
+        version: release.version,
+        precision: release.precision,
+        name: release.name,
+      }
+    : { kind: 'custom', text: `${family?.name ?? os.family.replace(/^builtin\//, '')} ${os.version}` }
+}
+
 export function sameDeclaredOs(left: DeclaredOs, right: DeclaredOs): boolean {
   if (left.kind==='custom') return right.kind==='custom' && left.text===right.text
   return right.kind==='catalog' && left.family===right.family && left.releaseKey===right.releaseKey && left.version===right.version && left.precision===right.precision

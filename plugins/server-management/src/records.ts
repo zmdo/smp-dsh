@@ -23,7 +23,8 @@ import { chosenRegion, lookupRegion } from './region.ts'
 import { DefinitionRegistry, type TypeLease } from './registry.ts'
 import { field, readJson, sendJson, text } from './reply.ts'
 import { componentView, enqueueOn as enqueue, HttpError, type Db, type JobRecord } from './store.ts'
-import { keyFingerprint, SshError, connectSsh } from './ssh.ts'
+import { keyFingerprint, SshError } from './ssh.ts'
+import type { Enrollment } from './enrollment.ts'
 
 interface Secrets {
   encrypt(secret: string): string
@@ -35,6 +36,7 @@ export interface Deps {
   secrets: Secrets
   catalog: readonly Component[]
   definitions: DefinitionRegistry
+  enrollment: Enrollment
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -49,7 +51,9 @@ export async function routeServers(
   if (rest === '' && request.method === 'POST')
     return sendJson(response, 201, await createServer(deps, await readJson(request)))
   if (rest === '/test-connection' && request.method === 'POST')
-    return sendJson(response, 200, await preview(await readJson(request)))
+    return sendJson(response, 200, await deps.enrollment.test(await readJson(request)))
+  if (rest === '/identify-system' && request.method === 'POST')
+    return sendJson(response, 200, await deps.enrollment.identify(await readJson(request)))
   const parts = rest.split('/').filter(Boolean)
   const id = parts[0] ?? ''
   if (!UUID.test(id)) throw new HttpError(404, 'server_not_found')
@@ -352,8 +356,8 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
         ],
       )
       await client.query('insert into server_runtime(server_id) values ($1)', [id])
-      if (auto)
-        await enqueue(client, id, 'test_connection', { configRevision: 1, typeSignature: lease.signature }, true)
+      if (auto || field(body, 'inspect_after_save') === true)
+        await enqueue(client, id, 'test_connection', { configRevision: 1, typeSignature: lease.signature }, auto)
       await client.query('commit')
     } catch (cause) {
       await client.query('rollback')
@@ -538,7 +542,7 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
         "update server_runtime set connection_state='unknown', connection_error=null, connection_checked_at=null where server_id=$1",
         [id],
       )
-    if (osChanged || retestAfterEdit(before, after))
+    if (osChanged || retestAfterEdit(before, after) || field(body, 'inspect_after_save') === true)
       await enqueue(
         client,
         id,
@@ -628,32 +632,6 @@ async function deleteServer(db: Db, id: string): Promise<void> {
     throw cause
   } finally {
     client.release()
-  }
-}
-
-async function preview(body: unknown): Promise<unknown> {
-  const host = required(text(field(body, 'host')), 'host_required')
-  const port = portOf(field(body, 'ssh_port'))
-  const user = required(text(field(body, 'ssh_user')), 'user_required')
-  const method = text(field(body, 'auth_method'))
-  const secret = text(field(body, 'secret'))
-  if (method === 'private_key' && secret === '') throw new HttpError(422, 'private_key_required')
-  if (method === 'password' && secret === '') throw new HttpError(422, 'password_required')
-  try {
-    const session = await connectSsh({
-      host,
-      port,
-      username: user,
-      authMethod: method,
-      secret,
-      expectedFingerprint: null,
-    })
-    const fingerprint = session.fingerprint
-    session.close()
-    return { ok: true, fingerprint }
-  } catch (cause) {
-    const error = cause instanceof SshError ? cause : new ServerError('connection_failed')
-    return { ok: false, ...errorPayload(error) }
   }
 }
 

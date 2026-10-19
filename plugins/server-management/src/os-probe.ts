@@ -32,8 +32,8 @@ export function parseWindowsOs(output: string): DetectedOs | null {
   return version && architecture ? { family: 'builtin/windows-server', version, architecture } : null
 }
 
-export async function probeOs(session: SshSession, declared: DeclaredOs): Promise<OsProbe> {
-  const windows = declared.kind === 'catalog' && declared.family === 'builtin/windows-server'
+export async function probeOs(session: SshSession, declared?: DeclaredOs): Promise<OsProbe> {
+  const windows = declared?.kind === 'catalog' && declared.family === 'builtin/windows-server'
   const probes = windows ? [[WINDOWS_PROBE, parseWindowsOs] as const] : [[LINUX_PROBE, parseLinuxOs] as const, [WINDOWS_PROBE, parseWindowsOs] as const]
   for (const [command, parse] of probes) {
     let result

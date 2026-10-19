@@ -36,12 +36,25 @@
 .smp-console .smp-server-table th:last-child { right: 0; z-index: 3; }
 .smp-console .smp-server-table td:last-child { position: sticky; right: 0; background: var(--dsw-alias-bg-layer-1); box-shadow: -1px 0 var(--line); }
 .smp-server-group-source { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
-.smp-required-software { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.smp-required-software li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
-.smp-required-software small { flex-basis: 100%; }
+.smp-server-form-section { min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.smp-console .smp-server-form-section > h2 { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--dsw-alias-bg-layer-2); font-size: 14px; font-weight: 600; }
+.smp-server-form-section-body { display: grid; gap: 14px; padding: 16px; min-width: 0; }
+.smp-server-form-section-body > p { margin: 0; }
+.smp-server-form-section > footer { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.smp-console .smp-server-form-section button.smp-server-identify { border: 1px solid var(--green); background: var(--green); color: #fff; }
+.smp-console .smp-server-form-section button.smp-server-identify:disabled { opacity: .45; cursor: not-allowed; }
+.smp-required-software { min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.smp-console .smp-required-software > h3 { margin: 0; padding: 10px 12px; font-size: 13px; font-weight: 500; border-bottom: 1px solid var(--line); background: var(--dsw-alias-bg-layer-2); }
+.smp-required-software > p { margin: 0; padding: 12px; font-size: 13px; }
+.smp-console .smp-required-software table { min-width: 420px; font-size: 13px; }
+.smp-console .smp-required-software th { background: var(--dsw-alias-bg-layer-2); color: var(--muted); font-size: 12px; }
+.smp-console .smp-required-software th, .smp-console .smp-required-software td { padding: 9px 12px; }
+.smp-required-software small { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.smp-software-version { font-variant-numeric: tabular-nums; }
 .smp-console form.panel-form .smp-server-address-row { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 12px; }
 .smp-console form.panel-form .smp-server-address-row > .field { min-width: 0; }
 .smp-console form.panel-form .smp-server-address-row input { width: 100%; min-width: 0; box-sizing: border-box; }
+.smp-console form.panel-form > .triple input, .smp-console form.panel-form > .triple select { box-sizing: border-box; }
 .smp-console .panel-form .smp-server-auto-install { display: flex; align-items: center; gap: 8px; }
 .smp-console .panel-form .smp-server-auto-install input { width: auto; margin: 0; }
 .smp-console .smp-server-table tbody tr:hover td { background: var(--dsw-specific-sidebar-nav-item-hover); }
