@@ -1,6 +1,7 @@
 import en from '../locale/en.json' with { type: 'json' }
 import zh from '../locale/zh.json' with { type: 'json' }
 import { localized, type LocalizedText } from './definitions.ts'
+import type { VersionRule } from './versions.ts'
 
 export interface LocaleFace {
   getSnapshot(): { active: string }
@@ -52,6 +53,29 @@ export function formatDate(value: string | null, active: string): string {
 
 export function enumLabel(labels: Readonly<Record<string, string>>, value: string): string {
   return Object.hasOwn(labels, value) ? labels[value]! : value
+}
+
+export function versionRequirement(active: string, rule?: VersionRule): string {
+  const copy = serverCopy(active).ui
+  if (!rule) return copy.versionUnspecified
+  switch (rule.kind) {
+    case 'any': return copy.versionAny
+    case 'exact': return format(copy.versionExact, { version: rule.version })
+    case 'series': return format(copy.versionSeries, { version: rule.prefix })
+    case 'minimum': return format(copy.versionMinimum, { version: rule.version })
+    case 'range': {
+      // A partial upper bound includes its whole version series.
+      const maximum = /^\d+(?:\.\d+)?$/.test(rule.maximum)
+        ? rule.maximum + '.x'.repeat(3 - rule.maximum.split('.').length)
+        : rule.maximum
+      return format(copy.versionRange, { minimum: rule.minimum, maximum })
+    }
+  }
+  return assertNever(rule)
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected version rule: ${JSON.stringify(value)}`)
 }
 
 export function componentText(active: string, component: { id: string; name: string; summary: string; name_i18n?: LocalizedText; summary_i18n?: LocalizedText }) {

@@ -7,6 +7,7 @@ import {
   formatDate,
   groupName as localizedGroupName,
   serverCopy,
+  versionRequirement,
   ServerError,
   type LocaleFace,
 } from '../i18n.ts'
@@ -1409,6 +1410,7 @@ function RequiredSoftware(props: {
             <thead>
               <tr>
                 <th>{copy.softwareName}</th>
+                <th>{copy.versionRequirement}</th>
                 <th>{copy.installedVersion}</th>
                 <th>{copy.status}</th>
               </tr>
@@ -1432,6 +1434,7 @@ function RequiredSoftware(props: {
                       <strong>{text.name}</strong>
                       {text.summary && <small className="muted">{text.summary}</small>}
                     </td>
+                    <td>{versionRequirement(props.active, component.versions)}</td>
                     <td className="smp-software-version">
                       {state === 'installed' ? item?.version || '—' : '—'}
                       {state === 'unknown' && item?.last_known_version && (
