@@ -108,7 +108,6 @@
 
 .smp-console .smp-upgrade-page { min-width: 0; }
 .smp-console .smp-upgrade-filter-region { container-type: inline-size; }
-.smp-console .smp-upgrade-tabs { gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
 .smp-console .smp-upgrade-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .smp-console .smp-upgrade-toolbar > p { margin: 0; font-size: 13px; }
 .smp-console .smp-upgrade-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 16px; border: 1px solid var(--line); border-radius: 4px; background: var(--dsw-alias-bg-layer-2); }

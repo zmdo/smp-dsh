@@ -22,3 +22,15 @@ test('settings navigation preserves list filters and the detail destination with
   state.update({ editing: true })
   assert.equal(updates, 2)
 })
+
+test('top navigation and upgrade content share the selected view and leave plan details when switching tabs', () => {
+  const state = createServerPageState(), separate = createServerPageState()
+  state.selectUpgradeTab('records')
+  state.setUpgradePage(3)
+  assert.deepEqual(state.getSnapshot().upgradeView, { tab: 'records', page: 3, planId: '' })
+  state.showUpgradePlan('selected-plan')
+  assert.deepEqual(state.getSnapshot().upgradeView, { tab: 'plans', page: 1, planId: 'selected-plan' })
+  state.selectUpgradeTab('suggestions')
+  assert.deepEqual(state.getSnapshot().upgradeView, { tab: 'suggestions', page: 1, planId: '' })
+  assert.deepEqual(separate.getSnapshot().upgradeView, { tab: 'suggestions', page: 1, planId: '' })
+})

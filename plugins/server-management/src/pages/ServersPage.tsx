@@ -152,7 +152,7 @@ export function ServersPage(props: { locale: LocaleFace; pageState: ServerPageSt
       <ServerDetail
         active={active}
         id={serverId}
-        onUpgrades={()=>{props.pageState.update({upgradeContext:{serverId}});props.openConsole?.('server-upgrades')}}
+        onUpgrades={()=>{props.pageState.update({upgradeContext:{serverId},upgradeView:{tab:'suggestions',page:1,planId:''}});props.openConsole?.('server-upgrades')}}
         onEdit={() => {
           setEditing(true)
           setScreen('form')
@@ -180,7 +180,7 @@ export function ServersPage(props: { locale: LocaleFace; pageState: ServerPageSt
       active={active}
       view={listView}
       onView={setListView}
-      onUpgrades={()=>{props.pageState.update({upgradeContext:{groupId:listView.groupId||undefined}});props.openConsole?.('server-upgrades')}}
+      onUpgrades={()=>{props.pageState.update({upgradeContext:{groupId:listView.groupId||undefined},upgradeView:{tab:'suggestions',page:1,planId:''}});props.openConsole?.('server-upgrades')}}
       onOpen={(id) => {
         setServerId(id)
         setEditing(false)

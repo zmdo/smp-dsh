@@ -5,8 +5,8 @@
   },
   "ui": {
     "groupTitle": "服务器管理",
-    "serversTab": "服务器",
-    "keysTab": "密钥",
+    "serversTab": "服务器实例",
+    "keysTab": "服务器密钥",
     "groups": "分组",
     "newGroup": "＋ 新建分组",
     "groupName": "分组名",

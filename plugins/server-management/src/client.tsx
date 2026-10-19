@@ -1,4 +1,5 @@
 import { UpgradesPage } from './pages/UpgradesPage.tsx'
+import { UpgradesNavigation } from './pages/UpgradesNavigation.tsx'
 import { pageLabel } from './page-label.ts'
 import { serverCopy, type LocaleFace } from './i18n.ts'
 import { KeysPage } from './pages/KeysPage.tsx'
@@ -22,7 +23,7 @@ export function apply(ctx: ClientCtx): void {
   const pageState = createServerPageState()
   ctx.effect(() => () => pageState.dispose())
   const copy = () => serverCopy(ctx.locale.getSnapshot().active).ui
-  const group = { group: 'server-management', groupLabel: () => copy().groupTitle }
+  const group = { group: 'server-management', groupLabel: () => copy().groupTitle, navigation: 'sidebar' as const }
   ctx.effect(installServersStyle)
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
@@ -32,6 +33,11 @@ export function apply(ctx: ClientCtx): void {
     inject: () => ({ locale: ctx.locale, pageState }),
   }, ServersPage))
   ctx.slots.inject('console.page',()=>ctx.slots.register({name:'console.page',key:'server-upgrades',label:pageLabel(()=>serverCopy(ctx.locale.getSnapshot().active).upgrades.title,group),order:2,inject:()=>({locale:ctx.locale,pageState})},UpgradesPage))
+  ctx.slots.inject('console.page-navigation', () => ctx.slots.register({
+    name: 'console.page-navigation',
+    key: 'server-upgrades',
+    inject: () => ({ locale: ctx.locale, pageState }),
+  }, UpgradesNavigation))
   ctx.slots.inject('console.page', () => ctx.slots.register({
     name: 'console.page',
     key: 'ssh-keys',

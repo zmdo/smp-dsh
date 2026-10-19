@@ -5,8 +5,8 @@
   },
   "ui": {
     "groupTitle": "Server management",
-    "serversTab": "Servers",
-    "keysTab": "Keys",
+    "serversTab": "Server instances",
+    "keysTab": "Server keys",
     "groups": "Groups",
     "newGroup": "＋ New group",
     "groupName": "Group name",

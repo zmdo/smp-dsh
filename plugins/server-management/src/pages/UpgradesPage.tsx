@@ -71,11 +71,12 @@ export function UpgradesPage(props: {
 }) {
   const active = useActiveLocale(props.locale),
     c = serverCopy(active).upgrades
-  const context = useSyncExternalStore(props.pageState.subscribe, props.pageState.getSnapshot).upgradeContext
-  const [tab, setTab] = useState<'suggestions' | 'plans' | 'records'>('suggestions'),
-    [plan, setPlan] = useState(''),
-    [page, setPage] = useState(1),
-    [q, setQ] = useState(''),
+  const snapshot = useSyncExternalStore(props.pageState.subscribe, props.pageState.getSnapshot)
+  const context = snapshot.upgradeContext
+  const { tab, page, planId: plan } = snapshot.upgradeView
+  const setPage = (page: number) => props.pageState.setUpgradePage(page)
+  const setPlan = (planId: string) => props.pageState.showUpgradePlan(planId)
+  const [q, setQ] = useState(''),
     [decision, setDecision] = useState('pending')
   const [group, setGroup] = useState(context?.groupId ?? ''),
     [type, setType] = useState(''),
@@ -204,23 +205,20 @@ export function UpgradesPage(props: {
     setSelected((ids) => (ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id]))
   if (plan)
     return (
-      <Panel className="smp-upgrade-page" title={c.title}>
+      <Panel className="smp-upgrade-page" title={c.plans}>
         <ChangePlan
           key={plan}
           active={active}
           id={plan}
           onNewPlan={setPlan}
-          onClose={() => {
-            setPlan('')
-            setTab('plans')
-          }}
+          onClose={() => props.pageState.selectUpgradeTab('plans')}
         />
       </Panel>
     )
   return (
     <Panel
       className="smp-upgrade-page"
-      title={c.title}
+      title={c[tab]}
       extra={
         context?.serverId ? (
           <button
@@ -235,20 +233,6 @@ export function UpgradesPage(props: {
         ) : undefined
       }
     >
-      <nav className="tabs smp-upgrade-tabs" aria-label={c.title}>
-        {(['suggestions', 'plans', 'records'] as const).map((t) => (
-          <button
-            key={t}
-            className={`tab${tab === t ? ' is-on' : ''}`}
-            onClick={() => {
-              setTab(t)
-              setPage(1)
-            }}
-          >
-            {c[t]}
-          </button>
-        ))}
-      </nav>
       {error && (
         <p className="banner error" role="alert">
           {error}

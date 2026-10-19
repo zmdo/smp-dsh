@@ -43,13 +43,17 @@ test('an existing error and dynamic navigation labels follow the active language
   const label = pageLabel(() => serverCopy(active).ui.serversTab, {
     group: 'server-management',
     groupLabel: () => serverCopy(active).ui.groupTitle,
+    navigation: 'sidebar',
   })
   assert.equal(displayError(active, error), '分组名已存在')
-  assert.equal(label(), '服务器')
+  assert.equal(label(), '服务器实例')
+  assert.equal(label.navigation, 'sidebar')
+  assert.equal(serverCopy(active).ui.keysTab, '服务器密钥')
   assert.equal(typeof label.groupLabel === 'function' ? label.groupLabel() : label.groupLabel, '服务器管理')
   active = 'en'
   assert.equal(displayError(active, error), 'A group with this name already exists.')
-  assert.equal(label(), 'Servers')
+  assert.equal(label(), 'Server instances')
+  assert.equal(serverCopy(active).ui.keysTab, 'Server keys')
   assert.equal(typeof label.groupLabel === 'function' ? label.groupLabel() : label.groupLabel, 'Server management')
 })
 

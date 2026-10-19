@@ -17,6 +17,7 @@ test('harness settings sits with login security under platform settings', () => 
   assert.deepEqual(groups.nav.map(group => group.label), ['行情'])
   assert.deepEqual(groups.footer[0]?.pages.map(page => page.label), ['通用', '登录安全', 'Harness'])
   assert.equal(groups.footer[0]?.icon, '')
+  assert.equal(groups.footer[0]?.navigation, 'tabs')
 })
 
 test('sidebar routes follow the pages plugins registered', () => {
@@ -31,6 +32,25 @@ test('sidebar routes follow the pages plugins registered', () => {
   assert.deepEqual(groups.nav.map(group => group.label), ['服务器', '行情'])
   assert.deepEqual(groups.footer.map(group => group.label), ['平台设置'])
   assert.deepEqual(groups.footer[0]?.pages.map(page => page.label), ['登录安全', 'MCP'])
+})
+
+test('sidebar child pages keep their order and workspace visibility without changing other groups', () => {
+  const server = { group: 'server-management', groupLabel: '服务器管理', navigation: 'sidebar' as const }
+  const routes = pageRoutes([
+    { options: { key: 'server-upgrades', label: pageLabel('升级管理', server), order: 2 } },
+    { options: { key: 'ssh-keys', label: pageLabel('服务器密钥', server), order: 1 } },
+    { options: { key: 'servers', label: pageLabel('服务器实例', { ...server, icon: 'server' }), order: 0 } },
+    { options: { key: 'agent-chat', label: pageLabel('会话', { group: 'agent', groupLabel: 'Harness' }), order: 0 } },
+    { options: { key: 'archive', label: pageLabel('档案', { group: 'agent', groupLabel: 'Harness' }), order: 1 } },
+  ])
+  const groups = navGroups(routes)
+  const servers = groups.nav.find(group => group.id === server.group)
+  assert.equal(servers?.navigation, 'sidebar')
+  assert.equal(servers?.icon, 'server')
+  assert.deepEqual(servers?.pages.map(page => page.key), ['servers', 'ssh-keys', 'server-upgrades'])
+  assert.equal(groups.nav.find(group => group.id === 'agent')?.navigation, 'tabs')
+  assert.deepEqual(navGroups(withoutPages(routes, ['ssh-keys'])).nav.find(group => group.id === server.group)?.pages.map(page => page.key), ['servers', 'server-upgrades'])
+  assert.equal(navGroups(withoutPages(routes, ['servers', 'ssh-keys', 'server-upgrades'])).nav.some(group => group.id === server.group), false)
 })
 
 test('shell labels are read again when the locale changes', () => {

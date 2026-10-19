@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { consoleCss } from '@smp/console-kit'
 import { navGroups, pageLabel, pageRoutes, visibleGroups, withoutPages, type NavGroup, type RegisteredPage } from './pages.ts'
@@ -171,6 +171,12 @@ body[data-ds-dark-theme] .smp-console button.site-icon .mark-dark { display: blo
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--smp-primary);
 }
 .smp-shell .nav-group { display: flex; flex-direction: column; }
+.smp-shell .nav-parent.is-active { color: var(--smp-primary); font-weight: 600; }
+.smp-shell .nav-chevron {
+  width: 6px; height: 6px; margin-left: auto; margin-right: 4px; flex: none;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg);
+}
+.smp-shell .nav-group.is-open .nav-chevron { transform: rotate(45deg); }
 .smp-shell .nav-head { display: flex; align-items: center; }
 .smp-shell .nav-head .nav-item { flex: 1; min-width: 0; }
 .smp-shell .nav-caret {
@@ -209,6 +215,7 @@ body[data-ds-dark-theme] .smp-console button.site-icon .mark-dark { display: blo
   display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 20px; flex: none;
 }
 .smp-console .tabs, .smp-chat-bar .tabs { display: flex; height: 100%; gap: 4px; }
+.smp-console .topbar-page-title { margin: 0; font-size: 14px; font-weight: 600; }
 .smp-console .tab, .smp-chat-bar .tab {
   display: flex; align-items: center; height: 100%; padding: 0 14px; border: 0; background: transparent;
   color: var(--dsw-alias-label-secondary); cursor: pointer;
@@ -432,14 +439,18 @@ function ShellSidebar(props: {
     if (fallback !== undefined) props.section.set(fallback.key)
   }, [pages, current, props.section, props.landing])
 
-  const openItem = (item: PlacedOption): void => {
-    if (item.id === CONVERSATION_ID) {
+  const openItem = (id: string): void => {
+    if (id === CONVERSATION_ID) {
       props.openConsole(AGENT_CHAT)
       if (!props.collapsed) props.toggleSidebar()
       return
     }
-    const first = byId.get(item.id)?.pages[0]
-    if (first !== undefined) props.openConsole(first.key)
+    const group = byId.get(id)
+    const page = group?.navigation === 'sidebar'
+      ? group.pages.find(page => page.key === current) ?? group.pages[0]
+      : group?.pages[0]
+    if (page !== undefined) props.openConsole(page.key)
+    if (group?.navigation === 'sidebar' && props.collapsed) props.toggleSidebar()
   }
   const itemOn = (item: PlacedOption): boolean => {
     if (item.id === CONVERSATION_ID) return harnessOn
@@ -454,11 +465,11 @@ function ShellSidebar(props: {
         </button>
         <div className="rail">
           {blocks.map(block => block.items.map(item => (
-            <RailChoice key={item.id} item={item} on={itemOn(item)} onOpen={() => openItem(item)} />
+            <RailChoice key={item.id} item={item} on={itemOn(item)} onOpen={() => openItem(item.id)} />
           )))}
           <div className="rail-foot">
             {groups.footer.map(group => (
-              <RailChoice key={group.id} item={{ id: group.id, label: group.label, placement: 'nav', order: group.order, icon: group.icon, section: '' }} on={!onConversation && group.pages.some(page => page.key === current)} onOpen={() => { const first = group.pages[0]; if (first !== undefined) props.openConsole(first.key) }} />
+              <RailChoice key={group.id} item={{ id: group.id, label: group.label, placement: 'nav', order: group.order, icon: group.icon, section: '' }} on={!onConversation && group.pages.some(page => page.key === current)} onOpen={() => openItem(group.id)} />
             ))}
           </div>
         </div>
@@ -474,25 +485,23 @@ function ShellSidebar(props: {
         {blocks.map(block => (
           <div className="menu-block" key={block.id}>
             {block.title !== '' && <div className="nav-title">{block.title}</div>}
-            {block.items.map(item => (
-              <OptionButton key={item.id} item={item} on={itemOn(item)} onOpen={() => openItem(item)} />
-            ))}
+            {block.items.map(item => {
+              const group = byId.get(item.id)
+              return group?.navigation === 'sidebar'
+                ? <SidebarGroup key={item.id} item={item} group={group} current={onConversation ? '' : current} onOpen={props.openConsole} />
+                : <OptionButton key={item.id} item={item} on={itemOn(item)} onOpen={() => openItem(item.id)} />
+            })}
           </div>
         ))}
       </nav>
       {groups.footer.length > 0 && (
         <div className="nav-foot">
-          {groups.footer.map(group => (
-            <OptionButton
-              key={group.id}
-              item={{ id: group.id, label: group.label, placement: 'nav', order: group.order, icon: group.icon, section: '' }}
-              on={!onConversation && group.pages.some(page => page.key === current)}
-              onOpen={() => {
-                const first = group.pages[0]
-                if (first !== undefined) props.openConsole(first.key)
-              }}
-            />
-          ))}
+          {groups.footer.map(group => {
+            const item: PlacedOption = { id: group.id, label: group.label, placement: 'nav', order: group.order, icon: group.icon, section: '' }
+            return group.navigation === 'sidebar'
+              ? <SidebarGroup key={group.id} item={item} group={group} current={onConversation ? '' : current} onOpen={props.openConsole} />
+              : <OptionButton key={group.id} item={item} on={itemOn(item)} onOpen={() => openItem(group.id)} />
+          })}
         </div>
       )}
     </div>
@@ -511,6 +520,47 @@ function OptionButton(props: { item: PlacedOption; on: boolean; onOpen: () => vo
       <NavGlyph name={props.item.icon === '' ? 'box' : props.item.icon} />
       <span>{props.item.label}</span>
     </button>
+  )
+}
+
+function SidebarGroup(props: { item: PlacedOption; group: NavGroup; current: string; onOpen: (key: string) => void }) {
+  const active = props.group.pages.some(page => page.key === props.current)
+  const [expanded, setExpanded] = useState(active)
+  const id = useId()
+  useEffect(() => {
+    if (active) setExpanded(true)
+  }, [active, props.current])
+  return (
+    <div className={`nav-group${expanded ? ' is-open' : ''}`}>
+      <button
+        className={`nav-item nav-parent${active ? ' is-active' : ''}`}
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={id}
+        onClick={() => setExpanded(value => !value)}
+      >
+        <NavGlyph name={props.item.icon === '' ? 'box' : props.item.icon} />
+        <span>{props.item.label}</span>
+        <span className="nav-chevron" aria-hidden="true" />
+      </button>
+      <div id={id} role="group" aria-label={props.item.label} hidden={!expanded}>
+        {expanded && (
+          <div className="nav-sub">
+            {props.group.pages.map(page => (
+              <button
+                key={page.key}
+                className={`nav-sub-item${page.key === props.current ? ' is-on' : ''}`}
+                type="button"
+                aria-current={page.key === props.current ? 'page' : undefined}
+                onClick={() => props.onOpen(page.key)}
+              >
+                {page.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -562,19 +612,25 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
   const hidden = useSyncExternalStore(props.groups.subscribe, props.groups.hiddenPages)
   const pages = withoutPages(usePages(props.slots, props.locale), hidden)
   const copy = useCopy(props.locale)
-  const tabs = groupOf(pages, current)?.pages ?? []
+  const group = groupOf(pages, current)
+  const tabs = group?.navigation === 'sidebar' ? [] : group?.pages ?? []
   const body = props.renderSlot?.('console.page', {openConsole:props.openConsole}, { entryKey: current }) ?? null
+  const navigation = group?.navigation === 'sidebar' ? (
+    <h1 className="topbar-page-title">{group.pages.find(page => page.key === current)?.label}</h1>
+  ) : (
+    <nav className="tabs">
+      {tabs.map(page => (
+        <button key={page.key} className={`tab${page.key === current ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole(page.key)}>
+          {page.label}
+        </button>
+      ))}
+    </nav>
+  )
   return (
     <div className="smp-console">
       {auth.authenticated && (
         <header className="topbar">
-          <nav className="tabs">
-            {tabs.map(page => (
-              <button key={page.key} className={`tab${page.key === current ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole(page.key)}>
-                {page.label}
-              </button>
-            ))}
-          </nav>
+          {props.renderSlot?.('console.page-navigation', { openConsole: props.openConsole }, { entryKey: current, fallback: navigation }) ?? navigation}
           <button className="link" type="button" onClick={() => { void props.auth.logout().then(() => { window.location.assign('/login') }) }}>{copy.logout}</button>
         </header>
       )}
@@ -662,6 +718,7 @@ export function apply(ctx: ShellCtx): void {
       key: CONSOLE_PANEL,
       children: {
         'console.page': { kind: 'keyed', scope: 'root' },
+        'console.page-navigation': { kind: 'keyed', scope: 'root' },
         'console.settings-host': { kind: 'single', scope: 'root' },
       },
     }, (props: { renderSlot?: RenderSlot }) => <ConsolePanel slots={ctx.slots} locale={ctx.locale} section={section} auth={auth} groups={ctx.workspaceGroups} openConsole={openConsole} renderSlot={props.renderSlot} />)

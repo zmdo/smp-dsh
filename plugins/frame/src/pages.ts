@@ -8,6 +8,7 @@ export interface RegisteredPage {
 
 /** Where a group sits. Footer groups stay at the bottom of the sidebar. */
 export type PagePlacement = 'nav' | 'footer'
+export type PageNavigation = 'tabs' | 'sidebar'
 
 /**
  * Tab text plus the sidebar group. The slot ledger keeps `label` and drops
@@ -18,6 +19,7 @@ export interface PageLabel {
   group?: string
   groupLabel?: string | (() => string)
   placement?: PagePlacement
+  navigation?: PageNavigation
   icon?: string
 }
 
@@ -28,6 +30,7 @@ export interface PageRoute {
   group: string
   groupLabel: string
   placement: PagePlacement
+  navigation?: PageNavigation
   icon: string
 }
 
@@ -35,18 +38,20 @@ export interface NavGroup {
   id: string
   label: string
   placement: PagePlacement
+  navigation?: PageNavigation
   order: number
   icon: string
   pages: PageRoute[]
 }
 
-/** Pages that share a group become one sidebar item and a row of tabs. */
-export function pageLabel(text: string | (() => string), place?: { group: string; groupLabel: string | (() => string); placement?: PagePlacement; icon?: string }): PageLabel {
+/** Groups use page tabs unless they explicitly request sidebar children. */
+export function pageLabel(text: string | (() => string), place?: { group: string; groupLabel: string | (() => string); placement?: PagePlacement; navigation?: PageNavigation; icon?: string }): PageLabel {
   const label: PageLabel = () => typeof text === 'function' ? text() : text
   if (place !== undefined) {
     label.group = place.group
     label.groupLabel = place.groupLabel
     if (place.placement !== undefined) label.placement = place.placement
+    if (place.navigation !== undefined) label.navigation = place.navigation
     if (place.icon !== undefined && place.icon !== '') label.icon = place.icon
   }
   return label
@@ -86,6 +91,7 @@ export function pageRoutes(entries: readonly RegisteredPage[]): PageRoute[] {
       group,
       groupLabel,
       placement: placementOf(raw) ?? 'nav',
+      navigation: typeof raw === 'function' && raw.navigation === 'sidebar' ? 'sidebar' : 'tabs',
       icon: typeof raw === 'function' && raw.icon !== undefined ? raw.icon : '',
     })
   }
@@ -110,6 +116,7 @@ export function navGroups(routes: readonly PageRoute[]): { nav: NavGroup[]; foot
         id: route.group,
         label: route.groupLabel,
         placement: route.placement,
+        navigation: route.navigation ?? 'tabs',
         order: route.order,
         icon: route.icon,
         pages: [route],
@@ -123,6 +130,7 @@ export function navGroups(routes: readonly PageRoute[]): { nav: NavGroup[]; foot
       existing.icon = route.icon
     }
     if (route.placement === 'footer') existing.placement = 'footer'
+    if (route.navigation === 'sidebar') existing.navigation = 'sidebar'
   }
   const nav: NavGroup[] = []
   const footer: NavGroup[] = []
