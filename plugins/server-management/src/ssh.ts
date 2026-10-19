@@ -99,7 +99,7 @@ export function connectSsh(input: {
       username: input.username,
       readyTimeout: 8000,
       tryKeyboard: false,
-      hostVerifier: (key) => {
+      hostVerifier: (key: Buffer) => {
         seen = fingerprintOf(Buffer.isBuffer(key) ? key : Buffer.from(key))
         if (input.expectedFingerprint && seen !== input.expectedFingerprint) {
           mismatch = seen

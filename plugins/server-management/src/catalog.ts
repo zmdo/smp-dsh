@@ -3,9 +3,12 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { ServerError, serverCopy, type ErrorCode, type MessageParams } from './i18n.ts'
 import type { LocalizedText } from './definitions.ts'
+import { APT_SOFTWARE_OS, type OsSelector } from './operating-systems.ts'
 
 export interface Component {
   id: string
+  software_key: string
+  supportedOs: readonly OsSelector[]
   name: string
   summary: string
   order: number
@@ -20,7 +23,7 @@ export interface Component {
 }
 
 export function componentRevision(item: Component): string {
-  return createHash('sha256').update(JSON.stringify({ id: item.id, recipe: item.recipe, requires: item.requires }))
+  return createHash('sha256').update(JSON.stringify({ id: item.software_key, recipe: item.recipe, requires: item.requires, supportedOs: item.supportedOs }))
     .update(item.detectScript).update(item.installScript).digest('hex')
 }
 
@@ -54,12 +57,15 @@ export async function loadCatalog(root: string): Promise<Component[]> {
     if (id !== name) throw new CatalogError('component_id', { component: name })
     const requires = Array.isArray(meta.requires) ? meta.requires.map(item => String(item)) : []
     const builtin = id === 'docker' || id === 'compose'
+    if (!builtin) throw new CatalogError('component_registration_conflict', { component: id })
     const fallback = { name: String(meta.name ?? id), summary: String(meta.summary ?? '') }
     const zh = builtin ? serverCopy('zh').components[id] : fallback
     const en = builtin ? serverCopy('en').components[id] : fallback
     const [detectScript, installScript] = await Promise.all([readFile(join(directory, 'detect.sh')), readFile(join(directory, 'install.sh'))])
     found.push({
       id,
+      software_key: id === 'docker' ? 'builtin/docker-engine' : 'builtin/docker-compose',
+      supportedOs: APT_SOFTWARE_OS,
       name: String(meta.name ?? id),
       summary: String(meta.summary ?? ''),
       order: Number(meta.order ?? 0),

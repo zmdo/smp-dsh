@@ -5,6 +5,7 @@ import { CatalogError, componentRevision, type Component } from './catalog.ts'
 import { GENERAL_TYPE, VACANT_TYPE, type GroupRecord, type GroupView, type LocalizedText, type ServerTypeView, type SoftwareView, type SystemGroupDefinition, type TypeOptions } from './definitions.ts'
 import { ServerError } from './i18n.ts'
 import type { Db } from './store.ts'
+import { APT_SOFTWARE_OS, validateOsSupport } from './operating-systems.ts'
 
 interface Registration {
   identity: string
@@ -28,7 +29,7 @@ export interface TypeLease {
 const KEY = /^[a-z][a-z0-9-]{0,63}$/
 
 export function softwareView(item: Component): SoftwareView {
-  return { id: item.id, name: item.name, summary: item.summary, name_i18n: item.name_i18n, summary_i18n: item.summary_i18n, requires: [...item.requires], recipe: item.recipe, revision: componentRevision(item) }
+  return { id: item.id, software_key: item.software_key, supportedOs: item.supportedOs, name: item.name, summary: item.summary, name_i18n: item.name_i18n, summary_i18n: item.summary_i18n, requires: [...item.requires], recipe: item.recipe, revision: componentRevision(item) }
 }
 
 /** Dependency order is computed from the selected type, not from a global install selection. */
@@ -54,8 +55,8 @@ export function requiredSoftware(catalog: readonly Component[], ids: readonly st
 
 export function builtinTypes(catalog: readonly Component[]): readonly ServerTypeView[] {
   return [
-    { key: VACANT_TYPE, name_i18n: { zh: '空置服务器', en: 'Vacant server' }, software: [] },
-    { key: GENERAL_TYPE, name_i18n: { zh: '普通服务器', en: 'General-purpose server' }, software: requiredSoftware(catalog, ['docker', 'compose']).map(softwareView) },
+    { key: VACANT_TYPE, name_i18n: { zh: '空置服务器', en: 'Vacant server' }, software: [], supportedOs: { kind: 'all' } },
+    { key: GENERAL_TYPE, name_i18n: { zh: '普通服务器', en: 'General-purpose server' }, supportedOs: { kind: 'explicit', selectors: APT_SOFTWARE_OS }, software: requiredSoftware(catalog, ['docker', 'compose']).map(softwareView) },
   ]
 }
 
@@ -111,6 +112,7 @@ export class DefinitionRegistry {
       const [detectScript, installScript] = await Promise.all([readFile(software.detectScript), readFile(software.installScript)])
       catalog.push({
         id: software.id, name: software.name.zh, summary: software.summary?.zh ?? '',
+        software_key: `${input.plugin}/${software.id}`, supportedOs: software.supportedOs,
         name_i18n: { ...software.name }, summary_i18n: { ...(software.summary ?? { zh: '', en: '' }) },
         requires: [...(software.requires ?? [])], order: catalog.length, directory: '',
         recipe: `${input.plugin}/${input.key}/${software.id}`, detection: 'json', detectScript, installScript,
@@ -120,6 +122,7 @@ export class DefinitionRegistry {
     const types = input.types === undefined ? this.defaults : input.types.map(type => ({
       key: `${input.plugin}/${type.key}`,
       name_i18n: { ...type.name },
+      supportedOs: type.supportedOs,
       software: requiredSoftware(catalog, type.software).map(softwareView),
     }))
     const defaultType = input.types === undefined ? VACANT_TYPE : `${input.plugin}/${input.defaultType}`
@@ -180,7 +183,7 @@ export class DefinitionRegistry {
     let released = false
     return {
       type: structuredClone(type), components,
-      signature: createHash('sha256').update(JSON.stringify({ key, software: components.map(componentRevision) })).digest('hex'),
+      signature: createHash('sha256').update(JSON.stringify({ key, supportedOs: type.supportedOs, software: components.map(componentRevision) })).digest('hex'),
       release: () => {
         if (released) return
         released = true
@@ -211,7 +214,10 @@ export class DefinitionRegistry {
 
 function validateGroup(input: SystemGroupDefinition): void {
   allowedFields(input, ['plugin', 'key', 'name', 'order', 'software', 'types', 'defaultType'])
-  for (const software of input.software ?? []) allowedFields(software, ['id', 'name', 'summary', 'requires', 'detectScript', 'installScript'])
+  for (const software of input.software ?? []) {
+    allowedFields(software, ['id', 'name', 'summary', 'requires', 'detectScript', 'installScript', 'supportedOs'])
+    validateOsSupport({ kind: 'explicit', selectors: software.supportedOs }, true)
+  }
   if (!/^(@[a-z0-9-]+\/)?[a-z0-9][a-z0-9._-]*$/.test(input.plugin) || input.plugin === 'builtin' || !KEY.test(input.key)) throw new ServerError('group_definition_invalid')
   validateText(input.name)
   if (input.order !== undefined && !Number.isSafeInteger(input.order)) throw new ServerError('group_definition_invalid')
@@ -222,7 +228,8 @@ function validateGroup(input: SystemGroupDefinition): void {
   if (input.types.length === 0 || new Set(input.types.map(type => type.key)).size !== input.types.length) throw new ServerError('group_definition_invalid')
   if (!input.types.some(type => type.key === input.defaultType)) throw new ServerError('group_definition_invalid')
   for (const type of input.types) {
-    allowedFields(type, ['key', 'name', 'software'])
+    allowedFields(type, ['key', 'name', 'software', 'supportedOs'])
+    validateOsSupport(type.supportedOs, type.software.length > 0)
     if (!KEY.test(type.key)) throw new ServerError('group_definition_invalid')
     validateText(type.name)
   }

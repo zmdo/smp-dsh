@@ -61,12 +61,12 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService)
       return
     }
     const ssh = await connectSsh({
-      host: server.intranet_host,
+      host: server.host,
       port: server.ssh_port,
       username: server.ssh_user,
       authMethod: server.auth_method,
       secret,
-      expectedFingerprint: server.host_key_fingerprint,
+      expectedFingerprint: server.host_fingerprint,
     })
     let shell: ShellChannel
     try {

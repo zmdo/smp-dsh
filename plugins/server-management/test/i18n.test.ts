@@ -90,7 +90,7 @@ async function invalidPost(body: object, route: (request: IncomingMessage, respo
 test('server and key validation return stable codes without attempting a write', async () => {
   const deps = { db: noDb, catalog: builtinCatalog(), definitions: new DefinitionRegistry(noDb, builtinCatalog()), secrets: { encrypt: (value: string) => value, decrypt: (value: string) => value } }
   await invalidPost({}, (request, response) => routeServers(deps, request, response, ''), 'name_required')
-  await invalidPost({ name: 'demo', intranet_host: '127.0.0.1', ssh_port: 70000 }, (request, response) => routeServers(deps, request, response, ''), 'port_invalid')
+  await invalidPost({ name: 'demo', host: '127.0.0.1', ssh_port: 70000 }, (request, response) => routeServers(deps, request, response, ''), 'port_invalid')
   await invalidPost({ name: 'key', secret: 'invalid PEM' }, (request, response) => routeKeys(deps, request, response, ''), 'key_invalid')
 })
 

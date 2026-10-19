@@ -17,6 +17,7 @@ import { ServerManagement } from './service.ts'
 export { ServerManagement } from './service.ts'
 export { VACANT_TYPE, GENERAL_TYPE } from './definitions.ts'
 export type { SystemGroupDefinition, ServerTypeDefinition, SoftwareDefinition, LocalizedText } from './definitions.ts'
+export type { DeclaredOs, DetectedOs, OsSelector, OsSupport } from './operating-systems.ts'
 
 interface SessionService {
   read(cookieHeader: string): Promise<unknown>

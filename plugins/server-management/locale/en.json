@@ -109,7 +109,19 @@
     "containerUnknown": "Containers have not been inspected.",
     "containerObserved": "Last successful container inspection: {time}",
     "noContainers": "No containers found in the last successful inspection.",
-    "typeSource": "Provided by {plugin}"
+    "typeSource": "Provided by {plugin}",
+    "operatingSystem": "Operating system",
+    "osFamily": "OS family",
+    "osRelease": "OS release",
+    "osOther": "Other",
+    "osCustom": "System name and version",
+    "osChoose": "Select…",
+    "osDetected": "Detected OS",
+    "osUnverified": "Unverified",
+    "osMatched": "Matched",
+    "osMismatch": "OS mismatch",
+    "osNote": "The catalogue is for registration. Types and required software are filtered by OS support. Custom systems can currently use the vacant type.",
+    "osNoTypes": "This group has no types for the selected OS."
   },
   "reach": {
     "online": "Online",
@@ -224,6 +236,13 @@
     "server_busy": "This server has a task running. Try again after it finishes.",
     "no_required_software": "This type has no required software to install.",
     "group_source_readonly": "Only host plugins can register system groups and type definitions.",
-    "system_group_protected": "System groups cannot be deleted."
+    "system_group_protected": "System groups cannot be deleted.",
+    "os_required": "Select an operating system and version.",
+    "os_invalid": "Invalid operating system. Select a release or enter a custom system.",
+    "os_definition_invalid": "Invalid operating system support definition.",
+    "os_type_unsupported": "This type or its required software does not support the selected OS, release or detected architecture.",
+    "os_mismatch": "The declared OS differs from the detected OS. Correct it before changing software or moving the server.",
+    "os_unverified": "The operating system is unverified. Software changes are blocked.",
+    "os_probe_failed": "Could not identify the actual operating system."
   }
 }

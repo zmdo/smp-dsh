@@ -109,7 +109,19 @@
     "containerUnknown": "尚未执行容器巡检。",
     "containerObserved": "上次成功巡检：{time}",
     "noContainers": "上次成功巡检未发现容器。",
-    "typeSource": "由 {plugin} 提供"
+    "typeSource": "由 {plugin} 提供",
+    "operatingSystem": "操作系统",
+    "osFamily": "系统大类",
+    "osRelease": "系统版本",
+    "osOther": "其他",
+    "osCustom": "系统名称及版本",
+    "osChoose": "请选择",
+    "osDetected": "实际系统",
+    "osUnverified": "未验证",
+    "osMatched": "已匹配",
+    "osMismatch": "系统不匹配",
+    "osNote": "目录仅用于登记；类型和必要软件按支持的系统范围筛选。其他系统目前可登记为空置服务器。",
+    "osNoTypes": "该分组没有适用于所选系统的类型。"
   },
   "reach": {
     "online": "在线",
@@ -224,6 +236,13 @@
     "server_busy": "该服务器有正在执行的任务，请完成后再试",
     "no_required_software": "此类型没有需要安装的必要软件",
     "group_source_readonly": "系统分组与类型定义只能由宿主插件注册",
-    "system_group_protected": "系统分组不可删除"
+    "system_group_protected": "系统分组不可删除",
+    "os_required": "请选择操作系统及版本。",
+    "os_invalid": "操作系统选项无效，请重新选择或填写其他系统。",
+    "os_definition_invalid": "类型或软件的操作系统范围无效。",
+    "os_type_unsupported": "该类型或必要软件不支持所选系统、版本或实际架构。",
+    "os_mismatch": "登记系统与实际探测结果不一致，请修正系统后再执行软件操作或移动。",
+    "os_unverified": "操作系统尚未验证，已阻止软件操作。",
+    "os_probe_failed": "无法识别实际操作系统。"
   }
 }

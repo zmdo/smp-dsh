@@ -15,6 +15,8 @@ import { executeJob } from '../src/runner.ts'
 import { ServerManagement } from '../src/service.ts'
 import { claimNext, enqueue, HttpError, type Db } from '../src/store.ts'
 import type { SshSession } from '../src/ssh.ts'
+import { APT_SOFTWARE_OS } from '../src/operating-systems.ts'
+import { LINUX_PROBE, WINDOWS_PROBE } from '../src/os-probe.ts'
 import { builtinCatalog, componentFixture } from './fixtures.ts'
 
 // Uses a disposable schema only. The configured database's application tables are never touched.
@@ -27,9 +29,8 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
   const directory = await mkdtemp(join(tmpdir(), 'smp-server-types-'))
   t.after(async () => { await pool.end(); await admin.query(`drop schema ${schema} cascade`); await admin.end(); await rm(directory, { recursive: true, force: true }) })
   await pool.query(await readFile(new URL('../../database/migrations/0010_server_management.sql', import.meta.url), 'utf8'))
-  const oldId = randomUUID()
-  await pool.query("insert into servers (id,name,intranet_host,ssh_user,auth_method,secret_ciphertext,reachability) values ($1,'old','10.0.0.1','root','password','test','docker_unavailable')", [oldId])
   await pool.query(await readFile(new URL('../../database/migrations/0012_server_types.sql', import.meta.url), 'utf8'))
+  await pool.query(await readFile(new URL('../../database/migrations/0013_server_observations.sql', import.meta.url), 'utf8'))
   const catalog = builtinCatalog()
   for (const item of catalog) item.installScript = Buffer.from(`install-${item.id}`)
   const definitions = new DefinitionRegistry(db, catalog)
@@ -55,7 +56,7 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
     return { status: response.status, body: response.status === 204 ? null : await response.json() as any }
   }
   let hostIndex = 10
-  const serverInput = (extra = {}) => ({ name: 'test', intranet_host: `10.0.0.${hostIndex++}`, ssh_port: 22, ssh_user: 'root', auth_method: 'password', secret: 'test-password', region: 'test', ...extra })
+  const serverInput = (extra = {}) => ({ declared_os:{kind:'catalog',family:'builtin/ubuntu',releaseKey:'24.04'}, name: 'test', host: `10.0.0.${hostIndex++}`, ssh_port: 22, ssh_user: 'root', auth_method: 'password', secret: 'test-password', region: 'test', ...extra })
   const group: SystemGroupDefinition = { plugin: '@test/provider', key: 'compute', name: { zh: '计算节点', en: 'Compute nodes' } }
   const groupId = async () => (await pool.query('select id from server_groups where plugin_id = $1 and group_key = $2', [group.plugin, group.key])).rows[0].id as string
   const detectScript = join(directory, 'detect.sh')
@@ -63,25 +64,23 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
   await writeFile(detectScript, 'detect-custom')
   await writeFile(installScript, 'install-custom')
   const custom: SystemGroupDefinition = { ...group,
-    software: [{ id: 'custom', name: { zh: '自定义软件', en: 'Custom software' }, detectScript, installScript }],
-    types: [{ key: 'node', name: { zh: '节点', en: 'Node' }, software: ['custom'] }], defaultType: 'node',
+    software: [{ id: 'custom', name: { zh: '自定义软件', en: 'Custom software' }, supportedOs: APT_SOFTWARE_OS, detectScript, installScript }],
+    types: [{ key: 'node', name: { zh: '节点', en: 'Node' }, supportedOs: {kind:'explicit',selectors:APT_SOFTWARE_OS}, software: ['custom'] }], defaultType: 'node',
   }
 
-  await t.test('migration preserves existing requirements and defaults new registrations to vacant', async () => {
-    const old = (await api('GET', `/servers/${oldId}`)).body
-    assert.equal(old.type_key, GENERAL_TYPE)
-    assert.equal(old.reachability, 'online')
-    assert.deepEqual(old.required_software.map((item: any) => item.id), ['docker', 'compose'])
-    const created = await api('POST', '/servers', serverInput({ auto_install: true }))
+  const oldId = (await api('POST','/servers',serverInput())).body.id
+
+  await t.test('fresh registration defaults to vacant and persists configuration separately', async () => {
+    const created = await api('POST', '/servers', serverInput({ install_required_software: true }))
     assert.equal(created.status, 201)
     assert.equal(created.body.type_key, VACANT_TYPE)
-    assert.equal(created.body.auto_install, false)
+    assert.equal(created.body.install_required_software, false)
     assert.deepEqual(created.body.required_software, [])
     assert.equal(created.body.jobs.length, 0)
     assert.equal(created.body.secret_ciphertext, undefined)
     const ordinary = await api('POST', '/servers', serverInput({ type_key: GENERAL_TYPE }))
     assert.equal(ordinary.status, 201)
-    assert.deepEqual(ordinary.body.install_component_ids, ['docker', 'compose'])
+    assert.deepEqual(ordinary.body.required_software.map((item:any)=>item.id), ['docker', 'compose'])
     assert.equal((await api('POST', '/servers', serverInput({ install_component_ids: [] }))).body.code, 'required_software_readonly')
     assert.equal((await api('POST', '/servers', serverInput({ type_key: 'forged' }))).body.code, 'type_not_found')
     assert.equal((await api('POST', '/groups', { name: 'forged', kind: 'system' })).body.code, 'group_source_readonly')
@@ -153,7 +152,7 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
     await provide()
   })
 
-  function remote() {
+  function remote(os = 'ID=ubuntu\nVERSION_ID=24.04\nSMP_ARCH=x86_64\n') {
     const commands: string[] = []
     const scripts = new Map<string, string>()
     const installed = new Set<string>()
@@ -164,6 +163,8 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
       async exec(command) {
         commands.push(command)
         const result = (code = 0, stdout = '', stderr = '') => ({ code, stdout, stderr })
+        if (command===LINUX_PROBE) return result(0,os)
+        if (command===WINDOWS_PROBE) return result(0,JSON.stringify({caption:'Microsoft Windows Server 2025 Standard',architecture:'64-bit'}))
         if (command.startsWith('command -v')) return result(installed.has('docker') ? 0 : 1)
         if (command.startsWith('docker version')) return permissionDenied ? result(1, '', 'permission denied') : result(0, '{"Server":{"Version":"27.2.0"}}')
         if (command.startsWith('docker compose')) return installed.has('compose') ? result(0, '{"version":"2.29.0"}') : result(1, '', "docker: 'compose' is not a docker command.")
@@ -203,7 +204,7 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
     target.deny()
     const failed = await run(created.id, 'inspect', target)
     assert.equal(failed.reachability, 'online')
-    assert.equal(failed.containers_state, 'error')
+    assert.equal(failed.containers_state, 'failed')
     assert.equal(failed.container_count, null)
     assert.equal(failed.containers.length, 1)
     assert.equal(failed.containers_checked_at, observed.containers_checked_at)
@@ -224,7 +225,7 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
 
   await t.test('ordinary automatic installation follows dependency order, skips installed software and refuses unknown detection', async () => {
     const target = remote()
-    const created = (await api('POST', '/servers', serverInput({ type_key: GENERAL_TYPE, auto_install: true }))).body
+    const created = (await api('POST', '/servers', serverInput({ type_key: GENERAL_TYPE, install_required_software: true }))).body
     const jobId = created.jobs[0].id
     assert.equal(await claimNext(db), jobId)
     await executeJob(db, secrets, definitions, jobId, target.connect)
@@ -264,6 +265,75 @@ test('server types, system groups, lifecycle and jobs against PostgreSQL', { ski
     assert.equal(untouched.commands.length, 0)
     assert.equal((await pool.query('select status from ops_jobs where id = $1', [second.body.id])).rows[0].status, 'failed')
     await next()
+  })
+
+  await t.test('OS is required and unsupported types cannot be forged through the API', async () => {
+    assert.equal((await api('POST','/servers',serverInput({declared_os:undefined}))).body.code,'os_required')
+    const windows={kind:'catalog',family:'builtin/windows-server',releaseKey:'2025'}
+    assert.equal((await api('POST','/servers',serverInput({declared_os:windows,type_key:GENERAL_TYPE}))).body.code,'os_type_unsupported')
+    assert.equal((await api('POST','/servers',serverInput({declared_os:{kind:'custom',text:'Ubuntu 24.04'},type_key:GENERAL_TYPE}))).body.code,'os_type_unsupported')
+    assert.equal((await api('POST','/servers',serverInput({declared_os:{kind:'catalog',family:'builtin/ubuntu',releaseKey:'99.04'}}))).body.code,'os_invalid')
+    const custom=(await api('POST','/servers',serverInput({declared_os:{kind:'custom',text:'openSUSE Leap 15.6'}}))).body
+    assert.equal(custom.declared_os.text,'openSUSE Leap 15.6')
+  })
+
+  await t.test('Windows vacant servers use only the Windows probe, with no Linux/Docker commands', async () => {
+    const created=(await api('POST','/servers',serverInput({declared_os:{kind:'catalog',family:'builtin/windows-server',releaseKey:'2025'}}))).body
+    const target=remote()
+    const observed=await run(created.id,'test',target)
+    assert.equal(observed.os_verification,'matched')
+    assert.equal(observed.detected_os.family,'builtin/windows-server')
+    assert.deepEqual(target.commands,[WINDOWS_PROBE])
+    assert.equal(target.scripts.size,0)
+  })
+
+  await t.test('OS mismatch saves actual evidence, blocks scripts and movement, and permits correction', async () => {
+    const origin=(await api('POST','/groups',{name:'OS origin'})).body
+    const created=(await api('POST','/servers',serverInput({type_key:GENERAL_TYPE,group_id:origin.id}))).body
+    const target=remote('ID=debian\nVERSION_ID=12\nSMP_ARCH=x86_64\n')
+    const observed=await run(created.id,'install-components',target)
+    assert.equal(observed.os_verification,'mismatch')
+    assert.equal(observed.reachability,'online')
+    assert.equal(observed.jobs[0].status,'failed')
+    assert.equal(target.scripts.size,0)
+    assert.equal((await api('DELETE',`/groups/${origin.id}`)).body.code,'os_mismatch')
+    assert.deepEqual(target.commands,[LINUX_PROBE])
+    const nextGroup=(await api('POST','/groups',{name:'OS move target'})).body
+    assert.equal((await api('PATCH',`/servers/${created.id}`,{group_id:nextGroup.id})).body.code,'os_mismatch')
+    const corrected=await api('PATCH',`/servers/${created.id}`,{declared_os:{kind:'catalog',family:'builtin/debian',releaseKey:'12'}})
+    assert.equal(corrected.status,200)
+    const job=corrected.body.jobs.find((item:any)=>item.status==='queued')
+    assert.equal(await claimNext(db),job.id)
+    await executeJob(db,secrets,definitions,job.id,target.connect)
+    assert.equal((await api('GET',`/servers/${created.id}`)).body.os_verification,'matched')
+  })
+
+  await t.test('unknown OS detection never runs software scripts', async () => {
+    const created=(await api('POST','/servers',serverInput({type_key:GENERAL_TYPE}))).body
+    const target=remote('invalid data')
+    const original=target.connect
+    const connect=async()=>{const session=await original();return {...session,async exec(command:string,timeout:number){return command===WINDOWS_PROBE?{code:1,stdout:'',stderr:''}:session.exec(command,timeout)}}}
+    const queued=await api('POST',`/servers/${created.id}/install-components`)
+    assert.equal(await claimNext(db),queued.body.id)
+    await executeJob(db,secrets,definitions,queued.body.id,connect)
+    assert.equal(target.scripts.size,0)
+    assert.equal((await api('GET',`/servers/${created.id}`)).body.os_verification,'unverified')
+  })
+
+  await t.test('configuration is separate from observations; unchanged OS round trips preserve revision', async () => {
+    const created=(await api('POST','/servers',serverInput({type_key:GENERAL_TYPE}))).body
+    const target=remote();target.installed.add('docker');target.installed.add('compose')
+    const observed=await run(created.id,'inspect',target)
+    assert.equal(observed.config_revision,created.config_revision)
+    const edited=await api('PATCH',`/servers/${created.id}`,{name:'renamed',declared_os:created.declared_os})
+    assert.equal(edited.body.config_revision,created.config_revision)
+    target.deny();const failed=await run(created.id,'inspect',target)
+    assert.equal(failed.software_status.docker.state,'unknown')
+    assert.equal(failed.software_status.docker.last_known_version,'27.2.0')
+    const fact=(await pool.query("select * from server_software_observations where server_id=$1 and software_key='builtin/docker-engine'",[created.id])).rows[0]
+    assert.equal(fact.probe_state,'unknown');assert.equal(fact.product_version,'27.2.0')
+    const columns=(await pool.query("select column_name from information_schema.columns where table_schema=$1 and table_name='servers'",[schema])).rows.map(item=>item.column_name)
+    for (const removed of ['docker_version','compose_version','component_status','install_component_ids','cpu_percent','reachability']) assert.equal(columns.includes(removed),false)
   })
 
   await t.test('concurrent workers cannot claim two jobs on the same server; active work blocks critical edits', async () => {

@@ -11,8 +11,8 @@ test('unloading while metrics SSH is opening closes the late connection and does
   let sampled = 0
   const db: Db = {
     async query(sql) {
-      if (sql.startsWith('select id')) return { rows: [{ id: 'server' }] as never[] }
-      return { rows: [{ id: 'server', intranet_host: 'localhost', ssh_port: 22, ssh_user: 'test', auth_method: 'password', secret_ciphertext: 'test', host_key_fingerprint: null }] as never[] }
+      if (sql.startsWith('select s.id from')) return { rows: [{ id: 'server' }] as never[] }
+      return { rows: [{ id: 'server', host: 'localhost', ssh_port: 22, ssh_user: 'test', auth_method: 'password', secret_ciphertext: 'test', host_fingerprint: null, config_revision:1,observed_config_revision:1,environment_revision:1,os_probe_state:'detected',declared_os:{kind:'catalog',family:'builtin/ubuntu',version:'24.04',precision:'release'},detected_os:{family:'builtin/ubuntu',version:'24.04',architecture:'x86_64'} }] as never[] }
     },
     async connect() { throw new Error('No transaction expected') },
   }

@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Panel } from '@smp/console-kit'
 import { componentText, enumLabel, format, formatDate, groupName as localizedGroupName, serverCopy, ServerError, type LocaleFace } from '../i18n.ts'
-import { localized, sameSoftware, type GroupView, type LocalizedText, type ServerTypeView, type SoftwareView, type TypeOptions } from '../definitions.ts'
+import { localized, sameSoftware, typeSupportsOs, type GroupView, type LocalizedText, type ServerTypeView, type SoftwareView, type TypeOptions } from '../definitions.ts'
 import { api, displayError, requestError, responseError } from './api.ts'
 import { useActiveLocale } from './locale.ts'
+import { OS_CATALOG, osLabel, sameDeclaredOs, type DeclaredOs, type DetectedOs, type OsSupport } from '../operating-systems.ts'
 import serversStyle from './servers.css'
 
 interface ServerRow {
   id: string
   name: string
-  intranet_host: string
+  host: string
   ssh_port: number
   ssh_user: string
   auth_method: string
@@ -23,10 +24,13 @@ interface ServerRow {
   required_software: SoftwareView[]
   software_state: string
   region: string | null
-  auto_install: boolean
-  install_component_ids: string[]
-  component_status: Record<string, { state?: string; installed?: boolean; detail?: string }>
-  host_key_fingerprint: string | null
+  install_required_software: boolean
+  declared_os: DeclaredOs
+  detected_os: DetectedOs | null
+  os_verification: string
+  type_supported_os: OsSupport
+  software_status: Record<string, { state?: string; installed?: boolean; detail?: string }>
+  host_fingerprint: string | null
   reachability: string
   docker_version: string | null
   compose_version: string | null
@@ -147,7 +151,7 @@ function ServerList(props: { active: string; view: ListView; onView: (view: List
   const filtered = useMemo(() => {
     const needle = view.query.trim().toLowerCase()
     return servers.filter(server => (groupId === null || (server.group_id ?? '') === groupId)
-      && (needle === '' || [server.name, server.intranet_host, server.ssh_user, server.region ?? '', server.group_name ?? '', server.group_name_i18n?.zh ?? '', server.group_name_i18n?.en ?? '', server.type_name_i18n.zh, server.type_name_i18n.en].some(value => value.toLowerCase().includes(needle))))
+      && (needle === '' || [server.name, server.host, server.ssh_user, server.region ?? '', server.group_name ?? '', server.group_name_i18n?.zh ?? '', server.group_name_i18n?.en ?? '', server.type_name_i18n.zh, server.type_name_i18n.en].some(value => value.toLowerCase().includes(needle))))
   }, [view.query, groupId, servers])
   const pages = Math.max(1, Math.ceil(filtered.length / view.pageSize))
   const page = Math.min(view.page, pages)
@@ -277,7 +281,7 @@ function ServerLine(props: { active: string; server: ServerRow; onOpen: (id: str
   return (
     <tr onClick={() => { props.onOpen(server.id) }}>
       <td><button className="smp-server-open" type="button" onClick={event => { event.stopPropagation(); props.onOpen(server.id) }}>{server.name}</button></td>
-      <td className="mono">{server.intranet_host}:{server.ssh_port}</td>
+      <td className="mono">{server.host}:{server.ssh_port}</td>
       <td title={server.type_available ? undefined : copy.typeUnavailable}>{localized(server.type_name_i18n, active)}</td>
       <td>{server.region || '—'}</td>
       <td><span className={`pill ${server.reachability}`}>{enumLabel(serverCopy(active).reach, server.reachability)}</span></td>
@@ -310,6 +314,10 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
   const [typeKey, setTypeKey] = useState('')
   const [savedType, setSavedType] = useState<ServerTypeView | undefined>()
   const [original, setOriginal] = useState<{ groupId: string; typeKey: string } | undefined>()
+  const [osFamily,setOsFamily] = useState('')
+  const [osRelease,setOsRelease] = useState('')
+  const [osText,setOsText] = useState('')
+  const [savedOs,setSavedOs] = useState<DeclaredOs | undefined>()
   const [region, setRegion] = useState('')
   const [auto, setAuto] = useState(false)
   const [groups, setGroups] = useState<GroupRow[]>([])
@@ -319,7 +327,6 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
   const [error, setError] = useState<ServerError | null>(null)
   const [fingerprint, setFingerprint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const initialized = useRef(false)
 
   useEffect(() => {
     let stopped = false
@@ -337,31 +344,42 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
     let stopped = false
     void api<ServerRow>(`/console-api/servers/${props.serverId}`).then(server => {
       if (stopped) return
-      setName(server.name); setHost(server.intranet_host); setPort(String(server.ssh_port)); setUser(server.ssh_user)
+      setName(server.name); setHost(server.host); setPort(String(server.ssh_port)); setUser(server.ssh_user)
       setMethod(server.auth_method); setKeyId(server.ssh_key_id ?? ''); setGroupId(server.group_id ?? ''); setRegion(server.region ?? '')
-      setAuto(server.auto_install); setTypeKey(server.type_key)
-      setSavedType({ key: server.type_key, name_i18n: server.type_name_i18n, software: server.required_software })
+      setAuto(server.install_required_software); setTypeKey(server.type_key)
+      setSavedOs(server.declared_os)
+      setOsFamily(server.declared_os.kind==='custom'?'custom':server.declared_os.family)
+      setOsRelease(server.declared_os.kind==='catalog'?server.declared_os.releaseKey:'')
+      setOsText(server.declared_os.kind==='custom'?server.declared_os.text:'')
+      setSavedType({ key: server.type_key, name_i18n: server.type_name_i18n, software: server.required_software, supportedOs: server.type_supported_os })
       setOriginal({ groupId: server.group_id ?? '', typeKey: server.type_key }); setServerLoaded(true)
     }).catch((cause: unknown) => { if (!stopped) setError(requestError(cause)) })
     return () => { stopped = true }
   }, [props.editing, props.serverId])
 
+  const family = OS_CATALOG.find(item=>item.key===osFamily)
+  const release = family?.releases.find(item=>item.key===osRelease)
+  const declaredOs: DeclaredOs | undefined = osFamily==='custom' ? (osText.trim() ? {kind:'custom',text:osText.trim()}:undefined)
+    : release ? {kind:'catalog',family:osFamily,releaseKey:release.key,version:release.version,precision:release.precision,name:release.name}
+    : savedOs?.kind==='catalog' && savedOs.family===osFamily && savedOs.releaseKey===osRelease ? savedOs : undefined
   const choices = groupId === '' ? defaults : groups.find(group => group.id === groupId)
+  const applicableTypes = declaredOs===undefined ? [] : (choices?.types ?? []).filter(type=>typeSupportsOs(type,declaredOs))
   const selected = choices?.types.find(type => type.key === typeKey) ?? (savedType?.key === typeKey ? savedType : undefined)
   const originalBinding = original?.groupId === groupId && original.typeKey === typeKey
-  const available = choices?.available === true && choices.types.some(type => type.key === typeKey)
+  const available = choices?.available === true && applicableTypes.some(type => type.key === typeKey)
   const software = selected?.software ?? []
-  const canSave = defaults !== undefined && serverLoaded && selected !== undefined && (available || originalBinding)
+  const canSave = defaults !== undefined && serverLoaded && declaredOs !== undefined && selected !== undefined && (available || (originalBinding && !choices?.available && savedOs!==undefined && sameDeclaredOs(declaredOs,savedOs)))
 
   useEffect(() => {
-    if (defaults === undefined || !serverLoaded || initialized.current || choices === undefined) return
-    initialized.current = true
-    if (typeKey === '') setTypeKey(choices.default_type_key)
-  }, [defaults, serverLoaded, choices, typeKey])
+    if (!serverLoaded || declaredOs === undefined || typeKey !== '') return
+    const defaultType = applicableTypes.find(type => type.key === choices?.default_type_key)
+    if (defaultType !== undefined) setTypeKey(defaultType.key)
+  }, [serverLoaded, declaredOs, typeKey, choices, applicableTypes])
 
   function changeGroup(id: string): void {
     const next = id === '' ? defaults : groups.find(group => group.id === id)
-    const type = next?.types.find(item => item.key === typeKey) ?? next?.types.find(item => item.key === next.default_type_key)
+    const allowed = declaredOs===undefined ? [] : (next?.types ?? []).filter(type=>typeSupportsOs(type,declaredOs))
+    const type = allowed.find(item=>item.key===typeKey) ?? allowed.find(item=>item.key===next?.default_type_key)
     if (selected === undefined || type === undefined || !sameSoftware(selected, type)) setAuto(false)
     setGroupId(id); setTypeKey(type?.key ?? '')
   }
@@ -370,7 +388,7 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
     setError(null); setFingerprint(null)
     try {
       const result = await api<{ ok: boolean; fingerprint?: string }>('/console-api/servers/test-connection', {
-        method: 'POST', body: JSON.stringify({ intranet_host: host, ssh_port: Number(port), ssh_user: user, auth_method: method, secret }),
+        method: 'POST', body: JSON.stringify({ host: host, ssh_port: Number(port), ssh_user: user, auth_method: method, secret }),
       })
       if (result.ok) setFingerprint(result.fingerprint ?? '')
       else setError(responseError(result))
@@ -388,8 +406,8 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
         nextKey = created.id
       }
       const body = {
-        name: name.trim(), intranet_host: host.trim(), ssh_port: Number(port), ssh_user: user.trim(), auth_method: method,
-        group_id: groupId === '' ? null : groupId, type_key: typeKey, region, auto_install: software.length > 0 && auto,
+        name: name.trim(), host: host.trim(), ssh_port: Number(port), ssh_user: user.trim(), auth_method: method,
+        group_id: groupId === '' ? null : groupId, type_key: typeKey, declared_os: declaredOs, region, install_required_software: software.length > 0 && auto,
         ssh_key_id: method === 'private_key' ? nextKey : undefined,
         secret: method === 'password' && secret.trim() !== '' ? secret : undefined,
       }
@@ -421,18 +439,32 @@ function ServerForm(props: { active: string; editing: boolean; serverId: string;
           <label className="field">{copy.newKeyName}<input value={keyName} onChange={event => { setKeyName(event.target.value) }} /></label>
           <label className="field">{copy.pasteKey}<textarea value={secret} onChange={event => { setSecret(event.target.value) }} placeholder={copy.secretHint} /></label>
         </> : <label className="field">{copy.password}<input type="password" value={secret} onChange={event => { setSecret(event.target.value) }} /></label>}
+        <label className="field">{copy.osFamily}<select value={osFamily} required onChange={event=>{setOsFamily(event.target.value);setOsRelease('');setOsText('');setTypeKey('');setAuto(false)}}>
+          <option value="">{copy.osChoose}</option>
+          {OS_CATALOG.map(item=><option key={item.key} value={item.key}>{item.name}</option>)}
+          <option value="custom">{copy.osOther}</option>
+        </select></label>
+        {osFamily==='custom' ? <label className="field">{copy.osCustom}<input value={osText} required maxLength={200} placeholder="openSUSE Leap 15.6" onChange={event=>setOsText(event.target.value)} /></label>
+          : <label className="field">{copy.osRelease}<select value={osRelease} required disabled={family===undefined} onChange={event=>{setOsRelease(event.target.value);setTypeKey('');setAuto(false)}}>
+            <option value="">{copy.osChoose}</option>
+            {savedOs?.kind==='catalog' && savedOs.family===osFamily && !family?.releases.some(item=>item.key===savedOs.releaseKey) && <option value={savedOs.releaseKey}>{savedOs.name}</option>}
+            {family?.releases.map(item=><option key={item.key} value={item.key}>{item.name}</option>)}
+          </select></label>}
+        <p className="muted">{copy.osNote}</p>
+        {declaredOs!==undefined && applicableTypes.length===0 && <p className="banner error">{copy.osNoTypes}</p>}
         <div className="triple">
           <label className="field">{copy.group}<select value={groupId} onChange={event => { changeGroup(event.target.value) }}>
             <option value="">{copy.ungrouped}</option>
             {groups.map(group => <option key={group.id} value={group.id} disabled={!group.available && group.id !== original?.groupId}>{localizedGroupName(active, group)}{group.available ? '' : ` (${copy.pluginUnavailable})`}</option>)}
           </select></label>
-          <label className="field">{copy.serverType}<select value={typeKey} onChange={event => { setTypeKey(event.target.value); setAuto(false) }} disabled={!choices?.available}>
-            {selected !== undefined && !choices?.types.some(type => type.key === typeKey) && <option value={typeKey}>{localized(selected.name_i18n, active)} ({copy.typeUnavailable})</option>}
-            {(choices?.types ?? []).map(type => <option key={type.key} value={type.key}>{localized(type.name_i18n, active)}</option>)}
+          <label className="field">{copy.serverType}<select value={typeKey} onChange={event => { setTypeKey(event.target.value); setAuto(false) }} disabled={!choices?.available || declaredOs===undefined}>
+            {selected !== undefined && !applicableTypes.some(type => type.key === typeKey) && <option value={typeKey} disabled>{localized(selected.name_i18n, active)} ({copy.typeUnavailable})</option>}
+            {typeKey==='' && <option value="">{copy.osChoose}</option>}
+            {applicableTypes.map(type => <option key={type.key} value={type.key}>{localized(type.name_i18n, active)}</option>)}
           </select></label>
           <label className="field">{copy.region}<input value={region} onChange={event => { setRegion(event.target.value) }} placeholder={copy.autoRegion} /></label>
         </div>
-        {choices !== undefined && !available && <p className="muted">{copy.typeUnavailable}</p>}
+        {declaredOs!==undefined && choices !== undefined && !available && <p className="muted">{choices.available ? serverCopy(active).errors.os_type_unsupported : copy.typeUnavailable}</p>}
         {props.editing && !originalBinding && <p className="muted">{copy.typeChangeNote}</p>}
         <h2>{copy.requiredSoftware}</h2>
         <RequiredSoftware active={active} software={software} />
@@ -452,7 +484,7 @@ function SoftwareState(props: { active: string; state: string }) {
   return <span className={`pill ${props.state === 'ready' ? 'online' : props.state === 'pending' ? 'queued' : 'unknown'}`}>{enumLabel(labels, props.state)}</span>
 }
 
-function RequiredSoftware(props: { active: string; software: readonly SoftwareView[]; status?: ServerRow['component_status'] }) {
+function RequiredSoftware(props: { active: string; software: readonly SoftwareView[]; status?: ServerRow['software_status'] }) {
   const copy = serverCopy(props.active).ui
   if (props.software.length === 0) return <p className="muted">{copy.noRequiredSoftware}</p>
   return <ul className="smp-required-software">{props.software.map(component => {
@@ -511,23 +543,26 @@ function ServerDetail(props: { active: string; id: string; onEdit: () => void; o
   if (server === undefined) return <Panel title={copy.server}><p className="muted">{error === null ? copy.loading : displayError(active, error)}</p></Panel>
   const missing = server.type_available && server.required_software.length > 0 && server.software_state !== 'ready'
   const containers = server.containers ?? []
-  const containerNote = server.containers_state === 'unavailable' ? copy.containerUnavailable : server.containers_state === 'error' ? copy.containerError
+  const containerNote = server.containers_state === 'unavailable' ? copy.containerUnavailable : server.containers_state === 'failed' ? copy.containerError
     : server.containers_state === 'unknown' ? copy.containerUnknown : containers.length === 0 ? copy.noContainers : ''
   return (
     <Panel title={server.name} extra={<button className="link" type="button" onClick={props.onBack}>{copy.back}</button>}>
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       {queued ? <p className="banner ok">{copy.jobQueued}</p> : null}
       {!server.type_available && <p className="banner error">{copy.typeUnavailable}</p>}
+      {server.os_verification!=='matched' && <p className={`banner ${server.os_verification==='mismatch'?'error':''}`}>{server.os_verification==='mismatch'?copy.osMismatch:copy.osUnverified}</p>}
       <div className="node-card">
-        <div className="node-title"><span className="name-text">{server.intranet_host}:{server.ssh_port}</span><span className={`pill ${server.reachability}`}>{enumLabel(serverCopy(active).reach, server.reachability)}</span></div>
+        <div className="node-title"><span className="name-text">{server.host}:{server.ssh_port}</span><span className={`pill ${server.reachability}`}>{enumLabel(serverCopy(active).reach, server.reachability)}</span></div>
         <div className="node-grid">
           <div><span>{copy.user}</span>{server.ssh_user}</div>
           <div><span>{copy.region}</span>{server.region || '—'}</div>
+          <div><span>{copy.operatingSystem}</span>{osLabel(server.declared_os)}</div>
+          <div><span>{copy.osDetected}</span>{server.detected_os ? `${server.detected_os.family.replace('builtin/','')} ${server.detected_os.version} · ${server.detected_os.architecture}` : copy.osUnverified}</div>
           <div><span>{copy.serverType}</span>{localized(server.type_name_i18n, active)}</div>
           <div><span>{copy.requiredSoftware}</span><SoftwareState active={active} state={server.software_state} /></div>
           <div><span>Docker</span>{server.docker_version || '—'}</div>
           <div><span>Compose</span>{server.compose_version || '—'}</div>
-          <div><span>{copy.hostFingerprint}</span><b className="mono">{server.host_key_fingerprint || copy.notPinned}</b></div>
+          <div><span>{copy.hostFingerprint}</span><b className="mono">{server.host_fingerprint || copy.notPinned}</b></div>
         </div>
         <div className="node-actions">
           <button className="secondary" type="button" onClick={() => { void act(`/console-api/servers/${server.id}/test`) }}>{copy.testConnection}</button>
@@ -539,7 +574,7 @@ function ServerDetail(props: { active: string; id: string; onEdit: () => void; o
         </div>
       </div>
       <h2>{copy.requiredSoftware}</h2>
-      <RequiredSoftware active={active} software={server.required_software} status={server.component_status} />
+      <RequiredSoftware active={active} software={server.required_software} status={server.software_status} />
       <h2>{copy.containers}</h2>
       {containerNote !== '' && <p className="empty">{containerNote}</p>}
       {server.containers_checked_at !== null && <p className="muted">{format(copy.containerObserved, { time: formatDate(server.containers_checked_at, active) })}</p>}
@@ -569,7 +604,7 @@ function ServerTerminal(props: { active: string; id: string; onBack: () => void 
       setText(current => `${current}${chunk}`.slice(-20000))
     }
     socket.onerror = () => { setError(new ServerError('terminal_failed')) }
-    const host = document.querySelector('.terminal-host')
+    const host = document.querySelector<HTMLElement>('.terminal-host')
     const sendResize = () => {
       if (socket.readyState !== WebSocket.OPEN || host === null) return
       const cols = Math.min(300, Math.max(20, Math.floor(host.clientWidth / 8)))

@@ -57,7 +57,7 @@ test('custom software installs only missing requirements and verifies the result
   let installed = false
   const remote = session(command => {
     if (command.endsWith('-install.sh')) { installed = true; return result() }
-    return result(0, JSON.stringify({ state: installed ? 'installed' : 'missing' }))
+    return result(0, JSON.stringify({ state: installed ? 'installed' : 'missing', version:'1.0.0' }))
   })
   const wanted = [componentFixture('custom')]
   const status = await detectSoftware(remote.ssh, wanted)

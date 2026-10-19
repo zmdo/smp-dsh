@@ -517,6 +517,8 @@ Docker 的官方安装说明本身也要求先列出源中的可用版本，再�
 
 ### 13.2 已实现的插件注册接口
 
+A1 已为类型增加 `supportedOs`，软件配方增加同名的选择器数组；第 13 节原例保留为历史接口示意，不能直接用于 A1。A1 的完整最小例见下方第 14 节。完整 V2 的 `registerDefinitions()` 仍是设计稿。
+
 宿主服务为 `ctx.serverManagement`，依赖声明为 `inject = ['serverManagement']`。`registerGroup(definition)` 返回 Cordis effect 的可等待释放句柄：`await` 等待注册完成，插件卸载自动释放；若需提前撤回，也可以调用该句柄。不要把注册结果放进模块级可变变量。
 
 ```js
@@ -564,10 +566,39 @@ export async function apply(ctx) {
 
 本阶段允许必要软件及配方修订相同的移组／改类型，以及转为空置（不卸载软件）。目标非空且必要软件或配方不同的转换，接口返回 `type_change_requires_preflight`，原分组、类型和远端软件保持不变；即使关闭自动安装也不能绕过。表单提示这一限制。
 
-当前限制是阶段边界，不代表“空置改普通”这一需求已经完成。新增操作系统及允许破坏兼容性的前提后，已完成 [数据模型与插件契约设计基线](data-model.md)，下一步先重构基础并接入操作系统登记，再实现版本范围、冲突替换确认、移动预检及成功后提交移动。自动检测升级和独立「升级管理」Tab 仍排在版本／预检能力之后。第 13.2 节描述当前已运行的旧接口，V2 尚未接入。
+当前限制是阶段边界，不代表“空置改普通”这一需求已经完成。新增操作系统及允许破坏兼容性的前提后，已完成 [数据模型与插件契约设计基线](data-model.md)，已完成 A1 的配置／观察分离与操作系统登记，下一步实现 A2 的 V2 注册及计划执行基础，再实现版本范围、冲突替换确认、移动预检及成功后提交移动。自动检测升级和独立「升级管理」Tab 仍排在版本／预检能力之后。第 13.2 节描述当前已运行的旧接口，V2 尚未接入。
 
 ### 13.4 验证与测试数据
 
 服务器管理测试包含隔离 PostgreSQL schema、真实 Cordis 注册／卸载和 SSH 执行替身，覆盖旧数据补齐、默认空置、系统分组保护、类型伪造、动态软件安装、检测未知、容器观察保留、排队失效和并发互斥。补充验证指标采集在 SSH 建连过程中卸载时会关闭迟到连接，不留下后台采集。集成测试通过 `SMP_TEST_DATABASE_URL` 启用，创建随机 schema 并在结束后删除，不操作应用业务表，也不连接真实 SSH 服务器。
 
 CES 本地验收前按约定清空历史测试会话／工作区记录，保留服务器和密钥；临时工作区示例与命令插件继续禁用。构建后由数据库插件应用 `0012_server_types.sql`。页面验收检查默认类型、必要软件随选择变化、中英文显示，以及既有侧栏和分页布局。
+
+## 14. A1 操作系统范围注册示例
+
+```ts
+const supportedOs = [{
+  family: 'builtin/ubuntu',
+  versions: { kind: 'release' as const, version: '24.04' },
+  architectures: ['x86_64', 'aarch64'],
+}]
+
+await ctx.serverManagement.registerGroup({
+  plugin: '@example/compute', key: 'compute',
+  name: { zh: '计算节点', en: 'Compute nodes' },
+  software: [{
+    id: 'agent', name: { zh: '节点代理', en: 'Node agent' }, supportedOs,
+    detectScript: '/absolute/plugin/path/detect.sh',
+    installScript: '/absolute/plugin/path/install.sh',
+  }],
+  types: [{
+    key: 'worker', name: { zh: '工作节点', en: 'Worker' },
+    supportedOs: { kind: 'explicit', selectors: supportedOs }, software: ['agent'],
+  }],
+  defaultType: 'worker',
+})
+```
+
+类型无软件时可以声明 `supportedOs: { kind: 'all' }`。当前 `sh` 执行器拒绝将 Windows 声明为带软件类型的执行范围；其他自由文本也不能自动映射成 Ubuntu。自定义软件检测返回 `installed` 时必须同时返回非空 `version`，否则记录未知。软件持久身份为 `插件包名/软件键`，配方身份仍包括分组键；实际范围随配方内容参与修订。
+
+这段接口是 A1 的现有能力，后续 A2 将按允许破坏兼容性的前提切换完整 V2。其他、系统版本、阶段边界与验证见 [A1 实施记录](database-redesign.md#7-a1-实施记录2026-10-19)。

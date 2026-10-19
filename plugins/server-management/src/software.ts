@@ -29,6 +29,7 @@ export function parseSoftwareProbe(result: CommandResult): SoftwareProbe {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return probe('unknown')
   const record = value as { state?: unknown; detail?: unknown; version?: unknown }
   if (record.state !== 'installed' && record.state !== 'missing' && record.state !== 'unknown') return probe('unknown')
+  if (record.state === 'installed' && (typeof record.version !== 'string' || record.version.trim()==='')) return probe('unknown','Installed software did not report a version.')
   return probe(record.state, typeof record.detail === 'string' ? record.detail : '', typeof record.version === 'string' ? record.version.slice(0, 128) : undefined)
 }
 

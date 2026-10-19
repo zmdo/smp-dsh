@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Component } from './catalog.ts'
-import { GENERAL_TYPE, VACANT_TYPE, sameSoftware, type GroupRecord, type ServerTypeView, type TypeOptions } from './definitions.ts'
+import { GENERAL_TYPE, VACANT_TYPE, sameSoftware, typeSupportsOs, type GroupRecord, type ServerTypeView, type TypeOptions } from './definitions.ts'
 import { errorPayload, ServerError, type ErrorCode } from './i18n.ts'
 import { keyInUse, retestAfterEdit, type RetestSnap } from './jobs.ts'
+import { parseDeclaredOs, sameDeclaredOs, osVerification, type DeclaredOs, type DetectedOs } from './operating-systems.ts'
 import { chosenRegion, lookupRegion } from './region.ts'
 import { DefinitionRegistry, type TypeLease } from './registry.ts'
 import { field, readJson, sendJson, text } from './reply.ts'
@@ -87,16 +88,21 @@ export function routeComponents(catalog: readonly Component[], request: Incoming
 }
 
 async function listServers(deps: Deps): Promise<Record<string, unknown>[]> {
-  const result = await deps.db.query(
-    `select s.id, s.name, s.intranet_host, s.ssh_port, s.ssh_user, s.auth_method, s.ssh_key_id,
-            s.group_id, g.name as group_name, g.name_i18n as group_name_i18n, g.kind as group_kind,
-            s.region, s.auto_install, s.install_component_ids, s.component_status, s.type_key, s.type_snapshot, s.config_revision,
-            s.host_key_fingerprint, s.reachability, s.docker_version, s.compose_version, s.cpu_cores, s.cpu_percent,
-            s.mem_total_bytes, s.mem_used_bytes, s.disk_total_bytes, s.disk_used_bytes,
-            s.metrics_at, s.last_checked_at, s.created_at, s.containers_state, s.containers_checked_at,
-            case when s.containers_state = 'ready' then (select count(*)::int from server_containers c where c.server_id = s.id) else null end as container_count
-     from servers s left join server_groups g on g.id = s.group_id order by s.name`,
-  )
+  const result = await deps.db.query(`select s.id,s.name,s.host,s.ssh_port,s.ssh_user,s.auth_method,s.ssh_key_id,s.group_id,
+    g.name as group_name,g.name_i18n as group_name_i18n,g.kind as group_kind,s.region,s.install_required_software,s.type_key,s.type_snapshot,s.type_revision,s.config_revision,
+    s.declared_os,s.host_fingerprint,s.created_at,r.connection_state as reachability,r.connection_checked_at as last_checked_at,
+    r.detected_os,r.os_probe_state,r.observed_config_revision,r.environment_revision,r.os_checked_at,r.os_error,
+    r.cpu_cores,r.cpu_percent,r.memory_total_bytes as mem_total_bytes,r.memory_used_bytes as mem_used_bytes,r.disk_total_bytes,r.disk_used_bytes,r.metrics_sampled_at as metrics_at,
+    coalesce(c.state,'unknown') as containers_state,c.last_success_at as containers_checked_at,
+    case when c.state='ready' then (select count(*)::int from server_containers where server_id=s.id) else null end as container_count
+    from servers s join server_runtime r on r.server_id=s.id left join server_groups g on g.id=s.group_id left join server_container_scans c on c.server_id=s.id order by s.name,s.id`)
+  const observations = await deps.db.query('select * from server_software_observations')
+  const byServer = new Map<string, Map<string, Record<string, unknown>>>()
+  for (const item of observations.rows) {
+    const id = String(item.server_id)
+    if (!byServer.has(id)) byServer.set(id,new Map())
+    byServer.get(id)!.set(String(item.software_key), item)
+  }
   const options = new Map<string | null, TypeOptions>()
   await Promise.all([...new Set(result.rows.map(row => row.group_id as string | null))].map(async id => {
     try { options.set(id, await deps.definitions.options(id)) } catch (cause) {
@@ -112,15 +118,25 @@ async function listServers(deps: Deps): Promise<Record<string, unknown>[]> {
     const fallback = deps.definitions.defaultOptions().types.find(type => type.key === row.type_key)
     const type = current ?? cached ?? fallback
     const available = choice.available && current !== undefined
-    const status = parseJson(row.component_status, {}) as Record<string, { state?: string; installed?: boolean; revision?: string }>
     const required = type?.software ?? []
+    const observed = byServer.get(String(row.id))
+    const status: Record<string, {state:string;installed:boolean;version?:unknown;last_known_version?:unknown;detail?:string;revision?:unknown}> = {}
     for (const item of required) {
-      if (status[item.id]?.revision !== item.revision) status[item.id] = { state: 'unknown', installed: false }
+      const fact = observed?.get(item.software_key)
+      const fresh = fact && fact.recipe_revision === item.revision && String(fact.observed_config_revision) === String(row.config_revision)
+        && String(fact.observed_environment_revision) === String(row.environment_revision)
+      const state = fresh ? String(fact.probe_state) : 'unknown'
+      status[item.id] = {state,installed:state==='installed',version:state==='installed'?fact?.product_version:undefined,last_known_version:fact?.product_version,
+        detail:(fact?.error as {detail?:string}|null)?.detail,revision:fact?.recipe_revision}
     }
+    const osState = String(row.observed_config_revision) === String(row.config_revision) ? String(row.os_probe_state) : 'unknown'
+    const verification = osVerification(row.declared_os as DeclaredOs,row.detected_os as DetectedOs|null,osState)
     const states = required.map(item => status[item.id]?.state ?? (status[item.id]?.installed === true ? 'installed' : 'unknown'))
     const softwareState = !available ? 'unavailable' : required.length === 0 || states.every(state => state === 'installed') ? 'ready'
       : states.some(state => state === 'missing') ? 'pending' : 'unknown'
-    return { ...visible, component_status: status, install_component_ids: required.map(item => item.id),
+    return { ...visible, software_status: status, os_verification: verification,
+      type_supported_os: type?.supportedOs, type_os_compatible: type !== undefined && typeSupportsOs(type,row.declared_os as DeclaredOs),
+      docker_version: observed?.get('builtin/docker-engine')?.product_version ?? null, compose_version: observed?.get('builtin/docker-compose')?.product_version ?? null,
       type_name_i18n: type?.name_i18n ?? { zh: String(row.type_key), en: String(row.type_key) },
       type_available: available, required_software: required, software_state: softwareState,
     }
@@ -135,13 +151,14 @@ async function serverDetail(deps: Deps, id: string): Promise<unknown> {
   return { ...server, containers: containers.rows, jobs: jobs.rows.map(jobView) }
 }
 
-async function selectType(definitions: DefinitionRegistry, groupId: string | null, key?: string): Promise<TypeLease> {
+async function selectType(definitions: DefinitionRegistry, groupId: string | null, os: DeclaredOs, key?: string): Promise<TypeLease> {
   const options = await definitions.options(groupId)
   if (!options.available) throw new HttpError(409, 'type_unavailable')
   const selected = key ?? options.default_type_key
   if (!options.types.some(type => type.key === selected)) throw new HttpError(422, 'type_not_found')
   const lease = await definitions.lease(groupId, selected)
   if (lease === undefined) throw new HttpError(409, 'type_unavailable')
+  if (!typeSupportsOs(lease.type,os)) { lease.release(); throw new HttpError(422,'os_type_unsupported') }
   return lease
 }
 
@@ -151,12 +168,13 @@ function readonlySoftware(body: unknown): void {
 
 async function createServer(deps: Deps, body: unknown): Promise<unknown> {
   const name = required(text(field(body, 'name')), 'name_required')
-  const host = required(text(field(body, 'intranet_host')), 'host_required')
+  const host = required(text(field(body, 'host')), 'host_required')
   const port = portOf(field(body, 'ssh_port'))
   const user = required(text(field(body, 'ssh_user')), 'user_required')
   readonlySoftware(body)
   const method = text(field(body, 'auth_method'))
   if (method !== 'private_key' && method !== 'password') throw new HttpError(422, 'auth_required')
+  const os = parseDeclaredOs(field(body,'declared_os'))
   const groupId = await groupOrNull(deps.db, field(body, 'group_id'))
   const region = await regionOf(host, field(body, 'region'))
   let keyId: string | null = null
@@ -168,7 +186,7 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
   } else {
     secret = required(text(field(body, 'secret')), 'password_required')
   }
-  const lease = await selectType(deps.definitions, groupId, field(body, 'type_key') === undefined ? undefined : text(field(body, 'type_key')))
+  const lease = await selectType(deps.definitions, groupId, os, field(body, 'type_key') === undefined ? undefined : text(field(body, 'type_key')))
   const id = randomUUID()
   try {
     const client = await deps.db.connect()
@@ -176,15 +194,16 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
       await client.query('begin')
       await client.query("select pg_advisory_xact_lock(hashtextextended('smp/server-management/catalog', 0))")
       await groupOrNull(client, groupId)
-      const auto = field(body, 'auto_install') === true && lease.components.length > 0
+      const auto = field(body, 'install_required_software') === true && lease.components.length > 0
       await client.query(
-        `insert into servers (id, name, intranet_host, ssh_port, ssh_user, auth_method, secret_ciphertext, ssh_key_id, group_id, region,
-          auto_install, install_component_ids, component_status, reachability, type_key, type_snapshot)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}','unknown',$13,$14)`,
-        [id, name, host, port, user, method, method === 'password' ? deps.secrets.encrypt(secret) : '', keyId, groupId, region,
-          auto, JSON.stringify(lease.components.map(item => item.id)), lease.type.key, JSON.stringify(lease.type)],
+        `insert into servers (id, name, host, ssh_port, ssh_user, auth_method, secret_ciphertext, ssh_key_id, group_id, region,
+          install_required_software, declared_os, type_key, type_snapshot, type_revision)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [id, name, host, port, user, method, method === 'password' ? deps.secrets.encrypt(secret) : null, keyId, groupId, region,
+          auto, JSON.stringify(os), lease.type.key, JSON.stringify(lease.type), lease.signature],
       )
-      if (auto) await enqueue(client, id, 'test_connection', { configRevision: 0, typeSignature: lease.signature })
+      await client.query('insert into server_runtime(server_id) values ($1)',[id])
+      if (auto) await enqueue(client, id, 'test_connection', { configRevision: 1, typeSignature: lease.signature })
       await client.query('commit')
     } catch (cause) {
       await client.query('rollback')
@@ -197,16 +216,17 @@ async function createServer(deps: Deps, body: unknown): Promise<unknown> {
 
 interface EditableServer {
   id: string
-  intranet_host: string
+  host: string
   ssh_port: number
   ssh_user: string
   auth_method: string
   ssh_key_id: string | null
-  auto_install: boolean
-  install_component_ids: string
+  install_required_software: boolean
+  declared_os: DeclaredOs
   group_id: string | null
   type_key: string
   type_snapshot: ServerTypeView | null
+  type_revision: string
   config_revision: string | number
 }
 
@@ -217,34 +237,41 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
   try {
     await client.query('begin')
     await client.query("select pg_advisory_xact_lock(hashtextextended('smp/server-management/catalog', 0))")
-    const row = (await client.query<EditableServer>('select id, intranet_host, ssh_port, ssh_user, auth_method, ssh_key_id, auto_install, install_component_ids, group_id, type_key, type_snapshot, config_revision from servers where id = $1 for update', [id])).rows[0]
+    const row = (await client.query<EditableServer>('select id, host, ssh_port, ssh_user, auth_method, ssh_key_id, install_required_software, declared_os, group_id, type_key, type_snapshot, type_revision, config_revision from servers where id = $1 for update', [id])).rows[0]
     if (row === undefined) throw new HttpError(404, 'server_not_found')
     const sets: string[] = []
     const params: unknown[] = [id]
     const assign = (column: string, value: unknown) => { params.push(value); sets.push(`${column} = $${params.length}`) }
-    const before: RetestSnap = { autoInstall: row.auto_install, host: row.intranet_host, port: row.ssh_port, user: row.ssh_user, method: row.auth_method, keyId: row.ssh_key_id, selection: row.install_component_ids, secretWritten: false }
+    const before: RetestSnap = { autoInstall: row.install_required_software, host: row.host, port: row.ssh_port, user: row.ssh_user, method: row.auth_method, keyId: row.ssh_key_id, selection: JSON.stringify(row.type_snapshot?.software.map(item=>item.id) ?? []), secretWritten: false }
     const after = { ...before }
     const groupId = field(body, 'group_id') === undefined ? row.group_id : await groupOrNull(client, field(body, 'group_id'))
     const choices = await deps.definitions.options(groupId)
     const key = field(body, 'type_key') !== undefined ? text(field(body, 'type_key'))
       : groupId === row.group_id || choices.types.some(type => type.key === row.type_key) ? row.type_key : choices.default_type_key
     const bindingChanged = groupId !== row.group_id || key !== row.type_key
-    lease = bindingChanged ? await selectType(deps.definitions, groupId, key) : await deps.definitions.lease(groupId, key)
+    const os = field(body,'declared_os') === undefined ? row.declared_os : parseDeclaredOs(field(body,'declared_os'),row.declared_os)
+    const osChanged = !sameDeclaredOs(os,row.declared_os)
+    if (bindingChanged) {
+      const runtime = (await client.query<{detected_os:DetectedOs|null;os_probe_state:string;observed_config_revision:string}>('select detected_os,os_probe_state,observed_config_revision from server_runtime where server_id=$1',[id])).rows[0]!
+      if (osVerification(os,runtime.detected_os,String(runtime.observed_config_revision)===String(row.config_revision)?runtime.os_probe_state:'unknown')==='mismatch') throw new HttpError(409,'os_mismatch')
+    }
+    lease = bindingChanged || osChanged ? await selectType(deps.definitions, groupId, os, key) : await deps.definitions.lease(groupId, key)
     const prior = row.type_snapshot ?? deps.definitions.defaultOptions().types.find(type => type.key === row.type_key)
     if (bindingChanged && lease !== undefined && lease.components.length > 0 && (prior === undefined || !sameSoftware(prior, lease.type))) throw new HttpError(409, 'type_change_requires_preflight')
     if (field(body, 'name') !== undefined) assign('name', required(text(field(body, 'name')), 'name_required'))
-    if (field(body, 'intranet_host') !== undefined) { after.host = required(text(field(body, 'intranet_host')), 'host_required'); assign('intranet_host', after.host) }
+    if (field(body, 'host') !== undefined) { after.host = required(text(field(body, 'host')), 'host_required'); assign('host', after.host) }
     if (field(body, 'ssh_port') !== undefined) { after.port = portOf(field(body, 'ssh_port')); assign('ssh_port', after.port) }
     if (field(body, 'ssh_user') !== undefined) { after.user = required(text(field(body, 'ssh_user')), 'user_required'); assign('ssh_user', after.user) }
     if (field(body, 'region') !== undefined) assign('region', await regionOf(after.host, field(body, 'region')))
-    after.autoInstall = field(body, 'auto_install') === undefined ? row.auto_install : field(body, 'auto_install') === true
+    after.autoInstall = field(body, 'install_required_software') === undefined ? row.install_required_software : field(body, 'install_required_software') === true
     if (lease !== undefined) {
       if (lease.components.length === 0) after.autoInstall = false
       after.selection = JSON.stringify(lease.components.map(item => item.id))
       if (after.autoInstall && prior !== undefined && !sameSoftware(prior, lease.type)) throw new HttpError(409, 'type_change_requires_preflight')
-      assign('type_key', key); assign('type_snapshot', JSON.stringify(lease.type)); assign('install_component_ids', after.selection)
-    } else if (after.autoInstall && !row.auto_install) throw new HttpError(409, 'type_unavailable')
-    assign('auto_install', after.autoInstall)
+      assign('type_key', key); assign('type_snapshot', JSON.stringify(lease.type)); assign('type_revision', lease.signature)
+    } else if (after.autoInstall && !row.install_required_software) throw new HttpError(409, 'type_unavailable')
+    assign('install_required_software', after.autoInstall)
+    if (osChanged) assign('declared_os',JSON.stringify(os))
     if (bindingChanged) assign('group_id', groupId)
     if (field(body, 'auth_method') !== undefined || field(body, 'ssh_key_id') !== undefined || field(body, 'secret') !== undefined) {
       const method = field(body, 'auth_method') === undefined ? row.auth_method : text(field(body, 'auth_method'))
@@ -253,7 +280,7 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
         if (!UUID.test(keyId)) throw new HttpError(422, 'key_required')
         if ((await client.query('select id from ssh_keys where id = $1', [keyId])).rows.length === 0) throw new HttpError(422, 'key_not_found')
         after.method = 'private_key'; after.keyId = keyId
-        assign('auth_method', 'private_key'); assign('ssh_key_id', keyId)
+        assign('auth_method', 'private_key'); assign('ssh_key_id', keyId); assign('secret_ciphertext', null)
       } else if (method === 'password') {
         const secret = text(field(body, 'secret'))
         if (secret === '' && row.auth_method !== 'password') throw new HttpError(422, 'password_required')
@@ -262,14 +289,15 @@ async function updateServer(deps: Deps, id: string, body: unknown): Promise<unkn
         if (secret !== '') assign('secret_ciphertext', deps.secrets.encrypt(secret))
       } else throw new HttpError(422, 'auth_required')
     }
-    const definitionChanged = lease !== undefined && prior !== undefined && !sameSoftware(prior, lease.type)
-    const critical = bindingChanged || definitionChanged || before.host !== after.host || before.port !== after.port || before.user !== after.user || before.method !== after.method
+    const definitionChanged = lease !== undefined && lease.signature !== row.type_revision
+    const critical = osChanged || bindingChanged || definitionChanged || before.host !== after.host || before.port !== after.port || before.user !== after.user || before.method !== after.method
       || before.keyId !== after.keyId || before.autoInstall !== after.autoInstall || before.selection !== after.selection || after.secretWritten
     if (critical) await notRunning(client, id)
     const revision = critical ? String(BigInt(row.config_revision) + 1n) : row.config_revision
     if (critical) assign('config_revision', revision)
     await client.query(`update servers set ${sets.join(', ')}, updated_at = now() where id = $1`, params)
-    if (retestAfterEdit(before, after)) await enqueue(client, id, 'test_connection', { configRevision: revision, typeSignature: lease?.signature ?? '' })
+    if (critical) await client.query("update server_runtime set connection_state='unknown', connection_error=null, connection_checked_at=null where server_id=$1",[id])
+    if (osChanged || retestAfterEdit(before, after)) await enqueue(client, id, 'test_connection', { configRevision: revision, typeSignature: lease?.signature ?? '' })
     await client.query('commit')
   } catch (cause) {
     await client.query('rollback')
@@ -301,12 +329,18 @@ async function enqueueExisting(deps: Deps, id: string, action: string): Promise<
 }
 
 async function deleteServer(db: Db, id: string): Promise<void> {
-  const result = await db.query('delete from servers where id = $1 returning id', [id])
-  if (result.rows.length === 0) throw new HttpError(404, 'server_not_found')
+  const client = await db.connect()
+  try {
+    await client.query('begin')
+    if ((await client.query('select id from servers where id=$1 for update',[id])).rows.length===0) throw new HttpError(404,'server_not_found')
+    await notRunning(client,id)
+    await client.query('delete from servers where id=$1',[id])
+    await client.query('commit')
+  } catch(cause) { await client.query('rollback'); throw cause } finally { client.release() }
 }
 
 async function preview(body: unknown): Promise<unknown> {
-  const host = required(text(field(body, 'intranet_host')), 'host_required')
+  const host = required(text(field(body, 'host')), 'host_required')
   const port = portOf(field(body, 'ssh_port'))
   const user = required(text(field(body, 'ssh_user')), 'user_required')
   const method = text(field(body, 'auth_method'))
@@ -347,10 +381,12 @@ async function deleteGroup(db: Db, id: string): Promise<void> {
     const row = (await client.query<{ kind: string }>('select kind from server_groups where id = $1 for update', [id])).rows[0]
     if (row === undefined) throw new HttpError(404, 'group_not_found')
     if (row.kind === 'system') throw new HttpError(403, 'system_group_protected')
-    const servers = await client.query<{ id: string; type_key: string }>('select id, type_key from servers where group_id = $1 for update', [id])
+    const servers = await client.query<{ id: string; type_key: string; declared_os: DeclaredOs; detected_os: DetectedOs|null; os_probe_state:string; config_revision:string; observed_config_revision:string }>(
+      'select s.id,s.type_key,s.declared_os,s.config_revision,r.detected_os,r.os_probe_state,r.observed_config_revision from servers s join server_runtime r on r.server_id=s.id where s.group_id=$1 for update of s',[id])
     for (const server of servers.rows) {
       if (server.type_key !== VACANT_TYPE && server.type_key !== GENERAL_TYPE) throw new HttpError(409, 'type_change_requires_preflight')
       await notRunning(client, server.id)
+      if (String(server.config_revision)===String(server.observed_config_revision) && osVerification(server.declared_os,server.detected_os,server.os_probe_state)==='mismatch') throw new HttpError(409,'os_mismatch')
     }
     await client.query('update servers set group_id = null, config_revision = config_revision + 1, updated_at = now() where group_id = $1', [id])
     await client.query('delete from server_groups where id = $1', [id])
@@ -398,11 +434,6 @@ async function containersOf(db: Db, id: string): Promise<unknown[]> {
   return (await db.query('select container_id, name, image, status, ports, managed, strategy_slug, observed_at from server_containers where server_id = $1 order by name', [id])).rows
 }
 
-function parseJson(value: unknown, fallback: unknown): unknown {
-  if (typeof value !== 'string') return value ?? fallback
-  try { return JSON.parse(value) } catch (cause) { void cause; return fallback }
-}
-
 async function groupOrNull(db: Db, value: unknown): Promise<string | null> {
   if (value === null || value === undefined || value === '') return null
   const id = text(value)
@@ -411,9 +442,9 @@ async function groupOrNull(db: Db, value: unknown): Promise<string | null> {
   return id
 }
 
-async function regionOf(host: string, value: unknown): Promise<string | null> {
+async function regionOf(host: string, value: unknown): Promise<string> {
   const written = typeof value === 'string' ? value : ''
-  return written.trim() === '' ? lookupRegion(host) : chosenRegion(host, written, null)
+  return (written.trim() === '' ? await lookupRegion(host) : chosenRegion(host, written, null)) ?? ''
 }
 
 function portOf(value: unknown): number {
