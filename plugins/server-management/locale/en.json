@@ -143,7 +143,11 @@
     "queued": "Queued",
     "running": "Running",
     "succeeded": "Succeeded",
-    "failed": "Failed"
+    "failed": "Failed",
+    "claimed": "Claimed",
+    "recovering": "Reconciling",
+    "blocked": "Blocked",
+    "cancelled": "Cancelled"
   },
   "containerStatus": {
     "created": "Created",
@@ -243,6 +247,20 @@
     "os_type_unsupported": "This type or its required software does not support the selected OS, release or detected architecture.",
     "os_mismatch": "The declared OS differs from the detected OS. Correct it before changing software or moving the server.",
     "os_unverified": "The operating system is unverified. Software changes are blocked.",
-    "os_probe_failed": "Could not identify the actual operating system."
+    "os_probe_failed": "Could not identify the actual operating system.",
+    "version_invalid": "Invalid software version or version range.",
+    "recipe_protocol": "The software recipe returned an invalid response.",
+    "recipe_unavailable": "No executable recipe is available for this software and operating system.",
+    "plan_conflict": "The software change requires a new preflight and confirmation.",
+    "job_lease_lost": "The task lease has expired; remote results must be reconciled.",
+    "job_recovering": "The remote operation is being reconciled; new changes are blocked.",
+    "definition_owner": "The definition owner does not match the contributing plugin.",
+    "definition_reference": "A definition reference is unavailable or incompatible."
+  },
+  "jobMessages": {
+    "prepared": "Check complete; missing software is handled by a separate installation plan.",
+    "inspected": "Read-only check complete.",
+    "installed": "Installation completed and verified.",
+    "recovering": "Reconciling the remote operation. New changes are blocked until its outcome is known."
   }
 }

@@ -1,88 +1,135 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { detectSoftware, inspectContainers, installRequired, parseSoftwareProbe } from '../src/software.ts'
-import { ServerError } from '../src/i18n.ts'
-import type { CommandResult, SshSession } from '../src/ssh.ts'
-import { builtinCatalog, componentFixture } from './fixtures.ts'
-
-function session(run: (command: string) => CommandResult) {
-  const commands: string[] = []
-  const uploads: string[] = []
-  const ssh: SshSession = {
-    fingerprint: 'SHA256:test',
-    async exec(command) { commands.push(command); return run(command) },
-    async putScript(name) { uploads.push(name) },
-    async shell() { throw new Error('No terminal expected') },
-    close() {},
-  }
-  return { ssh, commands, uploads }
+import { inspectContainers } from '../src/software.ts'
+import { parseRecipeResponse } from '../src/recipe.ts'
+import { preparePlan, checkPlan } from '../src/plans.ts'
+import type { TypeLease } from '../src/registry.ts'
+import type { SshSession } from '../src/ssh.ts'
+import { componentFixture } from './fixtures.ts'
+const os = { family: 'builtin/ubuntu', version: '24.04', architecture: 'x86_64' }
+const candidate = {
+  version: '1.2.3',
+  targetIdentity: 'package=1:1.2.3-1',
+  packages: [
+    { manager: 'apt', name: 'package', version: '1:1.2.3-1', architecture: 'amd64', source: 'pool/package.deb' },
+  ],
+  channel: 'stable',
 }
-const result = (code = 0, stdout = '', stderr = '') => ({ code, stdout, stderr })
-
-test('structured detection distinguishes missing and unknown without interpreting a failed script as absence', () => {
-  assert.equal(parseSoftwareProbe(result(0, '{"state":"missing"}')).state, 'missing')
-  assert.equal(parseSoftwareProbe(result(0, '{"state":"installed","version":"1.2.3"}')).version, '1.2.3')
-  assert.equal(parseSoftwareProbe(result(1, '{"state":"missing"}')).state, 'unknown')
-  assert.equal(parseSoftwareProbe(result(0, 'plain output')).state, 'unknown')
-  assert.equal(parseSoftwareProbe(result(0, '{"installed":false}')).state, 'unknown')
+function fixture() {
+  let state: 'installed' | 'missing' | 'unknown' = 'missing',
+    changed = false
+  const requests: string[] = []
+  const component = componentFixture('custom')
+  const lease: TypeLease = {
+    type: { key: 'test/type', name_i18n: { zh: '测试', en: 'Test' }, software: [], supportedOs: { kind: 'all' } },
+    components: [component],
+    signature: 'type-revision',
+    release() {},
+  }
+  const session: SshSession = {
+    fingerprint: 'test',
+    close() {},
+    async shell() {
+      throw Error('unexpected')
+    },
+    async putScript() {
+      throw Error('unexpected')
+    },
+    async exec(_command, _timeout, options) {
+      const r = JSON.parse(options!.stdin!)
+      requests.push(r.operation)
+      let response
+      switch (r.operation) {
+        case 'detect':
+          response = {
+            operation: r.operation,
+            result:
+              state === 'installed'
+                ? {
+                    state,
+                    version: '1.2.3',
+                    targetIdentity: candidate.targetIdentity,
+                    packages: candidate.packages,
+                    healthy: true,
+                  }
+                : state === 'unknown'
+                  ? { state, code: 'failed' }
+                  : { state },
+          }
+          break
+        case 'list-candidates':
+          response = { operation: r.operation, candidates: [candidate] }
+          break
+        case 'resolve':
+          response = {
+            operation: r.operation,
+            change: {
+              software: r.software,
+              recipe: r.recipe,
+              recipeRevision: r.recipeRevision,
+              action: 'install',
+              before: r.installed,
+              target: r.target,
+              dependencies: [],
+              effects: [],
+              payload: { version: changed ? 'changed' : '1:1.2.3-1' },
+            },
+            additionalRequirements: [],
+          }
+          break
+        default:
+          throw Error('read-only planning tried mutation')
+      }
+      return { code: 0, stdout: JSON.stringify(response), stderr: '' }
+    },
+  }
+  return {
+    session,
+    lease,
+    requests,
+    state(value: typeof state) {
+      state = value
+    },
+    drift() {
+      changed = true
+    },
+  }
+}
+test('preparation freezes raw package versions and rechecks the exact dependency plan without executing', async () => {
+  const f = fixture()
+  const plan = await preparePlan(f.session, f.lease, os)
+  assert.equal(plan.changes[0]!.target!.packages[0]!.version, '1:1.2.3-1')
+  await checkPlan(f.session, f.lease, plan)
+  assert.equal(f.requests.includes('execute'), false)
+  f.drift()
+  await assert.rejects(checkPlan(f.session, f.lease, plan), { code: 'plan_conflict' })
 })
-
-test('a vacant type runs no software scripts and skips container inspection when Docker is absent', async () => {
-  const remote = session(() => result(1))
-  assert.deepEqual(await detectSoftware(remote.ssh, []), {})
-  assert.deepEqual(await installRequired(remote.ssh, [], {}), {})
-  const inspected = await inspectContainers(remote.ssh)
-  assert.equal(inspected.state, 'unavailable')
-  assert.deepEqual(remote.commands, ['command -v docker >/dev/null 2>&1'])
-  assert.deepEqual(remote.uploads, [])
+test('unknown observations cannot authorize installation; already compliant software is kept', async () => {
+  const f = fixture()
+  f.state('unknown')
+  await assert.rejects(preparePlan(f.session, f.lease, os), { code: 'software_detection_unknown' })
+  f.state('installed')
+  const plan = await preparePlan(f.session, f.lease, os)
+  assert.equal(plan.changes[0]!.action, 'keep')
 })
-
-test('Docker permission failures are unknown and block installation before any upload', async () => {
-  const remote = session(command => command.startsWith('command -v') ? result() : result(1, '', 'permission denied while connecting to Docker'))
-  const detected = await detectSoftware(remote.ssh, builtinCatalog())
-  assert.equal(detected.docker?.state, 'unknown')
-  await assert.rejects(installRequired(remote.ssh, builtinCatalog(), detected), cause => cause instanceof ServerError && cause.code === 'software_detection_unknown')
-  assert.deepEqual(remote.uploads, [])
+test('protocol boundary rejects malformed successful responses and undeclared dependencies', () => {
+  for (const raw of [
+    'not json',
+    '{"operation":"detect","result":{"state":"installed"}}',
+    '{"operation":"detect","result":{"state":"missing"}}',
+  ]) {
+    if (raw.includes('missing')) assert.equal(parseRecipeResponse(raw, 'detect').operation, 'detect')
+    else assert.throws(() => parseRecipeResponse(raw, 'detect'))
+  }
+  assert.throws(() => parseRecipeResponse('{"operation":"execute","state":"completed","changes":[]}', 'detect'))
 })
-
-test('a missing Compose command is distinct from a broken Docker connection', async () => {
-  const remote = session(command => command.startsWith('command -v') ? result() : command.startsWith('docker compose')
-    ? result(1, '', "docker: 'compose' is not a docker command.") : result(0, '{"Server":{"Version":"27.2.0"}}'))
-  const detected = await detectSoftware(remote.ssh, builtinCatalog())
-  assert.equal(detected.docker?.state, 'installed')
-  assert.equal(detected.compose?.state, 'missing')
-})
-
-test('custom software installs only missing requirements and verifies the result', async () => {
-  let installed = false
-  const remote = session(command => {
-    if (command.endsWith('-install.sh')) { installed = true; return result() }
-    return result(0, JSON.stringify({ state: installed ? 'installed' : 'missing', version:'1.0.0' }))
-  })
-  const wanted = [componentFixture('custom')]
-  const status = await detectSoftware(remote.ssh, wanted)
-  const actual = await installRequired(remote.ssh, wanted, status)
-  assert.equal(actual.custom?.state, 'installed')
-  assert.equal(remote.commands.filter(command => command.endsWith('-install.sh')).length, 1)
-  assert.equal(remote.uploads.length, 3)
-  await installRequired(remote.ssh, wanted, actual)
-  assert.equal(remote.uploads.length, 3)
-})
-
-test('a zero installer exit code is insufficient when the software is still missing', async () => {
-  const remote = session(command => command.endsWith('-install.sh') ? result() : result(0, '{"state":"missing"}'))
-  const wanted = [componentFixture('custom')]
-  await assert.rejects(installRequired(remote.ssh, wanted, await detectSoftware(remote.ssh, wanted)), cause => cause instanceof ServerError && cause.code === 'software_install_unverified')
-})
-
-test('optional container inspection preserves unknown and failed states instead of reporting an empty machine', async () => {
-  const failed = session(command => command.startsWith('command -v') ? result() : result(1, '', 'permission denied'))
-  assert.equal((await inspectContainers(failed.ssh)).state, 'error')
-  const remote = session(command => command.startsWith('command -v') ? result() : command.startsWith('docker version')
-    ? result(0, '{"Server":{"Version":"27.2.0"}}') : command.startsWith('docker compose')
-      ? result(1, '', "docker: 'compose' is not a docker command.") : result(0, '{"ID":"abc","Names":"web","Image":"nginx","State":"running"}'))
-  const observed = await inspectContainers(remote.ssh)
-  assert.equal(observed.state, 'ready')
-  assert.equal(observed.containers?.[0]?.name, 'web')
-  assert.equal(observed.compose, null)
+test('optional container inspection distinguishes absent Docker from a failed inspection', async () => {
+  const f = fixture()
+  f.session.exec = async () => ({ code: 1, stdout: '', stderr: '' })
+  assert.equal((await inspectContainers(f.session)).state, 'unavailable')
+  f.session.exec = async (command) =>
+    command.startsWith('command -v')
+      ? { code: 0, stdout: '', stderr: '' }
+      : { code: 1, stdout: '', stderr: 'permission denied' }
+  assert.equal((await inspectContainers(f.session)).state, 'error')
 })

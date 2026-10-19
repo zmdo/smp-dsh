@@ -143,7 +143,11 @@
     "queued": "排队中",
     "running": "执行中",
     "succeeded": "成功",
-    "failed": "失败"
+    "failed": "失败",
+    "claimed": "已领取",
+    "recovering": "核对远端结果",
+    "blocked": "已阻止",
+    "cancelled": "已取消"
   },
   "containerStatus": {
     "created": "已创建",
@@ -243,6 +247,20 @@
     "os_type_unsupported": "该类型或必要软件不支持所选系统、版本或实际架构。",
     "os_mismatch": "登记系统与实际探测结果不一致，请修正系统后再执行软件操作或移动。",
     "os_unverified": "操作系统尚未验证，已阻止软件操作。",
-    "os_probe_failed": "无法识别实际操作系统。"
+    "os_probe_failed": "无法识别实际操作系统。",
+    "version_invalid": "软件版本或版本范围无效。",
+    "recipe_protocol": "软件配方返回了无效结果。",
+    "recipe_unavailable": "该软件及操作系统没有可执行的安装配方。",
+    "plan_conflict": "软件变更需要重新预检并确认。",
+    "job_lease_lost": "任务执行权已过期，需要核对远端结果。",
+    "job_recovering": "正在核对远端操作，暂不能执行新的变更。",
+    "definition_owner": "定义归属与提供该定义的插件不一致。",
+    "definition_reference": "定义引用不可用或不兼容。"
+  },
+  "jobMessages": {
+    "prepared": "检查完成；缺失软件由独立安装计划处理。",
+    "inspected": "只读检查完成。",
+    "installed": "已完成安装并验证。",
+    "recovering": "正在核对远端操作；结果明确前不能进行新的变更。"
   }
 }

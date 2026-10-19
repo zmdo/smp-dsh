@@ -1,4 +1,4 @@
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { Pool } from 'pg'
 import { fileURLToPath } from 'node:url'
@@ -7,21 +7,19 @@ import { applyMigrations } from './migrate.ts'
 import { normalizeDatabaseUrl } from './url.ts'
 
 /** Queries go through this pool. Callers do not open their own. */
-export class Database extends Service {
+export class Database {
   readonly pool: Pool
 
-  constructor(ctx: Context, pool: Pool) {
-    super(ctx, 'database')
+  constructor(pool: Pool) {
     this.pool = pool
   }
 }
 
 /** Ciphertext stored in PostgreSQL. The key stays in this service. */
-export class Secrets extends Service {
+export class Secrets {
   private codec: SecretsCodec
 
-  constructor(ctx: Context, codec: SecretsCodec) {
-    super(ctx, 'secrets')
+  constructor(codec: SecretsCodec) {
     this.codec = codec
   }
 
@@ -76,8 +74,10 @@ export async function* apply(ctx: Context, config: Config): AsyncGenerator<() =>
   pool.on('error', (error: Error) => {
     ctx.logger.error(error)
   })
-  yield () => pool.end()
-  await applyMigrations(pool, migrationsDir)
-  new Database(ctx, pool)
-  new Secrets(ctx, codec)
+  yield await ctx.effect(async function* () {
+    yield () => pool.end()
+    await applyMigrations(pool, migrationsDir)
+    yield ctx.provide('database', new Database(pool))
+    yield ctx.provide('secrets', new Secrets(codec))
+  })
 }

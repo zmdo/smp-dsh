@@ -1,97 +1,285 @@
-import { DefinitionRegistry, type TypeLease } from './registry.ts'
+import type { DefinitionRegistry, TypeLease } from './registry.ts'
 import { typeSupportsOs } from './definitions.ts'
 import { osVerification } from './operating-systems.ts'
 import { probeOs } from './os-probe.ts'
-import { isKnownAction, UNIMPLEMENTED_MESSAGE } from './jobs.ts'
-import { ServerError } from './i18n.ts'
-import { scrub } from './parse.ts'
+import { errorPayload, ServerError } from './i18n.ts'
+import { scrub, scrubValue } from './parse.ts'
 import { connectSsh, type SshSession } from './ssh.ts'
-import { detectSoftware, inspectContainers, installRequired, type SoftwareStatus } from './software.ts'
-import { finishJob, loadJob, markConnected, recordFailure, saveComponentStatus, saveObservation, saveOsProbe, serverSecret, type Db } from './store.ts'
+import { detectSoftware, inspectContainers, type SoftwareStatus } from './software.ts'
+import { markConnected, saveComponentStatus, saveObservation, saveOsProbe, serverSecret, type Db } from './store.ts'
+import { finishJob, heartbeat, loadPlan, owned, phase, recovering, savePlan, type JobRecord } from './job-store.ts'
+import { canonical, validObservation } from './recipe.ts'
+import { checkPlan, preparePlan, type PreparedPlan } from './plans.ts'
+import { remoteOperation, type RemoteResult } from './remote-operation.ts'
+import { randomUUID } from 'node:crypto'
 
 interface Secrets {
   decrypt(ciphertext: string): string
 }
-
-/** Every mutating job is bound to the configuration and type definition accepted at enqueue time. */
-export async function executeJob(db: Db, secrets: Secrets, definitions: DefinitionRegistry, jobId: string, connect: typeof connectSsh = connectSsh): Promise<void> {
-  const job = await loadJob(db, jobId)
-  if (job === undefined || job.status !== 'running') return
-  if (!isKnownAction(job.action)) {
-    await finishJob(db, jobId, 'failed', UNIMPLEMENTED_MESSAGE)
-    return
+export async function executeJob(
+  db: Db,
+  secrets: Secrets,
+  definitions: DefinitionRegistry,
+  job: JobRecord,
+  connect: typeof connectSsh = connectSsh,
+): Promise<void> {
+  let session: SshSession | undefined,
+    lease: TypeLease | undefined,
+    secret = '',
+    connected = false,
+    mutation = job.mutation_phase !== null,
+    leaseLost = false
+  const heartbeats = new Set<Promise<void>>()
+  const timer = setInterval(() => {
+    const task = heartbeat(db, job)
+      .then(
+        (ok) => {
+          if (!ok) leaseLost = true
+        },
+        () => {
+          leaseLost = true
+        },
+      )
+      .finally(() => heartbeats.delete(task))
+    heartbeats.add(task)
+  }, 15_000)
+  const guard = async () => {
+    if (leaseLost || !(await heartbeat(db, job))) throw new ServerError('job_lease_lost')
   }
-  const server = await serverSecret(db, job.server_id)
-  if (server === undefined) {
-    await finishJob(db, jobId, 'failed', new ServerError('server_not_found').message)
-    return
-  }
-  if (job.config_revision !== null && String(job.config_revision) !== String(server.config_revision)) {
-    await finishJob(db, jobId, 'failed', new ServerError('job_configuration_changed').message)
-    return
-  }
-  let secret = ''
-  try { secret = secrets.decrypt(server.secret_ciphertext) } catch (cause) {
-    void cause
-    await finishJob(db, jobId, 'failed', new ServerError('secret_unavailable').message)
-    return
-  }
-  let session: SshSession | undefined
-  let lease: TypeLease | undefined
-  let connected = false
-  let softwareAllowed = false
   try {
-    const open = () => connect({ host: server.host, port: server.ssh_port, username: server.ssh_user, authMethod: server.auth_method, secret, expectedFingerprint: server.host_fingerprint })
-    session = await open()
+    await guard()
+    let server = await serverSecret(db, job.server_id)
+    if (!server) throw new ServerError('server_not_found')
+    if (String(server.config_revision) !== String(job.expected_config_revision))
+      throw new ServerError('job_configuration_changed')
+    secret = secrets.decrypt(server.secret_ciphertext)
+    session = await connect({
+      host: server.host,
+      port: server.ssh_port,
+      username: server.ssh_user,
+      authMethod: server.auth_method,
+      secret,
+      expectedFingerprint: server.host_fingerprint,
+    })
     connected = true
-    await markConnected(db, server.id, session.fingerprint)
-    const probe = await probeOs(session,server.declared_os)
-    await saveOsProbe(db,server.id,probe,server.config_revision)
-    const verified = osVerification(server.declared_os,probe.state==='detected'?probe.os:null,probe.state)
-    lease = await definitions.lease(server.group_id, server.type_key)
-    if (verified==='mismatch') throw new ServerError('os_mismatch')
-    if (lease !== undefined && lease.components.length>0) {
-      if (verified!=='matched' || probe.state!=='detected') throw new ServerError('os_unverified')
-      if (!typeSupportsOs(lease.type,probe.os)) throw new ServerError('os_type_unsupported')
-      softwareAllowed = true
+    await owned(db, job, (client) => markConnected(client, server!.id, session!.fingerprint))
+    // Recovery must remain possible when a provider has unloaded. The remote journal contains the accepted scripts and result.
+    if (job.purpose === 'apply_plan' && job.state === 'recovering' && mutation) {
+      const saved = await loadPlan(db, job)
+      if (!saved) {
+        await recovering(db, job, '安装计划不可用，需要人工核对远端操作。')
+        return
+      }
+      const result = await remoteOperation(session, 'recover', job.operation_id, saved.digest)
+      await reconcile(db, job, result, secret, saved.plan)
+      return
     }
-    if (job.action === 'install_components' && lease === undefined) throw new ServerError('type_unavailable')
-    const install = job.action === 'install_components' || (job.action === 'test_connection' && server.install_required_software)
-    if (install && lease !== undefined && lease.components.length > 0
-      && (job.type_signature !== lease.signature || job.config_revision === null)) throw new ServerError('job_definition_changed')
-    let status = lease === undefined ? undefined : await detectSoftware(session, lease.components)
-    if (install && lease !== undefined && lease.components.length > 0 && status !== undefined) {
-      status = await installRequired(session, lease.components, status, async () => {
-        const fingerprint = session!.fingerprint
-        session!.close()
-        session = await connect({ host: server.host, port: server.ssh_port, username: server.ssh_user, authMethod: server.auth_method, secret, expectedFingerprint: fingerprint })
-        return session
-      })
-      status = await detectSoftware(session, lease.components)
-      if (Object.values(status).some(item => item.state !== 'installed')) throw new ServerError('software_install_unverified', { component: server.type_key })
+    const probe = await probeOs(session, server.declared_os)
+    await owned(db, job, (client) => saveOsProbe(client, server!.id, probe, server!.config_revision))
+    const verified = osVerification(server.declared_os, probe.state === 'detected' ? probe.os : null, probe.state)
+    if (verified === 'mismatch') throw new ServerError('os_mismatch')
+    lease = await definitions.lease(
+      server.group_id,
+      server.type_key,
+      probe.state === 'detected' ? probe.os : server.declared_os,
+    )
+    if (job.purpose === 'apply_plan' || job.request_snapshot.prepare) {
+      if (!lease) throw new ServerError('type_unavailable')
+      if (job.definition_revision !== lease.signature) throw new ServerError('job_definition_changed')
     }
-    const observation = verified==='matched' && probe.state==='detected' && probe.os.family!=='builtin/windows-server'
-      ? await inspectContainers(session) : {state:'unavailable' as const,docker:null,compose:null}
-    const summary = lease === undefined ? '类型定义不可用，未执行必要软件脚本。'
-      : lease.components.length === 0 ? '没有必要软件。'
-      : `必要软件：${Object.values(status ?? {}).filter(item => item.state === 'installed').length}/${lease.components.length} 已安装。`
-    const output = `SSH 已连接。${summary} 容器巡检：${observation.state}。主机指纹 ${session.fingerprint}。`
-    await saveObservation(db, server.id, jobId, status === undefined ? undefined : clean(status, secret), observation, scrub(output, secret), lease?.components ?? [])
+    if (lease?.components.length) {
+      if (verified !== 'matched' || probe.state !== 'detected') throw new ServerError('os_unverified')
+      if (!typeSupportsOs(lease.type, probe.os)) throw new ServerError('os_type_unsupported')
+    }
+    server = (await serverSecret(db, job.server_id))!
+    await phase(db, job, 'preflight')
+    if (job.purpose === 'apply_plan') {
+      const saved = await loadPlan(db, job)
+      if (
+        !saved ||
+        !lease ||
+        probe.state !== 'detected' ||
+        canonical(saved.plan.os) !== canonical(probe.os) ||
+        String(server.environment_revision) !== String(job.expected_environment_revision)
+      )
+        throw new ServerError('plan_conflict')
+      await checkPlan(session, lease, saved.plan)
+      await guard()
+      await phase(db, job, 'installing')
+      mutation = true
+      let result = await remoteOperation(session, 'start', job.operation_id, saved.digest, saved.plan, lease)
+      while (result.state === 'running') {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        await guard()
+        result = await remoteOperation(session, 'recover', job.operation_id, saved.digest)
+      }
+      await phase(db, job, 'verifying')
+      const actual = await detectSoftware(session, lease.components, probe.os)
+      await owned(db, job, (client) =>
+        saveComponentStatus(client, server!.id, clean(actual, secret), lease!.components),
+      )
+      await reconcile(db, job, result, secret, saved.plan)
+      return
+    }
+    const status =
+      lease && probe.state === 'detected' ? await detectSoftware(session, lease.components, probe.os) : undefined
+    const observation =
+      verified === 'matched' && probe.state === 'detected' && probe.os.family !== 'builtin/windows-server'
+        ? await inspectContainers(session)
+        : { state: 'unavailable' as const, docker: null, compose: null }
+    await owned(db, job, (client) =>
+      saveObservation(
+        client,
+        server!.id,
+        job.id,
+        status ? clean(status, secret) : undefined,
+        observation,
+        '',
+        lease?.components ?? [],
+      ),
+    )
+    if (job.request_snapshot.prepare && lease?.components.length) {
+      if (probe.state !== 'detected') throw new ServerError('os_unverified')
+      const plan = await preparePlan(session, lease, probe.os)
+      if (plan.changes.some((change) => change.action === 'install')) await savePlan(db, job, server, plan)
+    }
+    await finishJob(
+      db,
+      job,
+      'succeeded',
+      job.request_snapshot.prepare ? '检查完成；缺失软件将按独立安装计划处理。' : '只读检查完成。',
+      { summary: job.request_snapshot.prepare ? 'prepared' : 'inspected' },
+    )
   } catch (cause) {
-    if (softwareAllowed && session !== undefined && lease !== undefined) {
-      const actual = await detectSoftware(session, lease.components)
-      await saveComponentStatus(db, server.id, clean(actual, secret), lease.components)
+    if (cause instanceof ServerError && cause.code === 'job_lease_lost') return
+    const message = scrub(cause instanceof Error ? cause.message : '任务失败。', secret)
+    if (mutation) {
+      await recovering(db, job, message)
+      return
     }
-    const message = cause instanceof Error ? cause.message : new ServerError('connection_failed').message
-    await recordFailure(db, server.id, jobId, scrub(message, secret), connected)
+    if (!connected)
+      await owned(db, job, (client) =>
+        client
+          .query(
+            "update server_runtime set connection_state='offline',connection_checked_at=now(),connection_error=$2 where server_id=$1",
+            [job.server_id, JSON.stringify({ message })],
+          )
+          .then(() => {}),
+      )
+    await finishJob(
+      db,
+      job,
+      'failed',
+      message,
+      cause instanceof ServerError ? { error: scrubValue(errorPayload(cause), secret) } : null,
+    )
   } finally {
+    clearInterval(timer)
+    await Promise.all(heartbeats)
     session?.close()
     lease?.release()
   }
 }
-
+async function reconcile(
+  db: Db,
+  job: JobRecord,
+  result: RemoteResult,
+  secret: string,
+  plan: PreparedPlan,
+): Promise<void> {
+  if (result.state === 'not-started') {
+    await finishJob(db, job, 'failed', '远端安装未启动；可重新检查并准备新计划。', {
+      summary: 'not_started',
+      steps: [],
+    })
+    return
+  }
+  if (result.state !== 'completed' && result.state !== 'failed') {
+    await recovering(
+      db,
+      job,
+      result.state === 'running' ? '远端安装仍在进行。' : '远端结果尚不能确定，已保留服务器执行锁。',
+    )
+    return
+  }
+  for (const step of result.steps) {
+    const change = plan.changes[step.ordinal - 1]
+    if (!change || change.software !== step.software || (step.after !== undefined && !validObservation(step.after)))
+      throw new ServerError('recipe_protocol')
+  }
+  if (
+    result.state === 'completed' &&
+    (result.steps.length !== plan.changes.length ||
+      new Set(result.steps.map((step) => step.ordinal)).size !== plan.changes.length ||
+      result.steps.some((step) => {
+        const change = plan.changes[step.ordinal - 1]!,
+          actual = step.after
+        return (
+          step.state !== 'succeeded' ||
+          !validObservation(actual) ||
+          actual.state !== 'installed' ||
+          !actual.healthy ||
+          (change.action === 'install'
+            ? actual.targetIdentity !== change.target?.targetIdentity
+            : canonical(actual) !== canonical(change.before))
+        )
+      }))
+  )
+    throw new ServerError('recipe_protocol')
+  const cleaned = {
+    ...scrubValue(result, secret),
+    ...(result.state === 'completed' ? { summary: 'installed' } : {}),
+  } as RemoteResult
+  await owned(db, job, async (client) => {
+    for (const step of cleaned.steps) {
+      const change = plan.changes[step.ordinal - 1]!
+      if (validObservation(step.after))
+        await saveComponentStatus(
+          client,
+          job.server_id,
+          {
+            [step.software]: {
+              ...step.after,
+              installed: step.after.state === 'installed',
+              detail: 'detail' in step.after ? (step.after.detail ?? '') : '',
+              revision: change.recipeRevision,
+            },
+          },
+          [
+            {
+              id: step.software,
+              software_key: step.software,
+              recipe: change.recipe,
+            },
+          ],
+        )
+    }
+    for (const step of cleaned.steps)
+      await client.query(
+        `insert into server_job_steps(id,job_id,ordinal,software_key,phase,state,after_snapshot,changes,error,finished_at)
+      values($1,$2,$3,$4,'installing',$5,$6,$7,$8,now()) on conflict(job_id,ordinal) do update set state=excluded.state,after_snapshot=excluded.after_snapshot,changes=excluded.changes,error=excluded.error,finished_at=excluded.finished_at`,
+        [
+          randomUUID(),
+          job.id,
+          step.ordinal,
+          step.software,
+          step.state === 'succeeded' ? 'succeeded' : 'failed',
+          JSON.stringify(step.after ?? null),
+          JSON.stringify(step.changes),
+          result.error ? JSON.stringify({ message: scrub(result.error, secret) }) : null,
+        ],
+      )
+  })
+  await finishJob(
+    db,
+    job,
+    result.state === 'completed' ? 'succeeded' : 'failed',
+    result.state === 'completed'
+      ? '已完成安装并验证。'
+      : scrub(result.error ?? '安装失败；请查看已发生的远端变化。', secret),
+    cleaned,
+  )
+}
 function clean(status: SoftwareStatus, secret: string): SoftwareStatus {
-  return Object.fromEntries(Object.entries(status).map(([id, item]) => [id, {
-    ...item, detail: scrub(item.detail, secret), ...(item.version === undefined ? {} : { version: scrub(item.version, secret) }),
-  }]))
+  return scrubValue(status, secret)
 }

@@ -7,341 +7,587 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import { Pool } from 'pg'
-import { GENERAL_TYPE, VACANT_TYPE, type SystemGroupDefinition } from '../src/definitions.ts'
+import { GENERAL_TYPE, VACANT_TYPE } from '../src/definitions.ts'
+import type { DefinitionBundle } from '../src/contracts.ts'
 import { errorPayload, ServerError } from '../src/i18n.ts'
 import { routeGroups, routeServers, routeTypes } from '../src/records.ts'
-import { DefinitionRegistry, requiredSoftware } from '../src/registry.ts'
+import { DefinitionRegistry } from '../src/registry.ts'
 import { executeJob } from '../src/runner.ts'
 import { ServerManagement } from '../src/service.ts'
-import { claimNext, enqueue, HttpError, type Db } from '../src/store.ts'
+import { HttpError, type Db } from '../src/store.ts'
+import { claimNext, enqueue, finishJob, phase, type JobRecord } from '../src/job-store.ts'
 import type { SshSession } from '../src/ssh.ts'
 import { APT_SOFTWARE_OS } from '../src/operating-systems.ts'
 import { LINUX_PROBE, WINDOWS_PROBE } from '../src/os-probe.ts'
-import { builtinCatalog, componentFixture } from './fixtures.ts'
+import { builtinCatalog } from '../src/catalog.ts'
 
-// Uses a disposable schema only. The configured database's application tables are never touched.
-test('server types, system groups, lifecycle and jobs against PostgreSQL', { skip: !process.env.SMP_TEST_DATABASE_URL, timeout: 30_000 }, async t => {
-  const admin = new Pool({ connectionString: process.env.SMP_TEST_DATABASE_URL })
-  const schema = `server_types_${randomUUID().replaceAll('-', '')}`
-  await admin.query(`create schema ${schema}`)
-  const pool = new Pool({ connectionString: process.env.SMP_TEST_DATABASE_URL, options: `-c search_path=${schema}` })
-  const db = pool as unknown as Db
-  const directory = await mkdtemp(join(tmpdir(), 'smp-server-types-'))
-  t.after(async () => { await pool.end(); await admin.query(`drop schema ${schema} cascade`); await admin.end(); await rm(directory, { recursive: true, force: true }) })
-  await pool.query(await readFile(new URL('../../database/migrations/0010_server_management.sql', import.meta.url), 'utf8'))
-  await pool.query(await readFile(new URL('../../database/migrations/0012_server_types.sql', import.meta.url), 'utf8'))
-  await pool.query(await readFile(new URL('../../database/migrations/0013_server_observations.sql', import.meta.url), 'utf8'))
-  const catalog = builtinCatalog()
-  for (const item of catalog) item.installScript = Buffer.from(`install-${item.id}`)
-  const definitions = new DefinitionRegistry(db, catalog)
-  t.after(() => definitions.close())
-  const secrets = { encrypt: (value: string) => value, decrypt: (value: string) => value }
-  const deps = { db, definitions, secrets, catalog }
-  const http = createServer(async (req, res) => {
-    try {
-      const path = new URL(req.url!, 'http://localhost').pathname
-      if (path.startsWith('/servers')) await routeServers(deps, req, res, path.slice('/servers'.length))
-      else if (path.startsWith('/groups')) await routeGroups(db, req, res, path.slice('/groups'.length), definitions)
-      else await routeTypes(definitions, req, res)
-    } catch (cause) {
-      res.writeHead(cause instanceof HttpError ? cause.status : cause instanceof ServerError ? 422 : 500, { 'content-type': 'application/json' })
-      res.end(JSON.stringify(cause instanceof ServerError ? errorPayload(cause) : { error: String(cause) }))
-    }
-  })
-  await new Promise<void>(resolve => http.listen(0, '127.0.0.1', resolve))
-  t.after(() => new Promise<void>((resolve, reject) => http.close(error => error ? reject(error) : resolve())))
-  const port = (http.address() as { port: number }).port
-  async function api(method: string, path: string, body?: unknown) {
-    const response = await fetch(`http://127.0.0.1:${port}${path}`, { method, ...(body === undefined ? {} : { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } }) })
-    return { status: response.status, body: response.status === 204 ? null : await response.json() as any }
-  }
-  let hostIndex = 10
-  const serverInput = (extra = {}) => ({ declared_os:{kind:'catalog',family:'builtin/ubuntu',releaseKey:'24.04'}, name: 'test', host: `10.0.0.${hostIndex++}`, ssh_port: 22, ssh_user: 'root', auth_method: 'password', secret: 'test-password', region: 'test', ...extra })
-  const group: SystemGroupDefinition = { plugin: '@test/provider', key: 'compute', name: { zh: '计算节点', en: 'Compute nodes' } }
-  const groupId = async () => (await pool.query('select id from server_groups where plugin_id = $1 and group_key = $2', [group.plugin, group.key])).rows[0].id as string
-  const detectScript = join(directory, 'detect.sh')
-  const installScript = join(directory, 'install.sh')
-  await writeFile(detectScript, 'detect-custom')
-  await writeFile(installScript, 'install-custom')
-  const custom: SystemGroupDefinition = { ...group,
-    software: [{ id: 'custom', name: { zh: '自定义软件', en: 'Custom software' }, supportedOs: APT_SOFTWARE_OS, detectScript, installScript }],
-    types: [{ key: 'node', name: { zh: '节点', en: 'Node' }, supportedOs: {kind:'explicit',selectors:APT_SOFTWARE_OS}, software: ['custom'] }], defaultType: 'node',
-  }
-
-  const oldId = (await api('POST','/servers',serverInput())).body.id
-
-  await t.test('fresh registration defaults to vacant and persists configuration separately', async () => {
-    const created = await api('POST', '/servers', serverInput({ install_required_software: true }))
-    assert.equal(created.status, 201)
-    assert.equal(created.body.type_key, VACANT_TYPE)
-    assert.equal(created.body.install_required_software, false)
-    assert.deepEqual(created.body.required_software, [])
-    assert.equal(created.body.jobs.length, 0)
-    assert.equal(created.body.secret_ciphertext, undefined)
-    const ordinary = await api('POST', '/servers', serverInput({ type_key: GENERAL_TYPE }))
-    assert.equal(ordinary.status, 201)
-    assert.deepEqual(ordinary.body.required_software.map((item:any)=>item.id), ['docker', 'compose'])
-    assert.equal((await api('POST', '/servers', serverInput({ install_component_ids: [] }))).body.code, 'required_software_readonly')
-    assert.equal((await api('POST', '/servers', serverInput({ type_key: 'forged' }))).body.code, 'type_not_found')
-    assert.equal((await api('POST', '/groups', { name: 'forged', kind: 'system' })).body.code, 'group_source_readonly')
-  })
-
-  await t.test('system group identity persists, fallback types work, deletion is denied, unload drains active work', async () => {
-    const unregister = await definitions.registerGroup(group)
-    const id = await groupId()
-    assert.deepEqual((await api('GET', `/types?group_id=${id}`)).body.types.map((item: any) => item.key), [VACANT_TYPE, GENERAL_TYPE])
-    assert.equal((await api('DELETE', `/groups/${id}`)).status, 403)
-    const lease = await definitions.lease(id, VACANT_TYPE)
-    assert.ok(lease)
-    let done = false
-    const draining = unregister().then(() => { done = true })
-    await Promise.resolve()
-    assert.equal(done, false)
-    assert.equal(await definitions.lease(id, VACANT_TYPE), undefined)
-    assert.equal((await api('GET', '/groups')).body.find((row: any) => row.id === id).name_i18n.en, 'Compute nodes')
-    lease.release()
-    await draining
-    const next = await definitions.registerGroup(group)
-    assert.equal(await groupId(), id)
-    await unregister() // An old disposer must not remove a later registration.
-    assert.equal((await definitions.options(id)).available, true)
-    await next()
-  })
-
-  await t.test('custom types replace defaults; software dependencies and provider definitions are validated', async () => {
-    assert.deepEqual(requiredSoftware(catalog, ['compose']).map(item => item.id), ['docker', 'compose'])
-    assert.throws(() => requiredSoftware([componentFixture('a', ['b']), componentFixture('b', ['a'])], ['a']))
-    for (const bad of [{ ...custom, types: [] }, { ...custom, defaultType: 'absent' }, { ...custom, name: { zh: '中', en: '' } }, { ...custom, types: [{ ...custom.types![0]!, software: ['absent'] }] }]) {
-      await assert.rejects(definitions.registerGroup(bad))
-    }
-    await assert.rejects(definitions.registerGroup({ ...custom, version: '1' } as SystemGroupDefinition), cause => cause instanceof ServerError && cause.code === 'definition_unsupported')
-    const unregister = await definitions.registerGroup(custom)
-    const id = await groupId()
-    const options = (await api('GET', `/types?group_id=${id}`)).body
-    assert.deepEqual(options.types.map((item: any) => item.key), ['@test/provider/node'])
-    assert.deepEqual(options.types[0].software.map((item: any) => item.id), ['custom'])
-    assert.equal(JSON.stringify(options).includes('detect-custom'), false)
-    const server = (await api('POST', '/servers', serverInput({ group_id: id }))).body
-    assert.equal(server.type_key, '@test/provider/node')
-    await unregister()
-    const inactive = (await api('GET', `/servers/${server.id}`)).body
-    assert.equal(inactive.type_available, false)
-    assert.equal(inactive.software_state, 'unavailable')
-    assert.equal((await api('PATCH', `/servers/${server.id}`, { name: 'renamed' })).status, 200)
-    assert.equal((await api('POST', `/servers/${server.id}/install-components`)).body.code, 'type_unavailable')
-    assert.equal((await api('POST', '/servers', serverInput({ group_id: id }))).body.code, 'type_unavailable')
-    const changed = await api('PATCH', `/servers/${server.id}`, { group_id: null, type_key: GENERAL_TYPE })
-    assert.equal(changed.body.code, 'type_change_requires_preflight')
-    assert.equal((await api('GET', `/servers/${server.id}`)).body.group_id, id)
-    assert.equal((await api('PATCH', `/servers/${server.id}`, { group_id: null, type_key: VACANT_TYPE })).status, 200)
-  })
-
-  await t.test('Cordis binds registrations to their contributing plugin and cleans them on disposal', async () => {
-    const root = new Context()
-    const provide = root.provide('serverManagement', new ServerManagement(root, definitions))
-    const owner = root.plugin({ inject: ['serverManagement'], async apply(ctx: Context) { await ctx.serverManagement.registerGroup(group) } })
-    await owner
-    const id = await groupId()
-    assert.equal((await definitions.options(id)).available, true)
-    await owner.dispose()
-    assert.equal((await definitions.options(id)).available, false)
-    const reloaded = root.plugin({ inject: ['serverManagement'], async apply(ctx: Context) { await ctx.serverManagement.registerGroup(group) } })
-    await reloaded
-    assert.equal(await groupId(), id)
-    await reloaded.dispose()
-    await provide()
-  })
-
-  function remote(os = 'ID=ubuntu\nVERSION_ID=24.04\nSMP_ARCH=x86_64\n') {
-    const commands: string[] = []
-    const scripts = new Map<string, string>()
-    const installed = new Set<string>()
-    let permissionDenied = false
-    const connect = async (): Promise<SshSession> => ({
-      fingerprint: 'SHA256:test', close() {}, async shell() { throw new Error('unexpected terminal') },
-      async putScript(name, body) { scripts.set(name, body.toString()) },
-      async exec(command) {
-        commands.push(command)
-        const result = (code = 0, stdout = '', stderr = '') => ({ code, stdout, stderr })
-        if (command===LINUX_PROBE) return result(0,os)
-        if (command===WINDOWS_PROBE) return result(0,JSON.stringify({caption:'Microsoft Windows Server 2025 Standard',architecture:'64-bit'}))
-        if (command.startsWith('command -v')) return result(installed.has('docker') ? 0 : 1)
-        if (command.startsWith('docker version')) return permissionDenied ? result(1, '', 'permission denied') : result(0, '{"Server":{"Version":"27.2.0"}}')
-        if (command.startsWith('docker compose')) return installed.has('compose') ? result(0, '{"version":"2.29.0"}') : result(1, '', "docker: 'compose' is not a docker command.")
-        if (command.startsWith('docker ps')) return result(0, '{"ID":"abc","Names":"web","Image":"nginx","State":"running"}')
-        const script = scripts.get(command.split('/').at(-1)!)
-        if (script === 'install-custom') { installed.add('custom'); return result() }
-        if (script === 'install-docker') { installed.add('docker'); return result() }
-        if (script === 'install-compose') { installed.add('compose'); return result() }
-        if (script === 'detect-custom') return result(0, JSON.stringify({ state: installed.has('custom') ? 'installed' : 'missing', version: '1.0.0' }))
-        throw new Error(`Unexpected script: ${script}`)
-      },
+test(
+  'atomic definitions, configuration, plans and fenced jobs against PostgreSQL',
+  { skip: !process.env.SMP_TEST_DATABASE_URL, timeout: 60_000 },
+  async (t) => {
+    const admin = new Pool({
+        connectionString: process.env.SMP_TEST_DATABASE_URL,
+      }),
+      schema = `execution_${randomUUID().replaceAll('-', '')}`
+    await admin.query(`create schema ${schema}`)
+    const pool = new Pool({
+        connectionString: process.env.SMP_TEST_DATABASE_URL,
+        options: `-c search_path=${schema}`,
+      }),
+      db = pool as unknown as Db
+    const directory = await mkdtemp(join(tmpdir(), 'smp-definitions-'))
+    t.after(async () => {
+      await pool.end()
+      await admin.query(`drop schema ${schema} cascade`)
+      await admin.end()
+      await rm(directory, { recursive: true, force: true })
     })
-    return { connect, commands, installed, scripts, deny() { permissionDenied = true } }
-  }
-
-  async function run(id: string, action: string, target: ReturnType<typeof remote>) {
-    const queued = await api('POST', `/servers/${id}/${action}`)
-    assert.equal(queued.status, 202)
-    assert.equal(await claimNext(db), queued.body.id)
-    await executeJob(db, secrets, definitions, queued.body.id, target.connect)
-    return (await api('GET', `/servers/${id}`)).body
-  }
-
-  await t.test('vacant connections need no Docker; failed Docker inspection preserves reachability and stale containers', async () => {
-    const target = remote()
-    const created = (await api('POST', '/servers', serverInput())).body
-    const empty = await run(created.id, 'test', target)
-    assert.equal(empty.reachability, 'online')
-    assert.equal(empty.containers_state, 'unavailable', empty.jobs[0].output_excerpt)
-    assert.equal(empty.software_state, 'ready')
-    assert.equal(empty.container_count, null)
-    assert.equal(target.scripts.size, 0)
-    target.installed.add('docker')
-    const observed = await run(created.id, 'inspect', target)
-    assert.equal(observed.containers.length, 1)
-    assert.equal(observed.container_count, 1)
-    target.deny()
-    const failed = await run(created.id, 'inspect', target)
-    assert.equal(failed.reachability, 'online')
-    assert.equal(failed.containers_state, 'failed')
-    assert.equal(failed.container_count, null)
-    assert.equal(failed.containers.length, 1)
-    assert.equal(failed.containers_checked_at, observed.containers_checked_at)
-  })
-
-  await t.test('installation is limited to required custom software and verifies after reconnecting', async () => {
-    const unregister = await definitions.registerGroup(custom)
-    const target = remote()
-    const created = (await api('POST', '/servers', serverInput({ group_id: await groupId() }))).body
-    const finished = await run(created.id, 'install-components', target)
-    assert.equal(finished.jobs[0].status, 'succeeded', finished.jobs[0].output_excerpt)
-    assert.equal(finished.software_state, 'ready')
-    assert.equal(finished.reachability, 'online')
-    assert.deepEqual([...target.installed], ['custom'])
-    assert.equal(target.commands.filter(command => command.endsWith('-install.sh')).length, 1)
-    await unregister()
-  })
-
-  await t.test('ordinary automatic installation follows dependency order, skips installed software and refuses unknown detection', async () => {
-    const target = remote()
-    const created = (await api('POST', '/servers', serverInput({ type_key: GENERAL_TYPE, install_required_software: true }))).body
-    const jobId = created.jobs[0].id
-    assert.equal(await claimNext(db), jobId)
-    await executeJob(db, secrets, definitions, jobId, target.connect)
-    const finished = (await api('GET', `/servers/${created.id}`)).body
-    assert.equal(finished.jobs[0].status, 'succeeded', finished.jobs[0].output_excerpt)
-    assert.equal(finished.software_state, 'ready')
-    assert.deepEqual([...target.installed], ['docker', 'compose'])
-    assert.equal(target.commands.filter(command => command.endsWith('-install.sh')).length, 2)
-    await run(created.id, 'install-components', target)
-    assert.equal(target.commands.filter(command => command.endsWith('-install.sh')).length, 2)
-    target.deny()
-    const failed = await run(created.id, 'install-components', target)
-    assert.equal(failed.jobs[0].status, 'failed')
-    assert.equal(failed.reachability, 'online')
-    assert.equal(failed.software_state, 'unknown')
-    assert.equal(target.commands.filter(command => command.endsWith('-install.sh')).length, 2)
-  })
-
-  await t.test('configuration and definition drift invalidate queued installation before running a remote installer', async () => {
-    const unregister = await definitions.registerGroup(custom)
-    const id = await groupId()
-    const created = (await api('POST', '/servers', serverInput({ group_id: id }))).body
-    const queued = await api('POST', `/servers/${created.id}/install-components`)
-    await unregister()
-    await writeFile(installScript, 'changed-script')
-    const next = await definitions.registerGroup(custom)
-    assert.equal(await claimNext(db), queued.body.id)
-    const target = remote()
-    await executeJob(db, secrets, definitions, queued.body.id, target.connect)
-    assert.equal((await pool.query('select status from ops_jobs where id = $1', [queued.body.id])).rows[0].status, 'failed')
-    assert.equal(target.commands.some(command => command.endsWith('-install.sh')), false)
-    const second = await api('POST', `/servers/${created.id}/install-components`)
-    assert.equal((await api('PATCH', `/servers/${created.id}`, { ssh_port: 2222 })).status, 200)
-    assert.equal(await claimNext(db), second.body.id)
-    const untouched = remote()
-    await executeJob(db, secrets, definitions, second.body.id, untouched.connect)
-    assert.equal(untouched.commands.length, 0)
-    assert.equal((await pool.query('select status from ops_jobs where id = $1', [second.body.id])).rows[0].status, 'failed')
-    await next()
-  })
-
-  await t.test('OS is required and unsupported types cannot be forged through the API', async () => {
-    assert.equal((await api('POST','/servers',serverInput({declared_os:undefined}))).body.code,'os_required')
-    const windows={kind:'catalog',family:'builtin/windows-server',releaseKey:'2025'}
-    assert.equal((await api('POST','/servers',serverInput({declared_os:windows,type_key:GENERAL_TYPE}))).body.code,'os_type_unsupported')
-    assert.equal((await api('POST','/servers',serverInput({declared_os:{kind:'custom',text:'Ubuntu 24.04'},type_key:GENERAL_TYPE}))).body.code,'os_type_unsupported')
-    assert.equal((await api('POST','/servers',serverInput({declared_os:{kind:'catalog',family:'builtin/ubuntu',releaseKey:'99.04'}}))).body.code,'os_invalid')
-    const custom=(await api('POST','/servers',serverInput({declared_os:{kind:'custom',text:'openSUSE Leap 15.6'}}))).body
-    assert.equal(custom.declared_os.text,'openSUSE Leap 15.6')
-  })
-
-  await t.test('Windows vacant servers use only the Windows probe, with no Linux/Docker commands', async () => {
-    const created=(await api('POST','/servers',serverInput({declared_os:{kind:'catalog',family:'builtin/windows-server',releaseKey:'2025'}}))).body
-    const target=remote()
-    const observed=await run(created.id,'test',target)
-    assert.equal(observed.os_verification,'matched')
-    assert.equal(observed.detected_os.family,'builtin/windows-server')
-    assert.deepEqual(target.commands,[WINDOWS_PROBE])
-    assert.equal(target.scripts.size,0)
-  })
-
-  await t.test('OS mismatch saves actual evidence, blocks scripts and movement, and permits correction', async () => {
-    const origin=(await api('POST','/groups',{name:'OS origin'})).body
-    const created=(await api('POST','/servers',serverInput({type_key:GENERAL_TYPE,group_id:origin.id}))).body
-    const target=remote('ID=debian\nVERSION_ID=12\nSMP_ARCH=x86_64\n')
-    const observed=await run(created.id,'install-components',target)
-    assert.equal(observed.os_verification,'mismatch')
-    assert.equal(observed.reachability,'online')
-    assert.equal(observed.jobs[0].status,'failed')
-    assert.equal(target.scripts.size,0)
-    assert.equal((await api('DELETE',`/groups/${origin.id}`)).body.code,'os_mismatch')
-    assert.deepEqual(target.commands,[LINUX_PROBE])
-    const nextGroup=(await api('POST','/groups',{name:'OS move target'})).body
-    assert.equal((await api('PATCH',`/servers/${created.id}`,{group_id:nextGroup.id})).body.code,'os_mismatch')
-    const corrected=await api('PATCH',`/servers/${created.id}`,{declared_os:{kind:'catalog',family:'builtin/debian',releaseKey:'12'}})
-    assert.equal(corrected.status,200)
-    const job=corrected.body.jobs.find((item:any)=>item.status==='queued')
-    assert.equal(await claimNext(db),job.id)
-    await executeJob(db,secrets,definitions,job.id,target.connect)
-    assert.equal((await api('GET',`/servers/${created.id}`)).body.os_verification,'matched')
-  })
-
-  await t.test('unknown OS detection never runs software scripts', async () => {
-    const created=(await api('POST','/servers',serverInput({type_key:GENERAL_TYPE}))).body
-    const target=remote('invalid data')
-    const original=target.connect
-    const connect=async()=>{const session=await original();return {...session,async exec(command:string,timeout:number){return command===WINDOWS_PROBE?{code:1,stdout:'',stderr:''}:session.exec(command,timeout)}}}
-    const queued=await api('POST',`/servers/${created.id}/install-components`)
-    assert.equal(await claimNext(db),queued.body.id)
-    await executeJob(db,secrets,definitions,queued.body.id,connect)
-    assert.equal(target.scripts.size,0)
-    assert.equal((await api('GET',`/servers/${created.id}`)).body.os_verification,'unverified')
-  })
-
-  await t.test('configuration is separate from observations; unchanged OS round trips preserve revision', async () => {
-    const created=(await api('POST','/servers',serverInput({type_key:GENERAL_TYPE}))).body
-    const target=remote();target.installed.add('docker');target.installed.add('compose')
-    const observed=await run(created.id,'inspect',target)
-    assert.equal(observed.config_revision,created.config_revision)
-    const edited=await api('PATCH',`/servers/${created.id}`,{name:'renamed',declared_os:created.declared_os})
-    assert.equal(edited.body.config_revision,created.config_revision)
-    target.deny();const failed=await run(created.id,'inspect',target)
-    assert.equal(failed.software_status.docker.state,'unknown')
-    assert.equal(failed.software_status.docker.last_known_version,'27.2.0')
-    const fact=(await pool.query("select * from server_software_observations where server_id=$1 and software_key='builtin/docker-engine'",[created.id])).rows[0]
-    assert.equal(fact.probe_state,'unknown');assert.equal(fact.product_version,'27.2.0')
-    const columns=(await pool.query("select column_name from information_schema.columns where table_schema=$1 and table_name='servers'",[schema])).rows.map(item=>item.column_name)
-    for (const removed of ['docker_version','compose_version','component_status','install_component_ids','cpu_percent','reachability']) assert.equal(columns.includes(removed),false)
-  })
-
-  await t.test('concurrent workers cannot claim two jobs on the same server; active work blocks critical edits', async () => {
-    await enqueue(db, oldId, 'inspect')
-    await enqueue(db, oldId, 'test_connection')
-    const claimed = (await Promise.all([claimNext(db), claimNext(db)])).filter(Boolean)
-    assert.equal(claimed.length, 1)
-    assert.equal((await api('PATCH', `/servers/${oldId}`, { ssh_port: 2222 })).body.code, 'server_busy')
-    assert.equal((await api('PATCH', `/servers/${oldId}`, { name: 'metadata' })).status, 200)
-  })
-})
+    for (const name of [
+      '0010_server_management.sql',
+      '0012_server_types.sql',
+      '0013_server_observations.sql',
+      '0014_server_execution.sql',
+    ])
+      await pool.query(await readFile(new URL(`../../database/migrations/${name}`, import.meta.url), 'utf8'))
+    const catalog = builtinCatalog(),
+      definitions = new DefinitionRegistry(db, catalog),
+      secrets = { encrypt: (v: string) => v, decrypt: (v: string) => v },
+      deps = { db, definitions, secrets, catalog }
+    t.after(() => definitions.close())
+    const http = createServer(async (req, res) => {
+      try {
+        const path = new URL(req.url!, 'http://localhost').pathname
+        if (path.startsWith('/servers')) await routeServers(deps, req, res, path.slice(8))
+        else if (path.startsWith('/groups')) await routeGroups(db, req, res, path.slice(7), definitions)
+        else await routeTypes(definitions, req, res)
+      } catch (cause) {
+        res.writeHead(cause instanceof HttpError ? cause.status : cause instanceof ServerError ? 422 : 500, {
+          'content-type': 'application/json',
+        })
+        res.end(JSON.stringify(cause instanceof ServerError ? errorPayload(cause) : { error: String(cause) }))
+      }
+    })
+    await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve))
+    t.after(() => new Promise<void>((resolve) => http.close(() => resolve())))
+    const port = (http.address() as { port: number }).port
+    const api = async (method: string, path: string, body?: unknown) => {
+      const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+        method,
+        ...(body === undefined
+          ? {}
+          : {
+              body: JSON.stringify(body),
+              headers: { 'content-type': 'application/json' },
+            }),
+      })
+      return {
+        status: response.status,
+        body: response.status === 204 ? null : ((await response.json()) as any),
+      }
+    }
+    let host = 0
+    const input = (extra = {}) => ({
+      name: 'node',
+      host: `192.0.2.${++host}`,
+      ssh_port: 22,
+      ssh_user: 'root',
+      auth_method: 'password',
+      secret: 'secret-test',
+      region: 'test',
+      declared_os: {
+        kind: 'catalog',
+        family: 'builtin/ubuntu',
+        releaseKey: '24.04',
+      },
+      ...extra,
+    })
+    const script = join(directory, 'recipe.sh')
+    await writeFile(script, 'protocol fixture')
+    const definition = {
+      path: script,
+      interpreter: 'posix-sh' as const,
+      timeoutMs: 1000,
+      outputLimitBytes: 4096,
+    }
+    const bundle: DefinitionBundle = {
+      contractVersion: 2,
+      owner: '@test/provider',
+      software: [
+        {
+          key: 'tool',
+          name: { zh: '工具', en: 'Tool' },
+          versions: 'semver-stable',
+        },
+      ],
+      recipes: [
+        {
+          key: 'tool-apt',
+          software: '@test/provider/tool',
+          supportedOs: APT_SOFTWARE_OS,
+          detect: definition,
+          listCandidates: definition,
+          resolve: definition,
+          mutation: {
+            actions: ['install'],
+            execute: definition,
+            verify: definition,
+            recover: definition,
+          },
+        },
+      ],
+      types: [
+        {
+          key: 'node',
+          name: { zh: '节点', en: 'Node' },
+          supportedOs: { kind: 'explicit', selectors: APT_SOFTWARE_OS },
+          requirements: [
+            {
+              software: '@test/provider/tool',
+              versions: { kind: 'series', prefix: '1' },
+              recipes: ['@test/provider/tool-apt'],
+            },
+          ],
+        },
+      ],
+      groups: [
+        {
+          key: 'nodes',
+          name: { zh: '节点组', en: 'Nodes' },
+          types: ['@test/provider/node'],
+          defaultType: '@test/provider/node',
+        },
+      ],
+    }
+    const groupId = async (owner = '@test/provider') =>
+      (await pool.query('select id from server_groups where plugin_id=$1', [owner])).rows[0].id as string
+    function remote() {
+      const installed = new Map<string, any>(),
+        operations = new Map<string, any>(),
+        requests: string[] = []
+      let unknown = false,
+        fail = false,
+        os = 'ID=ubuntu\nVERSION_ID=24.04\nSMP_ARCH=x86_64\n'
+      const target = (key: string) => ({
+        version: '1.2.3',
+        targetIdentity: key + '=1:1.2.3-1',
+        packages: [
+          {
+            manager: 'apt',
+            name: key,
+            version: '1:1.2.3-1',
+            architecture: 'amd64',
+            source: 'test',
+          },
+        ],
+        channel: 'stable',
+      })
+      const connect = async (): Promise<SshSession> => ({
+        fingerprint: 'SHA256:test',
+        close() {},
+        async shell() {
+          throw Error('unexpected shell')
+        },
+        async putScript() {
+          throw Error('unexpected upload')
+        },
+        async exec(command, _timeout, options) {
+          const ok = (value: string | object) => ({
+            code: 0,
+            stdout: typeof value === 'string' ? value : JSON.stringify(value),
+            stderr: '',
+          })
+          if (command === LINUX_PROBE) return ok(os)
+          if (command === WINDOWS_PROBE)
+            return ok({
+              caption: 'Microsoft Windows Server 2025 Standard',
+              architecture: '64-bit',
+            })
+          if (command.startsWith('command -v')) return { code: 1, stdout: '', stderr: '' }
+          const r = JSON.parse(options!.stdin!)
+          requests.push(r.operation)
+          if (r.operation === 'start') {
+            if (!operations.has(r.operationId)) {
+              const steps = r.steps.map((step: any, index: number) => {
+                const change = step.request.change
+                const after = {
+                  state: 'installed',
+                  version: change.target?.version ?? change.before.version,
+                  targetIdentity: change.target?.targetIdentity ?? change.before.targetIdentity,
+                  packages: change.target?.packages ?? [],
+                  healthy: true,
+                }
+                installed.set(change.software, after)
+                return {
+                  ordinal: index + 1,
+                  software: change.software,
+                  state: 'succeeded',
+                  changes: change.target?.packages ?? [],
+                  after,
+                }
+              })
+              operations.set(r.operationId, {
+                state: fail ? 'failed' : 'completed',
+                steps,
+                error: fail ? 'second operation failed' : undefined,
+              })
+            }
+            return ok(unknown ? { state: 'unknown', steps: [] } : operations.get(r.operationId))
+          }
+          if (r.operation === 'recover')
+            return ok(
+              unknown
+                ? { state: 'unknown', steps: [] }
+                : (operations.get(r.operationId) ?? {
+                    state: 'not-started',
+                    steps: [],
+                  }),
+            )
+          if (r.operation === 'detect')
+            return ok({
+              operation: r.operation,
+              result: installed.get(r.software) ?? { state: 'missing' },
+            })
+          if (r.operation === 'list-candidates')
+            return ok({
+              operation: r.operation,
+              candidates: [target(r.software)],
+            })
+          if (r.operation === 'resolve')
+            return ok({
+              operation: r.operation,
+              change: {
+                software: r.software,
+                recipe: r.recipe,
+                recipeRevision: r.recipeRevision,
+                action: 'install',
+                before: r.installed,
+                target: r.target,
+                dependencies: [],
+                effects: [],
+                payload: { packages: r.target.packages },
+              },
+              additionalRequirements: [],
+            })
+          throw Error('unexpected request ' + r.operation)
+        },
+      })
+      return {
+        connect,
+        installed,
+        requests,
+        operations,
+        setUnknown(value: boolean) {
+          unknown = value
+        },
+        fail() {
+          fail = true
+        },
+        setOs(value: string) {
+          os = value
+        },
+      }
+    }
+    async function next(target: ReturnType<typeof remote>) {
+      const job = await claimNext(db, 'worker-one')
+      assert.ok(job)
+      await executeJob(db, secrets, definitions, job, target.connect)
+      return job
+    }
+    const getJob = async (id: string) => (await pool.query('select * from server_jobs where id=$1', [id])).rows[0]
+    await t.test('vacant registration needs no software; OS and credentials remain separate', async () => {
+      const created = await api('POST', '/servers', input({ install_required_software: true }))
+      assert.equal(created.status, 201)
+      assert.equal(created.body.type_key, VACANT_TYPE)
+      assert.equal(created.body.install_required_software, false)
+      assert.deepEqual(created.body.jobs, [])
+      assert.equal(created.body.secret_ciphertext, undefined)
+      assert.equal((await api('POST', '/servers', input({ declared_os: undefined }))).body.code, 'os_required')
+      assert.equal(
+        (
+          await api(
+            'POST',
+            '/servers',
+            input({
+              declared_os: {
+                kind: 'catalog',
+                family: 'builtin/windows-server',
+                releaseKey: '2025',
+              },
+              type_key: GENERAL_TYPE,
+            }),
+          )
+        ).body.code,
+        'os_type_unsupported',
+      )
+      const check = await api('POST', `/servers/${created.body.id}/test`)
+      assert.equal(check.status, 202)
+      const job = await next(remote())
+      assert.equal((await getJob(job.id)).state, 'succeeded')
+    })
+    await t.test(
+      'whole-bundle registration rolls back on invalid references, persists identity and drains leases',
+      async () => {
+        const invalid = definitions.registerDefinitions({
+          ...bundle,
+          groups: [
+            ...bundle.groups!,
+            {
+              key: 'bad',
+              name: { zh: '坏', en: 'Bad' },
+              types: ['absent/type'],
+            },
+          ],
+        })
+        await assert.rejects(invalid.ready, { code: 'definition_reference' })
+        assert.equal((await pool.query("select count(*) from server_groups where kind='system'")).rows[0].count, '0')
+        const registration = definitions.registerDefinitions(bundle)
+        await registration.ready
+        const id = await groupId()
+        assert.equal((await api('DELETE', `/groups/${id}`)).status, 403)
+        const lease = await definitions.lease(id, '@test/provider/node')
+        assert.ok(lease)
+        let done = false
+        const disposal = registration.dispose().then(() => {
+          done = true
+        })
+        await new Promise((resolve) => setImmediate(resolve))
+        assert.equal(done, false)
+        assert.equal(await definitions.lease(id, '@test/provider/node'), undefined)
+        lease.release()
+        await disposal
+        const again = definitions.registerDefinitions(bundle)
+        await again.ready
+        assert.equal(await groupId(), id)
+        await registration.dispose()
+        assert.equal((await definitions.options(id)).available, true)
+        await again.dispose()
+      },
+    )
+    await t.test('contributor ownership is checked and Cordis unload awaits registration cleanup', async () => {
+      const root = new Context(),
+        provided = root.provide('serverManagement', new ServerManagement(root, definitions))
+      const fiber = root.plugin({
+        name: '@test/provider',
+        inject: ['serverManagement'],
+        async apply(ctx: Context) {
+          const registration = ctx.serverManagement.registerDefinitions(bundle)
+          await registration.ready
+        },
+      })
+      await fiber
+      assert.equal((await definitions.options(await groupId())).available, true)
+      await fiber.dispose()
+      assert.equal((await definitions.options(await groupId())).available, false)
+      assert.throws(() => root.serverManagement.registerDefinitions(bundle), {
+        code: 'definition_owner',
+      })
+      await provided()
+    })
+    await t.test(
+      'cross-provider leases become unavailable on unload and retain accepted scripts until drained',
+      async () => {
+        const provider = definitions.registerDefinitions({
+          ...bundle,
+          groups: [],
+          types: [],
+        })
+        await provider.ready
+        const consumer = definitions.registerDefinitions({
+          contractVersion: 2,
+          owner: '@test/consumer',
+          types: [{ ...bundle.types![0]!, key: 'consumer' }],
+          groups: [
+            {
+              key: 'consumer',
+              name: { zh: '消费者', en: 'Consumer' },
+              types: ['@test/consumer/consumer'],
+            },
+          ],
+        })
+        await consumer.ready
+        const id = await groupId('@test/consumer'),
+          lease = await definitions.lease(id, '@test/consumer/consumer')
+        assert.ok(lease)
+        let done = false
+        const disposal = provider.dispose().then(() => {
+          done = true
+        })
+        await new Promise((resolve) => setImmediate(resolve))
+        assert.equal(done, false)
+        assert.equal((await definitions.options(id)).available, false)
+        lease.release()
+        await disposal
+        await consumer.dispose()
+      },
+    )
+    await t.test('automatic preparation creates a separate exact plan; connection checks never install', async () => {
+      const target = remote(),
+        created = await api('POST', '/servers', input({ type_key: GENERAL_TYPE, install_required_software: true }))
+      assert.equal(created.status, 201)
+      const inspected = await next(target)
+      assert.equal(inspected.purpose, 'inspect')
+      assert.equal(target.requests.includes('start'), false)
+      const planned = (await pool.query('select * from server_change_plans')).rows[0]
+      assert.equal(planned.authorization_kind, 'missing_software_only')
+      assert.equal(planned.request_snapshot.plan.changes[0].target.packages[0].version, '1:1.2.3-1')
+      const applied = await next(target)
+      assert.equal(applied.purpose, 'apply_plan')
+      assert.equal((await getJob(applied.id)).state, 'succeeded')
+      assert.equal(target.requests.filter((x) => x === 'start').length, 1)
+      const detail = (await api('GET', `/servers/${created.body.id}`)).body
+      assert.equal(detail.software_state, 'ready')
+      assert.equal(detail.config_revision, created.body.config_revision)
+      await api('POST', `/servers/${created.body.id}/test`)
+      await next(target)
+      assert.equal(await claimNext(db, 'worker-one'), undefined)
+    })
+    await t.test(
+      'unknown recovery holds the server lock; provider unload does not prevent journal reconciliation',
+      async () => {
+        const registration = definitions.registerDefinitions(bundle)
+        await registration.ready
+        const target = remote(),
+          created = (
+            await api(
+              'POST',
+              '/servers',
+              input({
+                group_id: await groupId(),
+                install_required_software: true,
+              }),
+            )
+          ).body
+        await next(target)
+        target.setUnknown(true)
+        const job = await next(target)
+        assert.equal((await getJob(job.id)).state, 'recovering')
+        assert.equal(
+          (await api('PATCH', `/servers/${created.id}`, { ssh_port: 2222 })).body
+            .code,
+          'server_busy',
+        )
+        assert.equal(
+          (
+            await api('PATCH', `/servers/${created.id}`, {
+              name: 'display only',
+            })
+          ).status,
+          200,
+        )
+        await registration.dispose()
+        target.setUnknown(false)
+        await pool.query("update server_jobs set lease_expires_at=now()-interval '1 second' where id=$1", [job.id])
+        const recovery = await next(target)
+        assert.equal(recovery.id, job.id)
+        assert.notEqual(recovery.fence, job.fence)
+        assert.equal((await getJob(job.id)).state, 'succeeded')
+        assert.equal(target.requests.filter((x) => x === 'start').length, 1)
+        await assert.rejects(finishJob(db, job, 'failed', 'stale writer'), {
+          code: 'job_lease_lost',
+        })
+      },
+    )
+    await t.test('recovery releases the server lock when the remote operation never started', async () => {
+      const target = remote(),
+        created = (
+          await api(
+            'POST',
+            '/servers',
+            input({
+              type_key: GENERAL_TYPE,
+              install_required_software: true,
+            }),
+          )
+        ).body
+      await next(target)
+      const pending = await claimNext(db, 'worker-one')
+      assert.ok(pending)
+      await phase(db, pending, 'installing')
+      await pool.query("update server_jobs set lease_expires_at=now()-interval '1 second' where id=$1", [pending.id])
+      const recovered = await next(target)
+      assert.equal(recovered.id, pending.id)
+      assert.equal((await getJob(pending.id)).state, 'failed')
+      assert.equal(target.requests.includes('start'), false)
+      assert.equal(
+        (await api('PATCH', `/servers/${created.id}`, { ssh_port: 2222, install_required_software: false })).status,
+        200,
+      )
+    })
+    await t.test('critical configuration drift blocks a queued plan before remote mutation', async () => {
+      const target = remote(),
+        created = (
+          await api(
+            'POST',
+            '/servers',
+            input({
+              type_key: GENERAL_TYPE,
+              install_required_software: true,
+            }),
+          )
+        ).body
+      await next(target)
+      assert.equal(
+        (
+          await api('PATCH', `/servers/${created.id}`, {
+            install_required_software: false,
+            ssh_port: 2222,
+          })
+        ).status,
+        200,
+      )
+      const job = await next(target)
+      assert.equal((await getJob(job.id)).state, 'failed')
+      assert.equal(target.requests.includes('start'), false)
+    })
+    await t.test('OS mismatch records evidence and blocks software; correction remains possible', async () => {
+      const target = remote()
+      target.setOs('ID=debian\nVERSION_ID=12\nSMP_ARCH=x86_64\n')
+      const created = (await api('POST', '/servers', input({ type_key: GENERAL_TYPE }))).body
+      await api('POST', `/servers/${created.id}/install-components`)
+      const job = await next(target)
+      assert.equal((await getJob(job.id)).state, 'failed')
+      assert.deepEqual(target.requests, [])
+      assert.equal((await api('GET', `/servers/${created.id}`)).body.os_verification, 'mismatch')
+      assert.equal(
+        (
+          await api('PATCH', `/servers/${created.id}`, {
+            declared_os: {
+              kind: 'catalog',
+              family: 'builtin/debian',
+              releaseKey: '12',
+            },
+          })
+        ).status,
+        200,
+      )
+      await next(target)
+    })
+    await t.test('concurrent claims serialize per server and stale fences cannot finish a recovered task', async () => {
+      const created = (await api('POST', '/servers', input())).body
+      await enqueue(db, created.id, 'inspect')
+      await enqueue(db, created.id, 'test_connection')
+      const jobs = (await Promise.all([claimNext(db, 'worker-a'), claimNext(db, 'worker-b')])).filter(
+        (j): j is JobRecord => !!j,
+      )
+      assert.equal(jobs.length, 1)
+      await pool.query("update server_jobs set lease_expires_at=now()-interval '1 second' where id=$1", [jobs[0]!.id])
+      const recovered = await claimNext(db, 'worker-c')
+      assert.equal(recovered?.id, jobs[0]!.id)
+      assert.equal(recovered?.state, 'recovering')
+      await assert.rejects(finishJob(db, jobs[0]!, 'succeeded', 'stale'), {
+        code: 'job_lease_lost',
+      })
+      await executeJob(db, secrets, definitions, recovered!, remote().connect)
+      await next(remote())
+    })
+    await t.test('deleting a server preserves immutable task identity and execution history', async () => {
+      const created = (await api('POST', '/servers', input())).body
+      await api('POST', `/servers/${created.id}/test`)
+      const job = await next(remote())
+      assert.equal((await api('DELETE', `/servers/${created.id}`)).status, 204)
+      const retained = await getJob(job.id)
+      assert.equal(retained.server_id, null)
+      assert.equal(retained.server_identity, created.id)
+    })
+  },
+)

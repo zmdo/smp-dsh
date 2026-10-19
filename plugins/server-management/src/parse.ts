@@ -158,3 +158,12 @@ function containerFrom(payload: Record<string, unknown>): ParsedContainer {
     strategySlug: labels['smp.strategy'] || null,
   }
 }
+
+/** Sanitize string leaves before JSON encoding so quoted or multiline secrets are also removed. */
+export function scrubValue<T>(value: T, secret: string): T {
+  const visit = (item: unknown): unknown => typeof item === 'string' ? scrub(item, secret)
+    : Array.isArray(item) ? item.map(visit)
+    : item !== null && typeof item === 'object' ? Object.fromEntries(Object.entries(item).map(([key, child]) => [key, visit(child)]))
+    : item
+  return visit(value) as T
+}

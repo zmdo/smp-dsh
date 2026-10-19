@@ -1,8 +1,8 @@
 # 服务器管理 V2 数据模型与插件契约
 
-状态：2026-10-19 详细设计基线。本文将已确认需求落实为字段、关联、接口和执行规则；A1 已实施配置／观察分离与系统登记，见 [实施记录](database-redesign.md#7-a1-实施记录2026-10-19)；完整 V2 契约和任务／计划仍待后续。设计附件为 [DDL](schema-v2.sql) 和 [TypeScript 契约](plugin-contract-v2.ts)，两者只在本文目录内验证，不属于插件公开导出。
+状态：2026-10-19 详细设计基线。本文将已确认需求落实为字段、关联、接口和执行规则；A1 已实施配置／观察分离与系统登记，见 [实施记录](database-redesign.md#7-a1-实施记录2026-10-19)；A2 的 Linux 初装注册、计划与可恢复任务底座已接入，实际能力和剩余边界见 [执行基础实施记录](execution-foundation.md)。设计附件为 [DDL](schema-v2.sql) 和 [TypeScript 契约](plugin-contract-v2.ts)，两者只在本文目录内验证，不属于插件公开导出。
 
-前置依据：[数据库问题](database-redesign.md)、[类型与升级](group-types-and-i18n.md)、[操作系统](operating-systems.md)、[实例列表](server-instances-list.md)。此前文档的产品规则继续有效；本文替代旧表名、局部软件 ID、`registerGroup()` 及混合任务结构的实现建议。已有代码仍使用扩展了系统范围的 `registerGroup()`；不能把下面的完整 V2 设计当成当前可调用能力。
+前置依据：[数据库问题](database-redesign.md)、[类型与升级](group-types-and-i18n.md)、[操作系统](operating-systems.md)、[实例列表](server-instances-list.md)。此前文档的产品规则继续有效；本文替代旧表名、局部软件 ID、`registerGroup()` 及混合任务结构的实现建议。运行代码已切换 `registerDefinitions()`；下文仍包含尚未启用的系统扩展、动态软件依赖和升级能力，不能将完整设计当成当前可调用能力。
 
 ## 1. 本阶段确定的边界
 
@@ -96,7 +96,7 @@ erDiagram
 
 ## 4. 插件注册与执行协议
 
-契约详见 [plugin-contract-v2.ts](plugin-contract-v2.ts)。新服务方法为 `ctx.serverManagement.registerDefinitions(bundle)`，一次声明操作系统、软件、配方、类型和分组，返回 `{ ready, dispose }`。旧 `registerGroup()` 在切换实现时移除；本稿尚未增加运行时方法。
+契约详见 [plugin-contract-v2.ts](plugin-contract-v2.ts)。新服务方法为 `ctx.serverManagement.registerDefinitions(bundle)`，一次声明操作系统、软件、配方、类型和分组，返回 `{ ready, dispose }`。旧 `registerGroup()` 已移除；运行时已支持软件、配方、类型和分组整包登记，操作系统扩展尚未启用。
 
 ```ts
 export const inject = ['serverManagement']
@@ -255,7 +255,7 @@ DDL 附件用于表达完整终态，新迁移按阶段抽取当前所需部分�
 | D：升级管理 | 策略调度、建议处理、独立 Tab、批量计划、预约及恢复 | 只检测不执行，拒绝不重复提醒，推迟不执行，统一版本与固定目标，失败暂停、错过不补升级、失联先恢复。 |
 | E：会话工具 | 按新契约接入目录及 shell 权限 | 同一服务校验，默认无会话访问，权限与审批规则按专门文档实施。 |
 
-A 阶段分两步交付：A1 为配置／观察和系统登记，A2 为 V2 注册、计划和任务执行器。A1 保留的现有初装脚本只是尚待替换的旧能力，不代表已实现 V2。A2 适配当前安装能力时必须冻结初装包、记录阶段与恢复信息；不能为了把版本 UI 延到 C 就继续执行不受控的安装最新版脚本。C 再扩展范围编辑、替换与移动的完整交互。各阶段完成后更新实际进度，不把定义了未来状态码等同于上线了升级管理。
+A 阶段分两步交付：A1 为配置／观察和系统登记，A2 为 V2 注册、计划和任务执行器。A1 保留的旧初装脚本已由 A2 的精确包计划替换；A2 的实际交付和扩展限制见 [执行基础实施记录](execution-foundation.md)。A2 适配当前安装能力时必须冻结初装包、记录阶段与恢复信息；不能为了把版本 UI 延到 C 就继续执行不受控的安装最新版脚本。C 再扩展范围编辑、替换与移动的完整交互。各阶段完成后更新实际进度，不把定义了未来状态码等同于上线了升级管理。
 
 ## 10. 本次设计验证记录
 

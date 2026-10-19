@@ -1,27 +1,13 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import test from 'node:test'
-import { CatalogError, loadCatalog, normalizeSelection } from '../src/catalog.ts'
-
-test('a catalog keeps order and refuses a missing requirement', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'components-'))
-  t.after(() => rm(root, { recursive: true, force: true }))
-  await mkdir(join(root, 'compose'))
-  await mkdir(join(root, 'docker'))
-  await writeFile(join(root, 'docker', 'component.json'), JSON.stringify({ id: 'docker', name: 'Docker', order: 10, requires: [] }))
-  await writeFile(join(root, 'compose', 'component.json'), JSON.stringify({ id: 'compose', name: 'Compose', order: 20, requires: ['docker'] }))
-  for (const id of ['docker', 'compose']) {
-    await writeFile(join(root, id, 'detect.sh'), 'exit 0\n')
-    await writeFile(join(root, id, 'install.sh'), 'exit 0\n')
-  }
-  const catalog = await loadCatalog(root)
-  assert.deepEqual(catalog.map(item => item.id), ['docker', 'compose'])
+import { builtinCatalog, normalizeSelection } from '../src/catalog.ts'
+test('built-in recipes have exact planning capabilities and preserve dependency order', () => {
+  const catalog = builtinCatalog()
   assert.deepEqual(normalizeSelection(catalog, ['compose', 'docker']), ['docker', 'compose'])
-  assert.throws(() => normalizeSelection(catalog, ['compose']), CatalogError)
-})
-
-test('a missing component directory fails', async () => {
-  await assert.rejects(loadCatalog(join(tmpdir(), 'missing-components-dir')), CatalogError)
+  assert.throws(() => normalizeSelection(catalog, ['compose']))
+  for (const component of catalog) {
+    assert.ok(component.scripts.resolve)
+    assert.ok(component.scripts.recover)
+    assert.deepEqual(component.actions, ['install'])
+  }
 })

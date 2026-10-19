@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import type { Component } from './catalog.ts'
-import { RESTART_MESSAGE } from './jobs.ts'
 import { excerpt } from './parse.ts'
 import type { MetricSample } from './parse.ts'
 import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
@@ -27,85 +26,8 @@ export class HttpError extends ServerError {
   }
 }
 
-export interface JobRecord {
-  id: string
-  server_id: string
-  action: string
-  status: string
-  output_excerpt: string
-  created_at: Date
-  started_at: Date | null
-  finished_at: Date | null
-  config_revision: string | number | null
-  type_signature: string | null
-}
-
-const JOB_COLUMNS = 'id, server_id, action, status, output_excerpt, created_at, started_at, finished_at, config_revision, type_signature'
-
-export async function recoverRunning(db: Db): Promise<void> {
-  await db.query(
-    `update ops_jobs set status = 'failed', finished_at = now(), output_excerpt = $1 where status = 'running'`,
-    [RESTART_MESSAGE],
-  )
-}
-
-export async function enqueue(db: Db, serverId: string, action: string, expected?: { configRevision: string | number; typeSignature: string }): Promise<JobRecord> {
-  const existing = await db.query<JobRecord>(
-    `select ${JOB_COLUMNS} from ops_jobs where server_id = $1 and action = $2 and status in ('queued', 'running')
-     and ($3::bigint is null or config_revision = $3) and ($4::text is null or type_signature = $4) order by created_at limit 1`,
-    [serverId, action, expected?.configRevision ?? null, expected?.typeSignature ?? null],
-  )
-  const open = existing.rows[0]
-  if (open !== undefined) return open
-  const id = randomUUID()
-  const inserted = await db.query<JobRecord>(
-    `insert into ops_jobs (id, server_id, action, status, output_excerpt, config_revision, type_signature)
-     values ($1, $2, $3, 'queued', '', $4, $5) returning ${JOB_COLUMNS}`,
-    [id, serverId, action, expected?.configRevision ?? null, expected?.typeSignature ?? null],
-  )
-  const row = inserted.rows[0]
-  if (row === undefined) throw new HttpError(500, 'job_not_saved')
-  return row
-}
-
-export async function claimNext(db: Db): Promise<string | undefined> {
-  const client = await db.connect()
-  try {
-    await client.query('begin')
-    const found = await client.query<{ id: string; server_id: string }>(
-      `select j.id, j.server_id from ops_jobs j
-       where j.status = 'queued'
-         and j.server_id not in (select server_id from ops_jobs where status = 'running')
-       order by j.created_at
-       for update of j skip locked
-       limit 1`,
-    )
-    const id = found.rows[0]?.id
-    if (id === undefined) {
-      await client.query('commit')
-      return undefined
-    }
-    const locked = await client.query('select id from servers where id = $1 for update skip locked', [found.rows[0]!.server_id])
-    const busy = await client.query('select id from ops_jobs where server_id = $1 and status = $2', [found.rows[0]!.server_id, 'running'])
-    if (locked.rows.length === 0 || busy.rows.length > 0) {
-      await client.query('commit')
-      return undefined
-    }
-    await client.query(`update ops_jobs set status = 'running', started_at = now() where id = $1`, [id])
-    await client.query('commit')
-    return id
-  } catch (cause) {
-    await client.query('rollback')
-    throw cause
-  } finally {
-    client.release()
-  }
-}
-
-export async function loadJob(db: Db, id: string): Promise<JobRecord | undefined> {
-  const result = await db.query<JobRecord>(`select ${JOB_COLUMNS} from ops_jobs where id = $1`, [id])
-  return result.rows[0]
-}
+export { enqueue, enqueueOn, claimNext } from './job-store.ts'
+export type { JobRecord } from './job-store.ts'
 
 export interface ServerSecret {
   id: string
@@ -137,41 +59,49 @@ export async function serverSecret(db: Db, id: string): Promise<ServerSecret | u
   return result.rows[0]
 }
 
-export async function finishJob(db: Db, id: string, status: 'succeeded' | 'failed', message: string): Promise<void> {
+export async function markConnected(db: Db, serverId: string, fingerprint: string): Promise<void> {
+  await db.query('update servers set host_fingerprint = $2 where id = $1 and host_fingerprint is null', [
+    serverId,
+    fingerprint,
+  ])
   await db.query(
-    `update ops_jobs set status = $2, finished_at = now(), output_excerpt = $3 where id = $1 and status = 'running'`,
-    [id, status, excerpt(message)],
+    "update server_runtime set connection_state='online', connection_error=null, connection_checked_at=now() where server_id=$1",
+    [serverId],
   )
 }
 
-export async function markConnected(db: Db, serverId: string, fingerprint: string): Promise<void> {
-  await db.query('update servers set host_fingerprint = $2 where id = $1 and host_fingerprint is null', [serverId, fingerprint])
-  await db.query("update server_runtime set connection_state='online', connection_error=null, connection_checked_at=now() where server_id=$1", [serverId])
-}
-
-export async function saveOsProbe(db: Db, serverId: string, probe: OsProbe, configRevision: string | number): Promise<void> {
+export async function saveOsProbe(
+  db: Db,
+  serverId: string,
+  probe: OsProbe,
+  configRevision: string | number,
+): Promise<void> {
   const os = probe.state === 'detected' ? JSON.stringify(probe.os) : null
-  await db.query(`update server_runtime set os_probe_state=$2, os_checked_at=now(), observed_config_revision=$4,
+  await db.query(
+    `update server_runtime set os_probe_state=$2, os_checked_at=now(), observed_config_revision=$4,
     os_error=$5, environment_revision=environment_revision+case when $3::jsonb is not null and detected_os is distinct from $3::jsonb then 1 else 0 end,
     detected_os=coalesce($3::jsonb,detected_os), os_last_success_at=case when $3::jsonb is not null then now() else os_last_success_at end
-    where server_id=$1`, [serverId, probe.state, os, configRevision, probe.state === 'failed' ? JSON.stringify({code:probe.code}) : null])
-}
-
-export async function recordFailure(db: Db, serverId: string, jobId: string, message: string, connected: boolean): Promise<void> {
-  if (!connected) await db.query("update server_runtime set connection_state='offline', connection_checked_at=now(), connection_error=$2 where server_id=$1", [serverId, JSON.stringify({message})])
-  await finishJob(db, jobId, 'failed', message)
+    where server_id=$1`,
+    [serverId, probe.state, os, configRevision, probe.state === 'failed' ? JSON.stringify({ code: probe.code }) : null],
+  )
 }
 
 type ObservedComponent = Pick<Component, 'id' | 'software_key' | 'recipe'>
 
-export async function saveComponentStatus(db: Db, serverId: string, status: SoftwareStatus, components: readonly ObservedComponent[]): Promise<void> {
+export async function saveComponentStatus(
+  db: Db,
+  serverId: string,
+  status: SoftwareStatus,
+  components: readonly ObservedComponent[],
+): Promise<void> {
   for (const component of components) {
     const item = status[component.id]
     if (!item) continue
-    await db.query(`insert into server_software_observations
-      (server_id,software_key,probe_state,checked_at,error,observed_config_revision,observed_environment_revision,recipe_key,recipe_revision,last_known_state,product_version,target_identity,healthy,last_success_at)
+    await db.query(
+      `insert into server_software_observations
+      (server_id,software_key,probe_state,checked_at,error,observed_config_revision,observed_environment_revision,recipe_key,recipe_revision,last_known_state,product_version,target_identity,healthy,last_success_at,packages)
       select s.id,$2,$3,now(),$4,s.config_revision,r.environment_revision,$5,$6,
-        case when $3='unknown' then null else $3 end,$7,$7,case when $3='installed' then true else null end,case when $3='unknown' then null else now() end
+        case when $3='unknown' then null else $3 end,$7,$8,case when $3='installed' then $9::boolean else null end,case when $3='unknown' then null else now() end,$10::jsonb
       from servers s join server_runtime r on r.server_id=s.id where s.id=$1
       on conflict(server_id,software_key) do update set probe_state=excluded.probe_state,checked_at=excluded.checked_at,error=excluded.error,
         observed_config_revision=excluded.observed_config_revision,observed_environment_revision=excluded.observed_environment_revision,
@@ -180,53 +110,119 @@ export async function saveComponentStatus(db: Db, serverId: string, status: Soft
         product_version=case when excluded.probe_state='unknown' then server_software_observations.product_version else excluded.product_version end,
         target_identity=case when excluded.probe_state='unknown' then server_software_observations.target_identity else excluded.target_identity end,
         healthy=case when excluded.probe_state='unknown' then server_software_observations.healthy else excluded.healthy end,
+        packages=case when excluded.probe_state='unknown' then server_software_observations.packages else excluded.packages end,
         last_success_at=coalesce(excluded.last_success_at,server_software_observations.last_success_at)`,
-    [serverId,component.software_key,item.state,item.detail ? JSON.stringify({detail:item.detail}) : null,component.recipe,item.revision ?? 'optional-observation',item.state==='installed' ? item.version : null])
+      [
+        serverId,
+        component.software_key,
+        item.state,
+        item.detail ? JSON.stringify({ detail: item.detail }) : null,
+        component.recipe,
+        item.revision ?? 'optional-observation',
+        item.state === 'installed' ? item.version : null,
+        item.state === 'installed' ? (item.targetIdentity ?? item.version) : null,
+        item.healthy ?? true,
+        JSON.stringify(item.packages ?? []),
+      ],
+    )
   }
 }
 
-export async function saveObservation(db: Db, serverId: string, jobId: string, status: SoftwareStatus | undefined, observation: ContainerObservation, output: string, components: readonly Component[]): Promise<void> {
-  const client = await db.connect()
-  try {
-    await client.query('begin')
-    if (status !== undefined) await saveComponentStatus(client, serverId, status, components)
-    for (const [id, version] of [['docker', observation.docker], ['compose', observation.compose]] as const) {
-      if (version === null || status?.[id]) continue
-      await saveComponentStatus(client, serverId, { [id]: {state:'installed',installed:true,version,detail:''} }, [{id,software_key:id==='docker'?'builtin/docker-engine':'builtin/docker-compose',recipe:'builtin/container-observation'}])
-    }
-    if (observation.state === 'ready') {
-      await client.query('delete from server_containers where server_id = $1', [serverId])
-      for (const item of observation.containers ?? []) await client.query(
+export async function saveObservation(
+  db: Db,
+  serverId: string,
+  jobId: string,
+  status: SoftwareStatus | undefined,
+  observation: ContainerObservation,
+  output: string,
+  components: readonly Component[],
+): Promise<void> {
+  const client = db
+  if (status !== undefined) await saveComponentStatus(client, serverId, status, components)
+  for (const [id, version] of [
+    ['docker', observation.docker],
+    ['compose', observation.compose],
+  ] as const) {
+    if (version === null || status?.[id]) continue
+    await saveComponentStatus(
+      client,
+      serverId,
+      { [id]: { state: 'installed', installed: true, version, detail: '' } },
+      [
+        {
+          id,
+          software_key: id === 'docker' ? 'builtin/docker-engine' : 'builtin/docker-compose',
+          recipe: 'builtin/container-observation',
+        },
+      ],
+    )
+  }
+  if (observation.state === 'ready') {
+    await client.query('delete from server_containers where server_id = $1', [serverId])
+    for (const item of observation.containers ?? [])
+      await client.query(
         `insert into server_containers (id,server_id,container_id,name,image,status,ports,managed,strategy_slug,observed_at)
          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())`,
-        [randomUUID(),serverId,item.containerId,item.name,item.image,item.status,item.ports,item.managed,item.strategySlug])
-    }
-    await client.query(`insert into server_container_scans(server_id,state,checked_at,last_success_at) values($1,$2,now(),case when $2='ready' then now() else null end)
-      on conflict(server_id) do update set state=excluded.state,checked_at=excluded.checked_at,last_success_at=coalesce(excluded.last_success_at,server_container_scans.last_success_at)`,[serverId,observation.state==='error'?'failed':observation.state])
-    await finishJob(client,jobId,'succeeded',output)
-    await client.query('commit')
-  } catch (cause) { await client.query('rollback'); throw cause } finally { client.release() }
+        [
+          randomUUID(),
+          serverId,
+          item.containerId,
+          item.name,
+          item.image,
+          item.status,
+          item.ports,
+          item.managed,
+          item.strategySlug,
+        ],
+      )
+  }
+  await client.query(
+    `insert into server_container_scans(server_id,state,checked_at,last_success_at) values($1,$2,now(),case when $2='ready' then now() else null end)
+      on conflict(server_id) do update set state=excluded.state,checked_at=excluded.checked_at,last_success_at=coalesce(excluded.last_success_at,server_container_scans.last_success_at)`,
+    [serverId, observation.state === 'error' ? 'failed' : observation.state],
+  )
 }
 
-export async function saveMetrics(db: Db, serverId: string, sample: MetricSample, configRevision: string | number): Promise<void> {
-  await db.query(`update server_runtime r set cpu_cores=$2,cpu_percent=$3,memory_total_bytes=$4,memory_used_bytes=$5,disk_total_bytes=$6,disk_used_bytes=$7,metrics_sampled_at=now(),metrics_error=null
+export async function saveMetrics(
+  db: Db,
+  serverId: string,
+  sample: MetricSample,
+  configRevision: string | number,
+): Promise<void> {
+  await db.query(
+    `update server_runtime r set cpu_cores=$2,cpu_percent=$3,memory_total_bytes=$4,memory_used_bytes=$5,disk_total_bytes=$6,disk_used_bytes=$7,metrics_sampled_at=now(),metrics_error=null
     from servers s where r.server_id=s.id and s.id=$1 and s.config_revision=$8`,
-  [serverId,sample.cpuCores,sample.cpuPercent,sample.memTotalBytes,sample.memUsedBytes,sample.diskTotalBytes,sample.diskUsedBytes,configRevision])
+    [
+      serverId,
+      sample.cpuCores,
+      sample.cpuPercent,
+      sample.memTotalBytes,
+      sample.memUsedBytes,
+      sample.diskTotalBytes,
+      sample.diskUsedBytes,
+      configRevision,
+    ],
+  )
 }
 
 export async function dueInspects(db: Db, intervalSeconds: number): Promise<string[]> {
-  const result=await db.query<{id:string}>(`select s.id from servers s join server_runtime r on r.server_id=s.id
+  const result = await db.query<{ id: string }>(
+    `select s.id from servers s join server_runtime r on r.server_id=s.id
     where r.connection_state='online' and (r.connection_checked_at is null or r.connection_checked_at < now()-make_interval(secs=>$1))
-    and not exists(select 1 from ops_jobs j where j.server_id=s.id and j.action='inspect' and j.status in ('queued','running'))`,[intervalSeconds])
-  return result.rows.map(row=>row.id)
+    and not exists(select 1 from server_jobs j where j.server_id=s.id and j.purpose='inspect' and j.state in ('queued','claimed','running','recovering'))`,
+    [intervalSeconds],
+  )
+  return result.rows.map((row) => row.id)
 }
 
 export async function serverIds(db: Db): Promise<string[]> {
-  const result=await db.query<{id:string}>(`select s.id from servers s join server_runtime r on r.server_id=s.id
+  const result = await db.query<{ id: string }>(`select s.id from servers s join server_runtime r on r.server_id=s.id
     where r.os_probe_state='detected' and r.detected_os->>'family' <> 'builtin/windows-server' and r.observed_config_revision=s.config_revision`)
-  return result.rows.map(row=>row.id)
+  return result.rows.map((row) => row.id)
 }
 
-export function componentView(catalog: readonly Component[]): { id: string; name: string; summary: string; requires: string[] }[] {
-  return catalog.map(item => ({ id: item.id, name: item.name, summary: item.summary, requires: item.requires }))
+export function componentView(
+  catalog: readonly Component[],
+): { id: string; name: string; summary: string; requires: string[] }[] {
+  return catalog.map((item) => ({ id: item.id, name: item.name, summary: item.summary, requires: item.requires }))
 }

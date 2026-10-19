@@ -30,7 +30,11 @@ export interface CommandResult {
 
 export interface SshSession {
   readonly fingerprint: string
-  exec(command: string, timeoutMs: number): Promise<CommandResult>
+  exec(
+    command: string,
+    timeoutMs: number,
+    options?: { stdin?: string; outputLimitBytes?: number },
+  ): Promise<CommandResult>
   putScript(name: string, body: Buffer): Promise<void>
   shell(cols: number, rows: number): Promise<ShellChannel>
   close(): void
@@ -137,14 +141,21 @@ export function connectSsh(input: {
 function sessionFor(client: Client, fingerprint: string): SshSession {
   return {
     fingerprint,
-    exec: (command, timeoutMs) => execCommand(client, command, timeoutMs),
+    exec: (command, timeoutMs, options) => execCommand(client, command, timeoutMs, options),
     putScript: (name, body) => uploadScript(client, name, body),
     shell: (cols, rows) => openShell(client, cols, rows),
-    close: () => { client.end() },
+    close: () => {
+      client.end()
+    },
   }
 }
 
-function execCommand(client: Client, command: string, timeoutMs: number): Promise<CommandResult> {
+function execCommand(
+  client: Client,
+  command: string,
+  timeoutMs: number,
+  options: { stdin?: string; outputLimitBytes?: number } = {},
+): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     let settled = false
     let channel: { close(): void } | undefined
@@ -172,14 +183,32 @@ function execCommand(client: Client, command: string, timeoutMs: number): Promis
         channel = stream
         const out: Buffer[] = []
         const err: Buffer[] = []
-        stream.on('data', (chunk: Buffer) => { out.push(chunk) })
-        stream.stderr.on('data', (chunk: Buffer) => { err.push(chunk) })
+        let bytes = 0
+        const append = (target: Buffer[], chunk: Buffer) => {
+          bytes += chunk.length
+          if (bytes > (options.outputLimitBytes ?? 1_048_576)) {
+            stream.close()
+            finish(() => reject(new SshError('recipe_protocol')))
+          } else target.push(chunk)
+        }
+        stream.on('data', (chunk: Buffer) => {
+          append(out, chunk)
+        })
+        stream.stderr.on('data', (chunk: Buffer) => {
+          append(err, chunk)
+        })
+        stream.on('error', (cause: Error) => {
+          finish(() => reject(new SshError('command_failed', undefined, {}, { cause })))
+        })
+        if (options.stdin !== undefined) stream.end(options.stdin)
         stream.on('close', (code: number) => {
-          finish(() => resolve({
-            code: code ?? 0,
-            stdout: Buffer.concat(out).toString('utf8'),
-            stderr: Buffer.concat(err).toString('utf8'),
-          }))
+          finish(() =>
+            resolve({
+              code: code ?? 0,
+              stdout: Buffer.concat(out).toString('utf8'),
+              stderr: Buffer.concat(err).toString('utf8'),
+            }),
+          )
         })
       })
     } catch (cause) {
@@ -221,11 +250,21 @@ function openShell(client: Client, cols: number, rows: number): Promise<ShellCha
         return
       }
       resolve({
-        write: (data) => { stream.write(data) },
-        resize: (nextCols, nextRows) => { stream.setWindow(nextRows, nextCols, 0, 0) },
-        onData: (listener) => { stream.on('data', listener) },
-        onClose: (listener) => { stream.on('close', listener) },
-        close: () => { stream.close() },
+        write: (data) => {
+          stream.write(data)
+        },
+        resize: (nextCols, nextRows) => {
+          stream.setWindow(nextRows, nextCols, 0, 0)
+        },
+        onData: (listener) => {
+          stream.on('data', listener)
+        },
+        onClose: (listener) => {
+          stream.on('close', listener)
+        },
+        close: () => {
+          stream.close()
+        },
       })
     })
   })
