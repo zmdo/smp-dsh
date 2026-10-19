@@ -1,16 +1,23 @@
 /** One workspace belongs to one group. Group names live with the plugin that registered them. */
+import type { GroupLabel, GroupLabelI18n } from './contract.ts'
+import { groupCopy, localizedGroupLabel } from './copy.ts'
 
 export const GENERAL_GROUP_ID = 'general'
-export const GENERAL_GROUP_LABEL = '普通工作区组'
+export const GENERAL_GROUP_LABEL = groupCopy('zh').general
 export const UNASSIGNED_GROUP_ID = 'unassigned'
-export const UNASSIGNED_GROUP_LABEL = '未归属'
+export const UNASSIGNED_GROUP_LABEL = groupCopy('zh').unassigned
 export const DEFAULT_WORKSPACE_TITLE = 'default-workspace'
 
-export interface GroupSpec {
+export interface GroupSpec extends GroupLabel {
   id: string
-  label: string
   directory: string
   order: number
+}
+
+export interface GroupInput extends GroupLabel {
+  id: string
+  directory: string
+  order?: number
 }
 
 export interface MemberRow {
@@ -36,13 +43,26 @@ export interface WorkspaceFace {
   sessionIds: readonly string[]
 }
 
-export function normalizeGroup(input: { id: string; label: string; directory: string; order?: number }): GroupSpec {
+export function normalizeGroup(input: GroupInput): GroupSpec {
   const id = input.id.trim()
   const label = input.label.trim()
   const directory = input.directory.trim()
   if (id === '' || label === '' || directory === '') throw new Error('工作区组的编号、名称和目录都不能为空')
   if (id === UNASSIGNED_GROUP_ID) throw new Error('未归属是系统保留的工作区组')
-  return { id, label, directory, order: input.order ?? 0 }
+  let labelI18n: GroupLabelI18n | undefined
+  if (input.labelI18n !== undefined) {
+    if (input.labelI18n === null || typeof input.labelI18n !== 'object' || Array.isArray(input.labelI18n)
+      || Object.keys(input.labelI18n).some(language => language !== 'zh' && language !== 'en')) throw new Error('工作区组的翻译必须使用 zh、en 语言键')
+    const labels: Partial<Record<'zh' | 'en', string>> = {}
+    for (const language of ['zh', 'en'] as const) {
+      const value = input.labelI18n[language]
+      if (value === undefined) continue
+      if (typeof value !== 'string' || value.trim() === '') throw new Error(`工作区组的 ${language} 名称不能为空`)
+      labels[language] = value.trim()
+    }
+    labelI18n = labels
+  }
+  return { id, label, directory, order: input.order ?? 0, ...(labelI18n === undefined ? {} : { labelI18n }) }
 }
 
 export function rememberGroup(groups: readonly GroupSpec[], spec: GroupSpec): GroupSpec[] {
@@ -144,7 +164,8 @@ export function toolRefusal(groupLabel: string): string {
   return `当前工作区组「${groupLabel}」不能使用这个功能`
 }
 
-export function groupLabelOf(workspaceId: string | undefined, members: readonly MemberRow[], groups: readonly { id: string; label: string }[]): string {
+export function groupLabelOf(workspaceId: string | undefined, members: readonly MemberRow[], groups: readonly (GroupLabel & { id: string })[], active = 'zh'): string {
   const groupId = members.find(row => row.workspaceId === workspaceId)?.groupId ?? GENERAL_GROUP_ID
-  return groups.find(group => group.id === groupId)?.label ?? GENERAL_GROUP_LABEL
+  const group = groups.find(group => group.id === groupId)
+  return group === undefined ? groupCopy(active).general : localizedGroupLabel(group, active)
 }

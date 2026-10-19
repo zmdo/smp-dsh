@@ -51,6 +51,7 @@ interface ArchivePageProps {
   uiWorkspace: { openSession(sessionId: string): void }
   layout: { selectPanel(id: string | null): void }
   workspaceGroups: {
+    labelOf(groupId: string): string
     subscribe(listener: () => void): () => void
     getSnapshot(): { groups: readonly { id: string; label: string }[]; members: readonly { workspaceId: string; groupId: string }[] }
   }
@@ -87,9 +88,9 @@ export function installArchiveStyle(): () => void {
   return () => { tag.remove() }
 }
 
-function groupName(groups: { groups: readonly { id: string; label: string }[]; members: readonly { workspaceId: string; groupId: string }[] }, workspaceId: string | undefined): string | undefined {
-  const groupId = groups.members.find(row => row.workspaceId === workspaceId)?.groupId
-  return groups.groups.find(group => group.id === groupId)?.label
+function groupName(groups: { members: readonly { workspaceId: string; groupId: string }[] }, workspaceId: string | undefined, labelOf: (groupId: string) => string): string {
+  const groupId = groups.members.find(row => row.workspaceId === workspaceId)?.groupId ?? 'general'
+  return labelOf(groupId)
 }
 
 export function ArchivePage(props: ArchivePageProps) {
@@ -153,7 +154,7 @@ export function ArchivePage(props: ArchivePageProps) {
       title,
       archived: isArchived,
       pinned: pinned.has(row.id),
-      workspace: account === undefined ? '' : archiveWorkspaceLabel(groupName(groups, account.workspaceId), account.title, copy.defaultWorkspace),
+      workspace: account === undefined ? '' : archiveWorkspaceLabel(groupName(groups, account.workspaceId, props.workspaceGroups.labelOf), account.title, copy.defaultWorkspace),
       parentTitle: parent?.displayTitle ?? row.parentId ?? '',
     }]
   })
@@ -245,7 +246,7 @@ export function ArchivePage(props: ArchivePageProps) {
           <select aria-label={copy.workspace} value={workspacePath} onChange={(event) => { setWorkspacePath(event.target.value); setPageIndex(1) }}>
             <option value="">{copy.anyWorkspace}</option>
             {workspaceOptions.map(item => (
-              <option key={item.path} value={item.path}>{archiveWorkspaceLabel(groupName(groups, item.workspaceId), item.title, copy.defaultWorkspace)}</option>
+              <option key={item.path} value={item.path}>{archiveWorkspaceLabel(groupName(groups, item.workspaceId, props.workspaceGroups.labelOf), item.title, copy.defaultWorkspace)}</option>
             ))}
           </select>
           <select aria-label={copy.status} value={status} onChange={(event) => { setStatus(event.target.value === 'active' || event.target.value === 'archived' ? event.target.value : 'all'); setPageIndex(1) }}>

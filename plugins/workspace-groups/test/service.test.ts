@@ -44,7 +44,13 @@ test('workspace group persistence, conflicts, focus, removal, and recovery', asy
   await pool.query(await readFile(new URL('../../database/migrations/0010_workspace_groups.sql', import.meta.url), 'utf8'))
   await pool.query(await readFile(new URL('../../database/migrations/0011_workspace_group_navigation.sql', import.meta.url), 'utf8'))
   await groups.register({ id: 'general', label: '普通', directory: 'general' })
-  await groups.register({ id: 'sample', label: '临时', directory: 'sample' })
+  await groups.register({ id: 'sample', label: '临时', labelI18n: { zh: '临时工作区组', en: 'Sample workspace group' }, directory: 'sample' })
+  await t.test('registered plugin translations are transported with the snapshot without changing membership', async () => {
+    const snapshot = await groups.view()
+    assert.deepEqual(snapshot.groups.find(group => group.id === 'sample')?.labelI18n, { zh: '临时工作区组', en: 'Sample workspace group' })
+    assert.deepEqual(snapshot.groups.find(group => group.id === 'unassigned')?.labelI18n, { zh: '未归属', en: 'Unassigned' })
+    assert.equal(snapshot.members.filter(member => member.groupId === 'sample').length, 1)
+  })
   const pathA = join(home, 'project-a'); const pathB = join(home, 'project-b'); const pathC = join(home, 'project-c')
   await Promise.all([mkdir(pathA), mkdir(pathB), mkdir(pathC)])
   let firstId = ''

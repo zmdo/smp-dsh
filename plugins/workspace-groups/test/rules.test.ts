@@ -77,7 +77,7 @@ test('switching enters the focused workspace and falls back to the default', () 
 test('a workspace without a membership row is labeled as the general group', () => {
   const label = groupLabelOf(undefined, [], [])
   assert.equal(label, GENERAL_GROUP_LABEL)
-  assert.equal(`${label}/默认工作区`, '普通工作区组/默认工作区')
+  assert.equal(`${label}/默认工作区`, '默认组/默认工作区')
 })
 
 test('a plugin that never calls allow is usable in every group', () => {
@@ -93,7 +93,7 @@ test('allow for one group hides the page and refuses the tool in the other group
   assert.deepEqual(pagesHidden(allows, 'sample', registered), [])
   assert.equal(pluginUsable(allows, 'gate', GENERAL_GROUP_ID, registered), false)
   assert.equal(pluginUsable(allows, 'gate', 'sample', registered), true)
-  assert.match(toolRefusal('普通工作区组'), /普通工作区组/)
+  assert.match(toolRefusal('默认组'), /默认组/)
   assert.equal(allows[0]?.pages.includes('workspace-group-gate'), true)
 })
 

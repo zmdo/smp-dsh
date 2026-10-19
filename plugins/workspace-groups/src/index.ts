@@ -20,6 +20,8 @@ interface HostCtx extends Context {
 
 declare module '@deepseek-ai/cordis' { interface Context { workspaceGroups: GroupRegistry } }
 export { GroupRegistry as WorkspaceGroups } from './service.ts'
+export type { GroupInput } from './rules.ts'
+export type { GroupLabelI18n } from './contract.ts'
 export const inject = ['database', 'workspaceRegistry', 'webServer', 'consoleSession', 'sessionQuery']
 const ROOT = '/console-api/workspace-groups'
 const ACTIONS = ['', '/workspaces', '/rename', '/remove', '/focus', '/claim', '/search']
