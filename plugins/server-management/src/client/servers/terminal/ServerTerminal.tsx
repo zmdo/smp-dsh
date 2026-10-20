@@ -62,6 +62,7 @@ export function ServerTerminal(props: {
   return (
     <Panel
       title={copy.terminal}
+      className={props.embedded ? 'smp-server-terminal-panel' : undefined}
       extra={
         props.embedded ? undefined : (
           <button className="link" type="button" onClick={props.onBack}>
