@@ -5,6 +5,7 @@ import { type Db } from './host/database/connection.ts'
 import { builtinCatalog } from './host/definitions/catalog.ts'
 import { DefinitionRegistry } from './host/definitions/registry.ts'
 import { ServerManagement } from './host/definitions/service.ts'
+import { ServerExtensionRegistry } from './host/extensions/registry.ts'
 import { startJobs } from './host/execution/runtime.ts'
 import { registerRoutes } from './host/http/routes.ts'
 import { connectSsh } from './host/remote/ssh.ts'
@@ -16,15 +17,27 @@ export { ServerManagement } from './host/definitions/service.ts'
 export type { LocalizedText } from './shared/contracts/common.ts'
 export type {
   DefinitionBundle,
+  PublicTypeContribution,
   RecipeDefinition,
   Registration,
   ScriptDefinition,
+  ServerManagementContract,
   ServerTypeDefinition,
   SoftwareDefinition,
   SoftwareRequirement,
   SystemGroupDefinition,
 } from './shared/contracts/definitions.ts'
 export type { RecipeRequest, RecipeResponse } from './shared/contracts/recipes.ts'
+export type {
+  ExtensionCatalogEntry,
+  ExtensionInspection,
+  ExtensionKind,
+  ExtensionPanel,
+  ExtensionQuery,
+  ExtensionScope,
+  ExtensionSettingsSection,
+  ServerExtensionBundle,
+} from './shared/contracts/extensions.ts'
 export { GENERAL_TYPE, VACANT_TYPE } from './shared/definitions.ts'
 export type {
   DeclaredOs,
@@ -80,6 +93,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const catalog = builtinCatalog()
   const db = ctx.database.pool
   const definitions = new DefinitionRegistry(db, catalog)
+  const extensions = new ServerExtensionRegistry(definitions)
   const connect: typeof connectSsh = (input) =>
     connectSsh({ ...input, readyTimeoutMs: config.sshReadyTimeoutSeconds * 1000 })
   const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions }, connect)
@@ -94,6 +108,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   }
   yield ctx.effect(function* () {
     yield () => definitions.close()
+    yield () => extensions.close()
     yield startJobs(ctx, db, config, definitions, connect)
     yield startMetrics(
       db,
@@ -109,6 +124,6 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession, connect)
     yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
     yield () => terminal.close()
-    yield ctx.provide('serverManagement', new ServerManagement(ctx, definitions))
+    yield ctx.provide('serverManagement', new ServerManagement(ctx, definitions, extensions))
   })
 }

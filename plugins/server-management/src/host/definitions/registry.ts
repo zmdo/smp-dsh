@@ -4,7 +4,7 @@ import type {
   Registration as RegistrationHandle,
   SystemGroupDefinition,
 } from '../../shared/contracts/definitions.ts'
-import { GENERAL_TYPE, VACANT_TYPE, type TypeOptions } from '../../shared/definitions.ts'
+import { VACANT_TYPE, type ServerTypeView, type TypeOptions } from '../../shared/definitions.ts'
 import { type GroupView } from '../../shared/dto/groups.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { validateOsSupport, type DeclaredOs, type DetectedOs } from '../../shared/operating-systems.ts'
@@ -24,6 +24,7 @@ export class DefinitionRegistry {
   private readonly pending = new Set<Promise<unknown>>()
   private tail: Promise<void> = Promise.resolve()
   private closed = false
+  private revision = 0
   private readonly db: Db
   private readonly base: readonly Component[]
   private readonly resolver: DefinitionResolver
@@ -31,6 +32,33 @@ export class DefinitionRegistry {
     this.db = db
     this.base = base
     this.resolver = new DefinitionResolver(base, this.owners)
+  }
+  catalogRevision(): number {
+    return this.revision
+  }
+  hasType(key: string): boolean {
+    if (builtinTypes(this.base).some((type) => type.key === key)) return true
+    for (const owner of this.owners.values())
+      if (this.resolver.isAvailable(owner) && owner.types.has(key)) return true
+    return false
+  }
+  /** Built-in types first, then active public contributions ordered by order and stable key. */
+  publicCatalog(owners = this.owners): readonly ServerTypeView[] {
+    const types = [...builtinTypes(this.base)]
+    const seen = new Set(types.map((type) => type.key))
+    const entries: { key: string; order: number; owner: Owner }[] = []
+    for (const owner of owners.values()) {
+      if (!this.resolver.isAvailable(owner)) continue
+      for (const [key, order] of owner.publicTypes) entries.push({ key, order, owner })
+    }
+    entries.sort((a, b) => a.order - b.order || a.key.localeCompare(b.key))
+    for (const entry of entries) {
+      if (seen.has(entry.key)) continue
+      const { type } = this.resolver.resolveType(entry.key, entry.owner, owners)
+      seen.add(entry.key)
+      types.push(type)
+    }
+    return types
   }
 
   registerDefinitions(input: DefinitionBundle, identity: object = input): RegistrationHandle {
@@ -70,11 +98,13 @@ export class DefinitionRegistry {
       this.resolver.components(recipe.requires ?? [], owner, available)
     }
     for (const key of owner.types.keys()) this.resolver.resolveType(key, owner, available)
+    const inherited = this.publicCatalog(available).map((type) => type.key)
     for (const group of owner.groups.values()) {
-      const keys = group.types ?? [VACANT_TYPE, GENERAL_TYPE],
+      const keys = group.types ?? inherited,
         fallback = group.defaultType ?? keys[0]!
       if (!keys.includes(fallback)) throw new ServerError('group_definition_invalid')
-      for (const key of keys) this.resolver.resolveType(key, owner, available)
+      for (const key of keys)
+        this.resolver.resolveType(key, group.types !== undefined ? owner : undefined, available)
       for (const rule of group.defaultTypeByOs ?? []) {
         if (!keys.includes(rule.type)) throw new ServerError('group_definition_invalid')
         validateOsSupport({ kind: 'explicit', selectors: rule.whenOs }, false)
@@ -83,7 +113,7 @@ export class DefinitionRegistry {
     const saved = new Map<string, SystemGroupDefinition>()
     await transaction(this.db, async (client) => {
       for (const group of owner.groups.values()) {
-        const definition = this.resolver.groupOptions(group, owner, available)
+        const definition = this.resolver.groupOptions(group, owner, available, undefined, inherited)
         const row = (
           await repository.upsertSystemGroup(client, {
             id: randomUUID(),
@@ -102,6 +132,7 @@ export class DefinitionRegistry {
     })
     owner.groups = saved
     this.owners.set(owner.owner, owner)
+    this.revision += 1
     return owner
   }
   defaultOptions(): TypeOptions {
@@ -109,7 +140,7 @@ export class DefinitionRegistry {
       kind: 'user',
       available: !this.closed,
       default_type_key: VACANT_TYPE,
-      types: structuredClone(builtinTypes(this.base)),
+      types: structuredClone(this.publicCatalog()),
     }
   }
   view(row: GroupRow, os?: DeclaredOs | DetectedOs): GroupView {
@@ -119,7 +150,7 @@ export class DefinitionRegistry {
       row.kind === 'user'
         ? this.defaultOptions()
         : owner && group && this.resolver.isAvailable(owner)
-          ? this.resolver.groupOptions(group, owner, this.owners, os)
+          ? this.resolver.groupOptions(group, owner, this.owners, os, this.publicCatalog().map((type) => type.key))
           : {
               kind: 'system' as const,
               available: false,
@@ -197,6 +228,7 @@ export class DefinitionRegistry {
     owner.closing = (async () => {
       if (owner.leases.size) await new Promise<void>((resolve) => owner.drained.add(resolve))
       if (this.owners.get(owner.owner) === owner) this.owners.delete(owner.owner)
+      this.revision += 1
       owner.drained.clear()
     })()
     return owner.closing

@@ -13,6 +13,7 @@ export interface Owner {
   software: Map<string, SoftwareDefinition>
   recipes: Map<string, LoadedRecipe>
   types: Map<string, ServerTypeDefinition>
+  publicTypes: Map<string, number>
   groups: Map<string, SystemGroupDefinition>
   dependencies: Set<Owner>
   leases: Set<symbol>

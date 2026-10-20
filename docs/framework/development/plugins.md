@@ -49,6 +49,6 @@ Cordis 卸载时兄弟清理可能并发启动；仅有 `inject` 或持有服务
 
 先确认可复用的服务和槽，再定义最小公开契约、资源所有权、持久化和失败语义，然后接 UI。不要用 UI 组件直接复制凭据处理、队列或另一个插件的 SQL。
 
-当前服务器详情扩展尚未实现；`registerServerExtensions()`、`publicTypes` 和详情／配置子槽只是计划名称，不能在现有插件上直接调用。实施入口见[状态与计划](../handoff/status-and-roadmap.md)。
+步骤 4 已提供 `publicTypes` 和 `registerServerExtensions()` 的宿主元数据契约；详情／配置子槽、扩展 HTTP 路由和配置表仍未实现，不能在现有插件上直接渲染面板。实施入口见[状态与计划](../handoff/status-and-roadmap.md)。
 
 源码：[构建器](../../../scripts/build-plugin.mjs)、[服务器管理装配](../../../plugins/server-management/src/index.ts)、[数据库 generator effect](../../../plugins/database/src/index.ts)。

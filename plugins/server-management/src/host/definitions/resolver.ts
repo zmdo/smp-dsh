@@ -5,7 +5,7 @@ import type {
   SoftwareRequirement,
   SystemGroupDefinition,
 } from '../../shared/contracts/definitions.ts'
-import { GENERAL_TYPE, VACANT_TYPE, type ServerTypeView, type TypeOptions } from '../../shared/definitions.ts'
+import { VACANT_TYPE, type ServerTypeView, type TypeOptions } from '../../shared/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { supportsOs, type DeclaredOs, type DetectedOs } from '../../shared/operating-systems.ts'
 import { type VersionAdapter, type VersionRule } from '../../shared/versions.ts'
@@ -164,9 +164,12 @@ export class DefinitionResolver {
     owner: Owner,
     owners = this.owners,
     os?: DeclaredOs | DetectedOs,
+    inheritedKeys?: readonly string[],
   ): TypeOptions {
-    const keys = group.types ?? [VACANT_TYPE, GENERAL_TYPE]
-    const types = keys.map((key) => this.resolveType(key, owner, owners).type)
+    const explicit = group.types !== undefined
+    const keys = group.types ?? inheritedKeys ?? [VACANT_TYPE]
+    // Inherited public types must not become hard dependencies of the group owner.
+    const types = keys.map((key) => this.resolveType(key, explicit ? owner : undefined, owners).type)
     const selected = os
       ? group.defaultTypeByOs?.find((rule) => supportsOs({ kind: 'explicit', selectors: rule.whenOs }, os))
           ?.type

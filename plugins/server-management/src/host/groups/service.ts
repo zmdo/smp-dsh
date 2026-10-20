@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { GENERAL_TYPE, VACANT_TYPE } from '../../shared/definitions.ts'
+import { VACANT_TYPE } from '../../shared/definitions.ts'
 import { osVerification } from '../../shared/operating-systems.ts'
 import { type Db } from '../database/connection.ts'
 import { isUnique, transaction } from '../database/transaction.ts'
@@ -42,7 +42,7 @@ export async function deleteGroup(db: Db, id: string): Promise<void> {
     if (row.kind === 'system') throw new HttpError(403, 'system_group_protected')
     const servers = await groups.lockMembers(client, id)
     for (const server of servers.rows) {
-      if (server.type_key !== VACANT_TYPE && server.type_key !== GENERAL_TYPE)
+      if (server.type_key !== VACANT_TYPE)
         throw new HttpError(409, 'type_change_requires_preflight')
       await notRunning(client, server.id)
       if (

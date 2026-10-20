@@ -1,5 +1,6 @@
 import type { DefinitionKey, LocalizedText } from './common.ts'
 import type { OsSelector, OsSupport } from '../operating-system-types.ts'
+import type { ServerExtensionBundle } from './extensions.ts'
 import type { VersionAdapter, VersionRule } from '../versions.ts'
 
 export interface OsFamilyDefinition {
@@ -75,6 +76,13 @@ export interface RecipeDefinition {
   }
 }
 
+export interface PublicTypeContribution {
+  /** Full key of a type declared by this bundle. */
+  readonly type: DefinitionKey
+  /** Public catalog order; equal orders are sorted by stable key. */
+  readonly order?: number
+}
+
 export interface DefinitionBundle {
   readonly contractVersion: 2
   readonly owner: string // 插件包名；宿主按贡献者上下文核对归属
@@ -82,6 +90,7 @@ export interface DefinitionBundle {
   readonly software?: readonly SoftwareDefinition[]
   readonly recipes?: readonly RecipeDefinition[]
   readonly types?: readonly ServerTypeDefinition[]
+  readonly publicTypes?: readonly PublicTypeContribution[]
   readonly groups?: readonly SystemGroupDefinition[]
 }
 
@@ -93,4 +102,5 @@ export interface Registration {
 export interface ServerManagementContract {
   /** 整包原子注册；effect 属于调用插件；卸载自动调用并等待 dispose。 */
   registerDefinitions(definition: DefinitionBundle): Registration
+  registerServerExtensions(extensions: ServerExtensionBundle): Registration
 }

@@ -10,6 +10,16 @@ import { adapterOf } from './views.ts'
 
 const KEY = /^[a-z][a-z0-9-]{0,63}$/
 const PACKAGE = /^(@[a-z0-9-]+\/)?[a-z0-9][a-z0-9._-]*$/
+const DEFINITION_KEYS = new Set([
+  'contractVersion',
+  'owner',
+  'operatingSystems',
+  'software',
+  'recipes',
+  'types',
+  'publicTypes',
+  'groups',
+])
 export async function prepareOwner(
   input: DefinitionBundle,
   identity: object,
@@ -17,6 +27,8 @@ export async function prepareOwner(
 ): Promise<Owner> {
   if (input.contractVersion !== 2 || !PACKAGE.test(input.owner) || input.owner === 'builtin')
     throw new ServerError('group_definition_invalid')
+  for (const key of Object.keys(input))
+    if (!DEFINITION_KEYS.has(key)) throw new ServerError('definition_unsupported', { field: key })
   if (registered) throw new ServerError('group_registration_exists')
   // Custom OS identities need their own probe lifecycle. Reject unsupported capabilities instead of publishing unusable definitions.
   if (input.operatingSystems?.length)
@@ -28,6 +40,7 @@ export async function prepareOwner(
     software: new Map(),
     recipes: new Map(),
     types: new Map(),
+    publicTypes: new Map(),
     groups: new Map(),
     dependencies: new Set(),
     leases: new Set(),
@@ -84,6 +97,14 @@ export async function prepareOwner(
     validateText(type.name)
     validateOsSupport(type.supportedOs, type.requirements.length > 0)
     owner.types.set(key, { ...type, key })
+  }
+  for (const item of input.publicTypes ?? []) {
+    if (!owner.types.has(item.type)) throw new ServerError('definition_reference', { detail: item.type })
+    if (item.order !== undefined && !Number.isSafeInteger(item.order))
+      throw new ServerError('group_definition_invalid')
+    if (owner.publicTypes.has(item.type))
+      throw new ServerError('type_definition_conflict', { type: item.type })
+    owner.publicTypes.set(item.type, item.order ?? 0)
   }
   for (const group of input.groups ?? []) {
     qualify(group.key)
