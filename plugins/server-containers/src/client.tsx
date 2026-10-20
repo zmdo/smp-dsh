@@ -1,3 +1,6 @@
+import { serverCopy } from '../../server-management/src/shared/i18n.ts'
+import type { ServerDto } from '../../server-management/src/shared/dto/servers.ts'
+
 const owner = '@smp/console-server-containers'
 const PANEL = 'server-management.detail.panel'
 const SETTINGS = 'server-management.settings.section'
@@ -8,21 +11,57 @@ interface SlotCtx {
     register(options: object, component: unknown): () => void
   }
 }
+interface OwnerProps {
+  server: ServerDto
+  active: string
+  settings?: { value: unknown; onChange: (value: unknown) => void }
+}
 
-function ContainersPanel(props: { server?: { name?: string } }) {
+function ContainersPanel(props: OwnerProps) {
+  const copy = serverCopy(props.active).ui
+  const server = props.server
+  const containers = server.containers ?? []
   return (
     <section className="panel">
-      <div className="panel-head"><h2>容器</h2></div>
+      <div className="panel-head"><h2>{copy.containers}</h2></div>
       <div className="panel-body">
-        <p>{props.server?.name ?? ''}</p>
-        <p>容器面板由容器插件提供。</p>
+        <div className="smp-container-meta">
+          <div><span>Docker</span><b className="mono">{server.docker_version || '—'}</b></div>
+          <div><span>Compose</span><b className="mono">{server.compose_version || '—'}</b></div>
+        </div>
+        {containers.length === 0 ? (
+          <p className="empty">{copy.noContainers}</p>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>{copy.name}</th><th>{copy.image}</th><th>{copy.status}</th><th>{copy.ports}</th></tr></thead>
+              <tbody>
+                {containers.map((item) => (
+                  <tr key={item.container_id}>
+                    <td>{item.name}</td><td>{item.image}</td><td>{item.status}</td><td>{item.ports}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   )
 }
 
-function ContainerSettings() {
-  return <p className="muted">容器采集设置由容器插件提供。</p>
+function ContainerSettings(props: OwnerProps) {
+  const value = (props.settings?.value ?? {}) as { collect?: boolean }
+  return (
+    <label className="smp-server-auto-install">
+      <input
+        type="checkbox"
+        checked={value.collect !== false}
+        onChange={(event) => props.settings?.onChange({ collect: event.target.checked })}
+      />{' '}
+      采集容器清单
+    </label>
+  )
 }
 
 export const inject = ['slots']
