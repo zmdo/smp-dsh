@@ -5,7 +5,6 @@ import { ServerError } from '../../../shared/errors.ts'
 import { api, requestError } from '../../shared/api.ts'
 import type { DetailPanel, ServerPageState, TaskViewState } from '../../shared/server-page-state.ts'
 import { ServerStatus } from '../components/ServerStatus.tsx'
-import { ContainerPanel } from './ContainerPanel.tsx'
 import { ServerDetail } from '../detail/ServerDetail.tsx'
 import { ServerSettings } from '../settings/ServerSettings.tsx'
 import { ServerTerminal } from '../terminal/ServerTerminal.tsx'
@@ -144,11 +143,6 @@ export function ServerWorkspace(props: {
       select: () => pageState.selectDetailPanel('tasks'),
     },
     { key: 'terminal', label: copy.terminal, select: () => pageState.selectDetailPanel('terminal') },
-    {
-      key: 'containers',
-      label: copy.containers,
-      select: () => pageState.selectDetailPanel('containers'),
-    },
     { key: 'config', label: copy.configuration, select: () => pageState.selectDetailPanel('config') },
     ...extensions
       .filter((entry) => entry.kind === 'panel')
@@ -273,8 +267,6 @@ export function ServerWorkspace(props: {
                   onView={setTaskView}
                 />
               </Panel>
-            ) : panel === 'containers' ? (
-              <ContainerPanel active={active} server={server} />
             ) : (
               <ServerDetail
                 active={active}

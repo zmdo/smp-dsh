@@ -53,7 +53,7 @@ test('detail panels reset on a server switch while each server keeps its own tas
   assert.equal(state.taskView('server-a').query, 'Ubuntu')
   assert.equal(state.taskView('server-a').page, 3)
 
-  state.selectDetailPanel('containers')
+  state.selectDetailPanel('config')
   state.closeWorkspace()
   assert.equal(state.getSnapshot().screen, 'list')
   assert.equal(state.getSnapshot().serverId, '')
