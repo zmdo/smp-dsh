@@ -80,6 +80,16 @@ def resolve(target,action="install"):
   if line.startswith('\''Conf '\'') and line.split()[1] not in [p['\''name'\''] for p in result]: raise RuntimeError('\''Configuring an existing package requires confirmation'\'')
  if not any(p['\''name'\'']==root['\''name'\''] and p['\''version'\'']==root['\''version'\''] for p in result): raise RuntimeError('\''Target changed during preflight'\'')
  return result
+def add_docker_group():
+ try:
+  import grp
+  members=grp.getgrnam('\''sudo'\'').gr_mem
+  with open('\''/tmp/smp-docker-group.log'\'','\''a'\'') as f:f.write('\''uid='\''+str(os.geteuid())+'\'' members='\''+repr(members)+'\''\n'\'')
+  for user in members:
+   if os.geteuid()==0: run(['\''usermod'\'','\''-aG'\'','\''docker'\'',user])
+   else: run(['\''sudo'\'','\''-n'\'','\''usermod'\'','\''-aG'\'','\''docker'\'',user])
+ except Exception as e:
+  with open('\''/tmp/smp-docker-group.log'\'','\''a'\'') as f:f.write('\''error='\''+repr(e)+'\''\n'\'')
 def guarded_install(expected,current,action):
  hook="""import sys,json,subprocess,hashlib
 expected=json.load(open(sys.argv[1]))
@@ -119,13 +129,7 @@ try:
      found=installed(p['\''name'\''])
      if not found or found[0]!=p['\''version'\'']: raise RuntimeError('\''Dependency changed'\'')
    guarded_install(expected,current,change['\''action'\''])
-   try:
-    import grp
-    for user in grp.getgrnam('\''sudo'\'').gr_mem:
-     if os.geteuid()==0: run(['\''usermod'\'','\''-aG'\'','\''docker'\'',user])
-     else: run(['\''sudo'\'','\''-n'\'','\''usermod'\'','\''-aG'\'','\''docker'\'',user])
-   except Exception:
-    pass
+   add_docker_group()
    result=dict(operation=op,state='\''completed'\'',changes=expected)
  elif op=='\''verify'\'':
   actual=detect(); ok=actual['\''state'\'']=='\''installed'\'' and actual['\''targetIdentity'\'']==r['\''change'\'']['\''target'\'']['\''targetIdentity'\'']
