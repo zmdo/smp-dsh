@@ -6,7 +6,7 @@ CES 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harn
 
 本地 CES 实例约定使用 `9090`（`http://127.0.0.1:9090/`），实际监听地址和端口由 dsh 启动参数决定。
 
-`dsh` 崩了就重启。数据库里的登记和远端容器不受这次重启影响。
+`dsh` 重启不会主动删除数据库登记或远端容器。进行中的软件变更需按数据库与远端操作日志核对和恢复，见[执行与恢复](docs/framework/modules/server-management/execution-and-upgrades.md)。
 
 ## 基座提供
 

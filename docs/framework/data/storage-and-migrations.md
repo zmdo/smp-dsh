@@ -48,13 +48,13 @@ workspace 域路由到 PostgreSQL 不代表全部 Harness storage 域都已迁�
 
 会话持久化实现 `create/open/stat/list/flush` 和写句柄，`WriterQueue` 顺序提交活跃事件；卸载等待句柄关闭和落盘。workspace-storage 提供 KV unit，检查版本、声明的表和 global 区域。
 
-当数据库 unit 尚不存在时，workspace-storage 可从 `importRoot/<unit>.json` 一次性导入；已存在的 unit 不重复导入。只清数据库记录而保留旧 JSON 导入源，可能在重建时重新出现旧工作区。
+打开 unit 时，后端先查询 `console_storage_unit` 的版本行；仅在该行不存在时，才尝试从 `importRoot/<unit>.json` 导入。版本行存在但不匹配时会报错，不重新导入。仅清空 `console_storage_record/global` 而保留 unit 行，不会因记录为空而读取旧 JSON；删除 unit 元数据或重建空库且保留导入源时，才可能再次导入旧工作区。
 
 数据库事实、宿主 registry 的内存投影和客户端快照是不同层。工作区组预约目录和调用 registry 不能共享同一事务，因此使用 `pending/ready` 与启动／读取时恢复，而不是声称两边天然原子提交。
 
 ## 新增 SQL 的边界
 
-迁移 SQL 仍由 database 插件发布；服务器等业务 SQL 放各业务 `persistence/*repository.ts`。数据库 rows 可含 `Date` 和 bigint 字符串，网络 DTO 使用明确的序列化形态。
+迁移 SQL 仍由 database 插件发布；服务器管理的业务 SQL 已归各业务 `persistence/*repository.ts`。其他插件目前仍有入口 SQL、`store.ts` 和后端内事务，不能把服务器管理的分层当作全仓既有结构，见[开发约定](../development/plugins.md)。数据库 rows 可含 `Date` 和 bigint 字符串，网络 DTO 使用明确的序列化形态。
 
 不要把当前观察、偏好、用户确认和执行日志合并成一个 JSON 大字段。新 API 若需要聚合，先说明事实来自哪张表、定义来自哪个提供者，再确定读取与分页位置。
 

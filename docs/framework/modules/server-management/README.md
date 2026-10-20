@@ -37,12 +37,12 @@
 | --- | --- |
 | `src/index.ts`、`src/client.tsx` | 宿主／客户端装配，不集中写全部业务 |
 | `src/client/servers` | 列表、登记、详情、终端及页面 hooks |
-| `src/client/keys/changes/upgrades` | 对应页面业务 |
+| `src/client/keys`、`src/client/changes`、`src/client/upgrades` | 对应页面业务，三个同级目录 |
 | `src/host/http` | HTTP 分派、参数与响应 |
-| `src/host/servers/groups/keys` | 登记业务、组与凭据引用 |
-| `src/host/definitions/recipes` | 提供者注册、定义解析、脚本与精确计划 |
-| `src/host/execution/remote` | 队列、worker、SSH、远端监督器与恢复 |
-| `src/host/changes/upgrades/tasks` | 变更授权、升级建议／调度和任务查询 |
+| `src/host/servers`、`src/host/groups`、`src/host/keys` | 登记业务、组与凭据引用，三个同级目录 |
+| `src/host/definitions`、`src/host/recipes` | 提供者注册、定义解析、脚本与精确计划，两个同级目录 |
+| `src/host/execution`、`src/host/remote` | 队列、worker、SSH、远端监督器与恢复，两个同级目录 |
+| `src/host/changes`、`src/host/upgrades`、`src/host/tasks` | 变更授权、升级建议／调度和任务查询，三个同级目录 |
 | 各业务 `persistence/` | SQL、rows、inputs；连接由调用方提供 |
 | `src/shared/contracts` | 公开插件／脚本协议 |
 | `src/shared/dto` | HTTP 传输模型 |

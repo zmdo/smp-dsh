@@ -40,6 +40,8 @@ POST 返回 202 的任务／计划只是已接受，不是安装成功。客户�
 
 历史查询要求 `server_id`，可传 `q/action/status/from/to/page/page_size`。时间必须带时区，默认每页 10，最大 100。任务类型是显式允许列表，新增扩展任务需要同时更新查询和 DTO，不能任意制造 action 后假设筛选已支持。
 
+列表并非该服务器全部任务：非准备类 `inspect` 仅显示 failed／blocked，手动与周期不区分；成功以符合条件的已结束 UTC 小时报告展示。排队／运行中的这类巡检也不在列表，但仍可通过返回的任务 ID 查询单条。自动检测成功另有隐藏规则，详见[执行专题](execution-and-upgrades.md)。`inspection:...` 小时报告 ID 是列表生成的标识，不是可用于单任务 UUID 路由的任务 ID。
+
 ## 升级和移动计划
 
 以下根路径为 `/console-api/server-changes`：
@@ -53,14 +55,23 @@ POST 返回 202 的任务／计划只是已接受，不是安装成功。客户�
 | POST `/suggestions/:id/restore` | 撤销拒绝 |
 | POST `/suggestions/:id/defer` | 延后提醒 |
 | POST `/versions` | 多服务器共同目标版本及阻塞信息 |
-| GET／POST `/plans` | 读计划／创建移动或升级预检草稿 |
+| GET／POST `/plans` | 读最近 200 个移动／升级计划（无分页）／创建移动或升级预检草稿 |
 | GET `/plans/:id` | 逐台冻结目标、预检和执行结果 |
 | POST `/plans/:id/confirm` | 核对摘要、窗口等并排队执行 |
 | POST `/plans/:id/pause`、`cancel` | 控制未开始目标 |
 | POST `/plans/:id/retry` | 为未成功目标重新创建预检计划 |
 | GET `/records` | 执行记录分页，每页 20 |
 
-升级建议当前在应用 service 中筛选和 slice，每页 20；检测结果查询当前最多读最近 200 条策略检查。执行记录是 SQL limit／offset。不要把这三个查询概括为全量、同一种分页实现。
+各列表的查询边界不同：
+
+| 列表 | 当前读取／分页位置 |
+| --- | --- |
+| 升级建议 | 应用 service 筛选和 slice，每页 20 |
+| 检测结果 | SQL 先按最近检测时间取最多 200 条策略检查，再按筛选条件处理；不是完整检测历史 |
+| 升级计划 | SQL 取最近创建的 200 个 move／upgrade 计划，响应为数组；页面直接展示，无分页入口 |
+| 执行记录 | SQL LIMIT／OFFSET，每页 20 |
+
+不能把固定截断列表当作可翻页的全量查询。相关读取见[升级 SQL](../../../../plugins/server-management/src/host/upgrades/persistence/repository.ts)和[计划 SQL](../../../../plugins/server-management/src/host/changes/persistence/repository.ts)。
 
 ## 浏览器终端
 

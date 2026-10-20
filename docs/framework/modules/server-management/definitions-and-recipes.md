@@ -6,7 +6,7 @@
 
 宿主注入 `serverManagement`，使用 `registerDefinitions()`。定义包包含 owner，以及可选的软件、配方、类型、系统组；owner 必须与调用插件的 Loader／Cordis 身份一致，不能冒用 `builtin`。
 
-注册返回 `{ ready: Promise<void>, dispose(): Promise<void> }`，属于调用插件 effect。注册时快照定义、读取脚本、验证引用和依赖，在系统组持久化完成后才发布；失败不发布半份定义。
+注册返回 `{ ready: Promise<void>, dispose(): Promise<void> }`；公开服务会自动将注册绑定到调用插件的 effect，插件也可调用 dispose 提前撤回。注册时快照定义、读取脚本、验证引用和依赖，在系统组持久化完成后才发布；失败不发布半份定义。
 
 卸载先撤回新租用，再等待直接／间接使用该提供者的任务释放。系统组和名称缓存仍可展示，但缓存不能让新任务绕过提供者不可用状态。
 

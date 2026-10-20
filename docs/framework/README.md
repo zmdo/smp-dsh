@@ -16,6 +16,7 @@
 | 接手服务器管理 | [服务器管理索引](modules/server-management/README.md) |
 | 判断哪些工作真正完成 | [当前状态与后续计划](handoff/status-and-roadmap.md) |
 | 防止按旧设计误开发 | [设计漂移对照](handoff/design-drift.md) |
+| 核查本轮文档更正及源码证据 | [文档复核记录](handoff/document-review.md) |
 | 运行验证或记录验收结果 | [测试与验证](development/testing.md) |
 
 建议首次接手按“架构 → 插件依赖 → 存储 → 对应模块 → 状态与计划”阅读，不必通读历史设计后才能开始工作。

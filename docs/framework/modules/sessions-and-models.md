@@ -14,7 +14,7 @@
 
 `workspace-storage` 将宿主 storage 的 workspace 域映射到 PostgreSQL KV 后端。归档／置顶、工作区与会话的关联通过宿主 registry／storage 契约保持；工作区组只增加归属层，不替代整个 registry。
 
-旧 JSON 导入是某 unit 尚未入库时的一次性行为。发生“清了数据库但旧工作区又出现”时检查导入源和客户端状态，见[存储专题](../data/storage-and-migrations.md)。
+旧 JSON 导入仅在 `console_storage_unit` 中没有该 unit 的版本记录时尝试；仅清空其 record／global 数据而保留 unit 行，不会触发重导入。发生“清了数据库但旧工作区又出现”时先区分清理范围，再检查导入源、宿主内存和客户端状态，见[存储专题](../data/storage-and-migrations.md)。
 
 ## 档案页面
 
@@ -29,6 +29,8 @@
 模型页面通过宿主 remote llm/settings/credentials 管理 Harness 的可配置模型服务。`settings-models` 宿主监听设置、提供者和 credential reference 变化，排队同步到 `console_model_profiles`。
 
 该表保存 provider、设置路径、配置镜像、引用、可解析凭据的密文和 revision。权威来源仍是 Harness；直接修改镜像表不是受支持的模型配置入口，下次同步可被覆盖。
+
+同步函数取得连接并在 finally 释放；`store.ts` 的 `replaceModelProfiles()` 自行执行 BEGIN／COMMIT／ROLLBACK。其旧注释称事务由调用方持有，与函数体不一致；交接以实际 SQL 为准，不能把它当作服务器管理中不拥有事务的 repository。
 
 当前同步 effect 卸载会停止后续排队和监听，但清理函数没有显式等待已经进入的 `syncModels()`。这是静态核对到的生命周期边界，不能据此承诺所有进行中同步在卸载返回前都已完成；进一步改造需要专门验证。
 

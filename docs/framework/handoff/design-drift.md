@@ -16,6 +16,7 @@
 | `data-model.md`、plugin-contract-v2.ts、schema-v2.sql 的完整终态 | 一部分字段／能力仍是设计；自定义 OS、PowerShell、动态附加软件依赖未支持 | 不用设计附件替换当前导出／迁移 |
 | 较早记录说 C、D 是下一步 | C、D 版本策略、移动与升级已有代码 | 看当前执行文档，不重复实现 |
 | “服务端分页”被理解成数据库 LIMIT/OFFSET | 实例列表和升级建议仍有应用层筛选／切片，任务报告等路径不同 | 明确每条查询的实现位置 |
+| “只汇总后台巡检，手动巡检逐条显示” | 当前过滤没有来源标记，手动非准备类 inspect 同样被汇总／隐藏 | 看[任务执行](../modules/server-management/execution-and-upgrades.md)，不要把待改进规则写成现状 |
 | session-shell／session-catalog 提到可视、operate、server_shell 等 | 这些工具与字段当前未实现，且旧直接移动规则不再适合现有类型预检 | 先重审需求和授权，不复制旧 SQL |
 | 安装页可用被理解成空库完整建表 | baseline 没有建 accounts/wallets | 当前依赖旧基线，需单独补齐部署缺口 |
 | 早期工作区“普通工作区组”名称 | 当前默认显示“默认组 / Default Group”，稳定 ID 仍 general | 修改名称不改归属身份 |
@@ -37,5 +38,7 @@
 当前事实写入 `docs/framework` 对应专题；新需求在设计中注明已确认／待实施；完成后同时更新当前专题和计划状态。不要为了让旧文档看起来一致而重写历史执行事实，也不要因为历史文档有一个字段就为当前接口临时加兼容分支。
 
 本次只补新的交接文档与导航，不批量删除或改写历史设计，不声称已经解决表中代码限制。
+
+交接文档自身的后续更正和源码证据集中在[文档复核记录](document-review.md)。
 
 资料入口：[历史设计目录](../../design)、[插件规范](../../spec/plugins.md)、[当前服务器后续方案](../../design/server-management/detail-extensions-and-container-plugin.md)、[实施计划](../../design/server-management/detail-extensions-implementation-plan.md)。

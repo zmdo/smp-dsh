@@ -17,6 +17,7 @@
 | 已保存密钥连接超时 | 控制机到目标的 TCP／SSH 阶段、用户／端口、超时和指纹，不能只归因于密钥读取 | server-management `host/remote/ssh.ts` |
 | Docker 权限不足导致巡检失败 | 只读直接权限、既有 `sudo -n`、同轮 Docker 上下文 | [执行专题](../modules/server-management/execution-and-upgrades.md) |
 | 任务长期 recovering | 远端操作日志、租约、当前连接和实际步骤；不要新建操作 ID 重跑 | 同上 |
+| 手动巡检排队／成功但任务列表没有单条 | 当前按 action／prepare 过滤，未区分手动与周期；用接受响应中的任务 ID 查询，成功再进入小时统计 | [任务接口](../modules/server-management/http-api.md) |
 | 列表显示正常但有容器失败报告 | 当前状态聚合主要看连接、系统、必要软件和任务阶段；容器扫描不是现有状态原因的一部分 | [数据查询](../modules/server-management/data-and-query.md) |
 | 类型／插件不可用 | 提供者是否 active、显式分组引用与类型租约、缓存只是展示 | [定义](../modules/server-management/definitions-and-recipes.md) |
 
@@ -30,7 +31,9 @@
 
 ## 历史测试数据重置
 
-仓库有 `scripts/reset-workspace-history.mjs`。它要求 `--profile <测试 profile 目录> --reset`，会先检查目标端口已停止，再删除该 profile 数据库中的会话、工作区组归属／焦点和 workspace KV 数据，并清理对应旧 JSON／JSONL 文件。
+仓库有 `scripts/reset-workspace-history.mjs`。它要求 `--profile <测试 profile 目录> --reset`，删除该 profile 数据库中的会话、工作区组归属／焦点和 workspace KV record／global 数据，并清理对应旧 JSON／JSONL 文件。它保留 `console_storage_unit` 元数据，因此清空 KV 内容本身不会触发 JSON 重导入，见[导入条件](../data/storage-and-migrations.md)。
+
+脚本仅尝试请求 `http://127.0.0.1:<port>/`：端口来自 `--port`，默认 9090，不从 profile 自动识别。请求成功会拒绝清理；请求失败仍可能是超时或其他网络错误，不能据此证明所有相关进程已停止。运行前需自行核对实际实例与端口。
 
 该脚本不是常规启动流程，也不是服务器管理重置工具；它不会为了你选择了新分支而自动运行。浏览器内存／存储仍需单独处理。脚本从 profile 读取 URL，不能把“路径名带 test”当作数据库天然隔离的证明。
 

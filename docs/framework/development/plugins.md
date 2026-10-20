@@ -31,9 +31,16 @@ Cordis 卸载时兄弟清理可能并发启动；仅有 `inject` 或持有服务
 
 ## 契约和边界
 
+服务器管理已经实施以下分层，并由该插件的架构测试约束；这是新增业务可参考的结构，不是全仓所有插件已经统一完成的重构：
+
 - 宿主 HTTP 只做协议适配和鉴权；业务规则放 service／workflow，SQL 放对应 `persistence/`。
 - repository 接收调用方连接，不自行取得连接、提交或回滚调用方事务。
 - `shared/contracts/` 描述插件协议，`shared/dto/` 描述网络数据，数据库 rows／inputs 位于宿主 persistence；不互相冒充。
+
+其他插件保留各自结构。例如 sessions 的删除 SQL 仍在宿主入口，settings-models 的 `store.ts` 会自行开启、提交和回滚事务；workspace-storage 的后端也持有自己的事务。修改这些模块时先确认实际事务所有者，不能套用服务器 repository 的调用前提。参见[会话与模型](../modules/sessions-and-models.md)及[服务器架构测试](../../../plugins/server-management/test/architecture.test.ts)。
+
+各插件共通的边界是：
+
 - 网络、配置、数据库 JSON 和子进程输出需要校验；不要以页面已经限制为理由省略宿主校验。
 - 稳定键承担身份，中文／英文名称承担展示；翻译变化不应改变执行授权或配方修订。
 - 现有协议声明的字段不等于执行器均支持。服务器契约的自定义 OS、PowerShell 和动态新增软件依赖目前有明确拒绝路径。

@@ -38,7 +38,7 @@ frame 的 `main` 内容声明 `console.page`、`console.page-navigation` 和 `co
 
 插件清单的 locale 元数据、页面 UI 的 copy、宿主返回的业务错误是三条路径。只有 `locale/zh.json` 与 `en.json` 的元信息，并不能自动使页面全部国际化。
 
-页面监听当前 `locale`，重新求值标题／copy；服务器业务使用 `shared/i18n.ts` 与带 code／parameters 的错误。插件自定义类型和系统服务器组名称要求双语 `LocalizedText`。工作区组使用 `labelI18n`，这是不同契约。
+页面监听当前 `locale`，重新求值标题／copy；服务器业务使用 `shared/i18n.ts`，错误响应字段为 `{ code, params, detail }`。状态原因 DTO 另用 `parameters`，不能与错误的 `params` 混用。插件自定义类型和系统服务器组名称要求双语 `LocalizedText`。工作区组使用 `labelI18n`，这是不同契约。
 
 工作区默认组稳定 ID 仍为 `general`，当前名称为“默认组 / Default Group”；`unassigned` 是“未归属 / Unassigned”。修改翻译不能改 ID、目录归属或历史任务身份。
 

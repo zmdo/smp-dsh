@@ -8,7 +8,9 @@ frame 提供控制台用户名／密码和可选 TOTP 登录，签发 `smp_sessi
 
 frame 的 `connection.authorizeIndex` 门禁在有有效控制台签名、但尚无有效 Harness 页面连接时，使用宿主当前启动 token 完成连接交换；token 不应写入文档或排查输出。页面访问遇到问题时分别检查安装门禁、控制台账户、页面连接三层。
 
-当前 cookie 签名内容是用户名和过期时间，HMAC-SHA256，期限 14 天；API 调用还会重新查账户是否存在。源码 cookie 标记为 HttpOnly、SameSite=Lax，未添加 Secure。当前实现没有完整的多用户 RBAC、逐服务器 ACL 或统一会话撤销表。
+当前 cookie 签名内容是用户名和过期时间，HMAC-SHA256，期限 14 天；调用 `consoleSession.read()` 的受保护入口还会重新查账户是否存在。源码 cookie 标记为 HttpOnly、SameSite=Lax，未添加 Secure。当前实现没有完整的多用户 RBAC、逐服务器 ACL 或统一会话撤销表。
+
+`/console-api` 不是全局鉴权中间件覆盖的命名空间，各路由自行校验。例如 `GET /console-api/site` 公开提供网站信息，同路径 POST 修改才要求登录；登录和安装引导也有公开入口。新增接口要检查实际 handler 的方法与会话校验，不能仅凭路径前缀判断受保护。服务器管理使用自己的公共 guard，见下文。
 
 密码为 bcrypt（12 轮）；TOTP 配置在既有账户字段中。修改密码会在数据库事务里尝试重加密旧 `wallets.ciphertext`，因此该路径依赖旧钱包表和兼容的密码派生密文。
 
