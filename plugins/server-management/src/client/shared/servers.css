@@ -204,6 +204,24 @@
 .smp-console .smp-server-workspace .smp-server-form-section > footer { padding-left: 0; padding-right: 0; }
 .smp-server-workspace .smp-task-history { margin-top: 0; }
 
+/* The task list scrolls inside its table, keeping filters and pagination fixed. */
+.smp-console .smp-server-workspace-panel > .panel.smp-task-panel > .panel-body {
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+}
+.smp-console .smp-task-panel .smp-task-history {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 0; min-width: 0;
+}
+.smp-console .smp-task-panel .smp-task-history > .muted,
+.smp-console .smp-task-panel .smp-task-filters,
+.smp-console .smp-task-panel .smp-task-history > .banner,
+.smp-console .smp-task-panel .smp-server-pager { flex: none; }
+.smp-console .smp-task-panel .smp-task-history .table-scroll {
+  flex: 1; min-height: 0; overflow: auto;
+}
+.smp-console .smp-task-panel .smp-task-table thead th {
+  position: sticky; top: 0; z-index: 1; background: var(--dsw-alias-bg-layer-2);
+}
+
 .smp-server-terminal-layer { flex: 1; min-width: 0; min-height: 0; display: flex; }
 .smp-server-terminal-layer[hidden] { display: none; }
 .smp-console .smp-server-terminal-layer > .panel {

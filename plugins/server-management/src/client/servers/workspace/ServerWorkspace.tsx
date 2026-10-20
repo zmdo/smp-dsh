@@ -178,7 +178,7 @@ export function ServerWorkspace(props: {
               </div>
             )}
             {panel === 'terminal' || panel === 'config' ? null : panel === 'tasks' ? (
-              <Panel title={copy.taskReport}>
+              <Panel title={copy.taskReport} className="smp-task-panel">
                 <TaskHistory
                   key={serverId}
                   active={active}
