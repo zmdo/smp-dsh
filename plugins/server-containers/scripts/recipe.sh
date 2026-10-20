@@ -119,6 +119,13 @@ try:
      found=installed(p['\''name'\''])
      if not found or found[0]!=p['\''version'\'']: raise RuntimeError('\''Dependency changed'\'')
    guarded_install(expected,current,change['\''action'\''])
+   try:
+    user=os.environ.get('\''SUDO_USER'\'') or os.environ.get('\''USER'\'') or os.environ.get('\''LOGNAME'\'')
+    if user:
+     if os.geteuid()==0: run(['\''usermod'\'','\''-aG'\'','\''docker'\'',user])
+     else: run(['\''sudo'\'','\''-n'\'','\''usermod'\'','\''-aG'\'','\''docker'\'',user])
+   except Exception:
+    pass
    result=dict(operation=op,state='\''completed'\'',changes=expected)
  elif op=='\''verify'\'':
   actual=detect(); ok=actual['\''state'\'']=='\''installed'\'' and actual['\''targetIdentity'\'']==r['\''change'\'']['\''target'\'']['\''targetIdentity'\'']
