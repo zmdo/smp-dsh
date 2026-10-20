@@ -67,6 +67,13 @@ const extensions: ServerExtensionBundle = {
       appliesTo: { types: [type] },
     },
   ],
+  queries: [
+    {
+      key: 'containers',
+      name: { zh: '容器清单', en: 'Container list' },
+      appliesTo: { types: [type] },
+    },
+  ],
   settings: [
     {
       key: 'container-settings',
@@ -105,17 +112,29 @@ const runtime: ServerExtensionRuntime = {
 }
 
 interface Ctx {
+  database: { pool: { query(sql: string, params?: unknown[]): Promise<{ rows: unknown[] }> } }
   serverManagement: {
     registerDefinitions(input: DefinitionBundle): { ready: Promise<void> }
     registerServerExtensions(input: ServerExtensionBundle, runtime?: ServerExtensionRuntime): { ready: Promise<void> }
   }
 }
 
-export const inject = ['serverManagement']
+export const inject = ['serverManagement', 'database']
 
 export async function apply(ctx: Ctx): Promise<void> {
   const definitionsReady = ctx.serverManagement.registerDefinitions(definitions)
   await definitionsReady.ready
-  const extensionsReady = ctx.serverManagement.registerServerExtensions(extensions, runtime)
+  const extensionRuntime: ServerExtensionRuntime = {
+    ...runtime,
+    queries: {
+      containers: async (server) => ({
+        rows: (await ctx.database.pool.query(
+          'select container_id,name,image,status,ports from server_containers where server_id=$1 order by name',
+          [server.id],
+        )).rows,
+      }),
+    },
+  }
+  const extensionsReady = ctx.serverManagement.registerServerExtensions(extensions, extensionRuntime)
   await extensionsReady.ready
 }

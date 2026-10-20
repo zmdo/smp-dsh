@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { serverCopy } from '../../server-management/src/shared/i18n.ts'
 import type { ServerDto } from '../../server-management/src/shared/dto/servers.ts'
 
@@ -15,20 +16,24 @@ interface OwnerProps {
   server: ServerDto
   active: string
   settings?: { value: unknown; onChange: (value: unknown) => void }
+  api?: { data(serverId: string, key: string): Promise<unknown> }
 }
 
 function ContainersPanel(props: OwnerProps) {
   const copy = serverCopy(props.active).ui
   const server = props.server
-  const containers = server.containers ?? []
+  const [containers, setContainers] = useState<{ container_id: string; name: string; image: string; status: string; ports: string }[]>([])
+  useEffect(() => {
+    let stopped = false
+    void props.api?.data(server.id, `${owner}/containers`).then((value) => {
+      if (!stopped) setContainers(((value as { rows?: typeof containers }).rows ?? []) as typeof containers)
+    })
+    return () => { stopped = true }
+  }, [props.api, server.id])
   return (
     <section className="panel">
       <div className="panel-head"><h2>{copy.containers}</h2></div>
       <div className="panel-body">
-        <div className="smp-container-meta">
-          <div><span>Docker</span><b className="mono">{server.docker_version || '—'}</b></div>
-          <div><span>Compose</span><b className="mono">{server.compose_version || '—'}</b></div>
-        </div>
         {containers.length === 0 ? (
           <p className="empty">{copy.noContainers}</p>
         ) : (
