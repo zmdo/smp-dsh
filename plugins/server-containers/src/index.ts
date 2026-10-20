@@ -8,6 +8,12 @@ const owner = '@smp/console-server-containers'
 const docker = `${owner}/docker-engine`
 const compose = `${owner}/docker-compose`
 const type = `${owner}/container`
+const inspectScript: ScriptDefinition = {
+  path: fileURLToPath(new URL('../scripts/inspect.sh', import.meta.url)),
+  interpreter: 'posix-sh',
+  timeoutMs: 30_000,
+  outputLimitBytes: 65_536,
+}
 const script: ScriptDefinition = {
   path: fileURLToPath(new URL('../scripts/recipe.sh', import.meta.url)),
   interpreter: 'posix-sh',
@@ -68,9 +74,24 @@ const extensions: ServerExtensionBundle = {
       appliesTo: { types: [type] },
     },
   ],
+  inspections: [
+    {
+      key: 'container-check',
+      name: { zh: '容器检查', en: 'Container check' },
+      appliesTo: { types: [type] },
+      settingsKey: `${owner}/container-settings`,
+      script: inspectScript,
+    },
+  ],
 }
 
 const runtime: ServerExtensionRuntime = {
+  inspections: {
+    'container-check': {
+      enabled: (value) => (value as { collect?: boolean } | undefined)?.collect !== false,
+      validate: (raw) => JSON.parse(raw),
+    },
+  },
   settings: {
     'container-settings': {
       defaults: { collect: true },
