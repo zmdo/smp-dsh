@@ -1,11 +1,11 @@
-import { UpgradesPage } from './pages/UpgradesPage.tsx'
-import { UpgradesNavigation } from './pages/UpgradesNavigation.tsx'
-import { pageLabel } from './page-label.ts'
-import { serverCopy, type LocaleFace } from './i18n.ts'
-import { KeysPage } from './pages/KeysPage.tsx'
-import { installServersStyle, ServersPage } from './pages/ServersPage.tsx'
-import { createServerPageState } from './pages/server-page-state.ts'
-
+import { KeysPage } from './client/keys/KeysPage.tsx'
+import { ServersPage } from './client/servers/ServersPage.tsx'
+import { pageLabel } from './client/shared/page-label.ts'
+import { createServerPageState } from './client/shared/server-page-state.ts'
+import { installServersStyle } from './client/shared/styles.ts'
+import { UpgradesNavigation } from './client/upgrades/UpgradesNavigation.tsx'
+import { UpgradesPage } from './client/upgrades/UpgradesPage.tsx'
+import { serverCopy, type LocaleFace } from './shared/i18n.ts'
 interface PageSlots {
   inject(name: string, register: () => () => void): void
   register(options: object, component: unknown): () => void
@@ -14,7 +14,7 @@ interface PageSlots {
 interface ClientCtx {
   slots: PageSlots
   locale: LocaleFace
-  effect(run: () => (() => void)): void
+  effect(run: () => () => void): void
 }
 
 export const inject = ['slots', 'locale']
@@ -23,26 +23,56 @@ export function apply(ctx: ClientCtx): void {
   const pageState = createServerPageState()
   ctx.effect(() => () => pageState.dispose())
   const copy = () => serverCopy(ctx.locale.getSnapshot().active).ui
-  const group = { group: 'server-management', groupLabel: () => copy().groupTitle, navigation: 'sidebar' as const }
+  const group = {
+    group: 'server-management',
+    groupLabel: () => copy().groupTitle,
+    navigation: 'sidebar' as const,
+  }
   ctx.effect(installServersStyle)
-  ctx.slots.inject('console.page', () => ctx.slots.register({
-    name: 'console.page',
-    key: 'servers',
-    label: pageLabel(() => copy().serversTab, { ...group, icon: 'server' }),
-    order: 0,
-    inject: () => ({ locale: ctx.locale, pageState }),
-  }, ServersPage))
-  ctx.slots.inject('console.page',()=>ctx.slots.register({name:'console.page',key:'server-upgrades',label:pageLabel(()=>serverCopy(ctx.locale.getSnapshot().active).upgrades.title,group),order:2,inject:()=>({locale:ctx.locale,pageState})},UpgradesPage))
-  ctx.slots.inject('console.page-navigation', () => ctx.slots.register({
-    name: 'console.page-navigation',
-    key: 'server-upgrades',
-    inject: () => ({ locale: ctx.locale, pageState }),
-  }, UpgradesNavigation))
-  ctx.slots.inject('console.page', () => ctx.slots.register({
-    name: 'console.page',
-    key: 'ssh-keys',
-    label: pageLabel(() => copy().keysTab, group),
-    order: 1,
-    inject: () => ({ locale: ctx.locale }),
-  }, KeysPage))
+  ctx.slots.inject('console.page', () =>
+    ctx.slots.register(
+      {
+        name: 'console.page',
+        key: 'servers',
+        label: pageLabel(() => copy().serversTab, { ...group, icon: 'server' }),
+        order: 0,
+        inject: () => ({ locale: ctx.locale, pageState }),
+      },
+      ServersPage,
+    ),
+  )
+  ctx.slots.inject('console.page', () =>
+    ctx.slots.register(
+      {
+        name: 'console.page',
+        key: 'server-upgrades',
+        label: pageLabel(() => serverCopy(ctx.locale.getSnapshot().active).upgrades.title, group),
+        order: 2,
+        inject: () => ({ locale: ctx.locale, pageState }),
+      },
+      UpgradesPage,
+    ),
+  )
+  ctx.slots.inject('console.page-navigation', () =>
+    ctx.slots.register(
+      {
+        name: 'console.page-navigation',
+        key: 'server-upgrades',
+        inject: () => ({ locale: ctx.locale, pageState }),
+      },
+      UpgradesNavigation,
+    ),
+  )
+  ctx.slots.inject('console.page', () =>
+    ctx.slots.register(
+      {
+        name: 'console.page',
+        key: 'ssh-keys',
+        label: pageLabel(() => copy().keysTab, group),
+        order: 1,
+        inject: () => ({ locale: ctx.locale }),
+      },
+      KeysPage,
+    ),
+  )
 }

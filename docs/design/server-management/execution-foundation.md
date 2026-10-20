@@ -36,7 +36,7 @@ export async function apply(ctx: Context) {
 }
 ```
 
-自定义软件需分别声明 `software`、`recipes`、`types`，分组 `types` 使用完整键。配方 `detect/listCandidates/resolve/execute/verify/recover` 使用脚本路径、解释器、超时和输出限制；缺少变更能力时可只提供检测。声明可安装时必须提供完整解析、执行、验证与恢复入口。实际类型见 `plugins/server-management/src/contracts.ts`，协议通过 stdin JSON 传参，stdout 为单个结构化 JSON，不把输入拼接成命令。执行期间不强杀正在运行的包管理器；失去结果时进入恢复。
+自定义软件需分别声明 `software`、`recipes`、`types`，分组 `types` 使用完整键。配方 `detect/listCandidates/resolve/execute/verify/recover` 使用脚本路径、解释器、超时和输出限制；缺少变更能力时可只提供检测。声明可安装时必须提供完整解析、执行、验证与恢复入口。实际类型见 `plugins/server-management/src/shared/contracts.ts`，协议通过 stdin JSON 传参，stdout 为单个结构化 JSON，不把输入拼接成命令。执行期间不强杀正在运行的包管理器；失去结果时进入恢复。
 
 当前初装执行器只接受 `keep/install`。`resolve` 可以冻结系统包依赖到 `payload`，但不能新增类型未声明的软件身份：非空 `additionalRequirements` 暂时拒绝，递归软件扩展待后续。`operatingSystems` 扩展、自定义系统身份探测与 PowerShell 软件配方仍明确返回“不支持”，没有用空实现伪装支持；Windows Server 仍可登记为空置服务器。
 

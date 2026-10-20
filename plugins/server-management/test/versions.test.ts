@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { stableVersions as v } from '../src/versions.ts'
+import { stableVersions as v } from '../src/shared/versions.ts'
+
 test('stable product versions distinguish exact, series and inclusive partial upper bounds', () => {
   assert.equal(v.contains({ kind: 'series', prefix: '27.3' }, '27.3.99'), true)
   assert.equal(v.contains({ kind: 'series', prefix: '27' }, '28.0.0'), false)

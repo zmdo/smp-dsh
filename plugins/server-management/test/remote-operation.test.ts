@@ -5,9 +5,9 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { REMOTE_SUPERVISOR } from '../src/remote-operation.ts'
-import { APT_RECIPE } from '../src/builtin-recipes.ts'
-import { quote } from '../src/recipe.ts'
+import {REMOTE_SUPERVISOR} from '../src/host/remote/supervisor.ts'
+import {APT_RECIPE} from '../src/host/recipes/builtin.ts'
+import {quote} from '../src/host/recipes/script.ts'
 function python(
   source: string,
   input: unknown,

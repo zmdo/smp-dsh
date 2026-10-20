@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseDeclaredOs, sameDeclaredOs, osVerification, supportsOs, type OsSupport } from '../src/operating-systems.ts'
-import { parseLinuxOs, parseWindowsOs } from '../src/os-probe.ts'
+import {
+  parseDeclaredOs,
+  sameDeclaredOs,
+  osVerification,
+  supportsOs,
+  type OsSupport,
+} from '../src/shared/operating-systems.ts'
+import {parseLinuxOs,parseWindowsOs} from '../src/host/remote/os-probe.ts'
 
 test('catalog identities ignore forged version values, while custom names never imply support', () => {
   const ubuntu=parseDeclaredOs({kind:'catalog',family:'builtin/ubuntu',releaseKey:'24.04',version:'99.99'})

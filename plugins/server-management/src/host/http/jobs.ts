@@ -1,0 +1,25 @@
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { type Db } from '../database/connection.ts'
+import { HttpError } from '../errors.ts'
+import { UUID } from '../input.ts'
+import { readJob, taskHistory } from '../tasks/queries.ts'
+import { sendJson } from './reply.ts'
+import { parseTaskQuery } from './task-query.ts'
+
+export async function routeJobs(
+  db: Db,
+  request: IncomingMessage,
+  response: ServerResponse,
+  rest: string,
+): Promise<void> {
+  if (rest === '' && request.method === 'GET') {
+    const query = parseTaskQuery(new URL(request.url ?? '/', 'http://localhost').searchParams)
+    return sendJson(response, 200, await taskHistory(db, query))
+  }
+  const id = rest.slice(1)
+  if (request.method === 'GET' && UUID.test(id)) {
+    const result = await readJob(db, id)
+    if (result !== undefined) return sendJson(response, 200, result)
+  }
+  throw new HttpError(404, 'job_not_found')
+}

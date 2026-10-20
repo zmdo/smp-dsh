@@ -1,7 +1,8 @@
-import { APT_SOFTWARE_OS } from '../src/operating-systems.ts'
-import type { Component } from '../src/catalog.ts'
-import { builtinCatalog as productionCatalog } from '../src/catalog.ts'
-import { stableVersions } from '../src/versions.ts'
+import { APT_SOFTWARE_OS } from '../src/shared/operating-systems.ts'
+import {type Component} from '../src/host/definitions/catalog.ts'
+import {builtinCatalog as productionCatalog} from '../src/host/definitions/catalog.ts'
+import { stableVersions } from '../src/shared/versions.ts'
+
 export function componentFixture(id: string, requires: string[] = []): Component {
   return {
     id,

@@ -4,10 +4,11 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import test from 'node:test'
 import { Pool } from 'pg'
-import { parseTaskQuery } from '../src/task-history.ts'
-import { routeJobs } from '../src/records.ts'
-import { claimNext, enqueue, finishJob } from '../src/job-store.ts'
-import { HttpError } from '../src/store.ts'
+import { parseTaskQuery } from '../src/host/http/task-query.ts'
+import { routeJobs } from '../src/host/http/jobs.ts'
+import {claimNext,enqueue} from '../src/host/execution/queue.ts'
+import {finishJob} from '../src/host/execution/completion.ts'
+import { HttpError } from '../src/host/errors.ts'
 
 test('task queries validate limits, explicit time zones, filters and range ordering', () => {
   const server = randomUUID()

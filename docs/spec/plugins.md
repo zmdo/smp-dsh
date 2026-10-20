@@ -73,7 +73,7 @@ plugins/server-management/
   lib/
 ```
 
-`src/index.ts` 是宿主，导出 `inject` 和 `apply`。`src/client.tsx` 是客户端，同样导出这两个名字。页面组件放在 `src/pages/`。包内用相对路径，一个包里 `.ts` 后缀用或不用，跟该包已有文件保持一致。
+`src/index.ts` 是宿主，导出 `inject` 和 `apply`。`src/client.tsx` 是客户端，同样导出这两个名字。简单插件的页面组件可放在 `src/pages/`；较大的插件可按 `src/client/<业务>/` 组织，公共契约放 `src/shared/`，宿主基础能力放 `src/host/`。服务器管理的实际边界见 [结构整理记录](../design/server-management/refactor-sm.md)。包内用相对路径，一个包里 `.ts` 后缀用或不用，跟该包已有文件保持一致。
 
 `package.json` 至少包含：
 

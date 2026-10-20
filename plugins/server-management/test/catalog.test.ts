@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { builtinCatalog, normalizeSelection } from '../src/catalog.ts'
+import {builtinCatalog,normalizeSelection} from '../src/host/definitions/catalog.ts'
 test('built-in recipes have exact planning capabilities and preserve dependency order', () => {
   const catalog = builtinCatalog()
   assert.deepEqual(normalizeSelection(catalog, ['compose', 'docker']), ['docker', 'compose'])

@@ -5,11 +5,11 @@ import { createServer, type Socket } from 'node:net'
 import test from 'node:test'
 import type { Connection } from 'ssh2'
 import { SecretsCodec } from '../../database/src/fernet.ts'
-import { builtinCatalog } from '../src/catalog.ts'
-import { Enrollment } from '../src/enrollment.ts'
-import { DefinitionRegistry } from '../src/registry.ts'
-import { connectSsh, FingerprintMismatch, SshError } from '../src/ssh.ts'
-import type { Db } from '../src/store.ts'
+import {builtinCatalog} from '../src/host/definitions/catalog.ts'
+import { Enrollment } from '../src/host/servers/enrollment.ts'
+import {DefinitionRegistry} from '../src/host/definitions/registry.ts'
+import {connectSsh,FingerprintMismatch,SshError} from '../src/host/remote/ssh.ts'
+import type { Db } from '../src/host/database/connection.ts'
 
 const { Server, utils } = createRequire(import.meta.url)('ssh2') as typeof import('ssh2')
 const privateKey = generateKeyPairSync('rsa', {
