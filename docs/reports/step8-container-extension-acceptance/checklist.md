@@ -152,12 +152,12 @@
 
 #### SW-01 安装缺失软件
 
-- [ ] 清空 `container-missing` 上的 Docker／Compose。
-- [ ] 创建安装计划。
-- [ ] 计划包含 Docker 和 Compose。
-- [ ] 确认执行。
-- [ ] 安装成功，任务历史可读。
-- [ ] 已安装状态下不重复安装。
+- [x] 清空 `container-missing` 上的 Docker／Compose。
+- [x] 创建安装计划。
+- [x] 计划包含 Docker 和 Compose。
+- [x] 确认执行。
+- [x] 安装成功，任务历史可读。
+- [x] 已安装状态下不重复安装。
 
 #### SW-02 单台升级
 
