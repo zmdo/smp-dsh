@@ -17,13 +17,14 @@ export async function routeJobs(
     const query = parseTaskQuery(new URL(request.url ?? '/', 'http://localhost').searchParams)
     return sendJson(response, 200, await taskHistory(db, query))
   }
-  const id = rest.slice(1)
-  if (request.method === 'POST' && UUID.test(id)) {
+  const parts = rest.split('/').filter(Boolean)
+  const id = parts[0] ?? ''
+  if (request.method === 'POST' && parts.length === 2 && parts[1] === 'cancel' && UUID.test(id)) {
     await cancelJob(db, id)
     const result = await readJob(db, id)
     if (result !== undefined) return sendJson(response, 200, result)
   }
-  if (request.method === 'GET' && UUID.test(id)) {
+  if (request.method === 'GET' && parts.length === 1 && UUID.test(id)) {
     const result = await readJob(db, id)
     if (result !== undefined) return sendJson(response, 200, result)
   }
