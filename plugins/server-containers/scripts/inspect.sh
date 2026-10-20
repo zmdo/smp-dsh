@@ -1,2 +1,2 @@
 #!/bin/sh
-printf '{"ok":true}\n'
+docker ps -a --format '{{json .}}'

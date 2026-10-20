@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import type { DefinitionBundle, RecipeDefinition, ScriptDefinition } from '../../server-management/src/shared/contracts/definitions.ts'
 import type { ServerExtensionBundle } from '../../server-management/src/shared/contracts/extensions.ts'
 import type { ServerExtensionRuntime } from '../../server-management/src/host/extensions/runtime.ts'
+import { randomUUID } from 'node:crypto'
 import { APT_SOFTWARE_OS } from '../../server-management/src/shared/operating-systems.ts'
 
 const owner = '@smp/console-server-containers'
@@ -96,7 +97,31 @@ const runtime: ServerExtensionRuntime = {
   inspections: {
     'container-check': {
       enabled: (value) => (value as { collect?: boolean } | undefined)?.collect !== false,
-      validate: (raw) => JSON.parse(raw),
+      validate(raw) {
+        const rows = raw
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => JSON.parse(line) as { ID: string; Names: string; Image: string; Status: string; Ports: string })
+        return {
+          containers: rows.map((row) => ({
+            container_id: row.ID,
+            name: row.Names,
+            image: row.Image,
+            status: row.Status,
+            ports: row.Ports,
+          })),
+        }
+      },
+      async commit(db, server, result) {
+        const value = result as { containers?: { container_id: string; name: string; image: string; status: string; ports: string }[] }
+        await db.query('delete from server_containers where server_id=$1', [server.id])
+        for (const item of value.containers ?? [])
+          await db.query(
+            'insert into server_containers(id,server_id,container_id,name,image,status,ports,managed,strategy_slug,observed_at) values($1,$2,$3,$4,$5,$6,$7,false,null,now())',
+            [randomUUID(), server.id, item.container_id, item.name, item.image, item.status, item.ports],
+          )
+      },
     },
   },
   settings: {
