@@ -9,6 +9,8 @@ export interface ExtensionApi {
   data(serverId: string, key: string, params?: Readonly<Record<string, string>>): Promise<unknown>
   settings(serverId: string, key: string): Promise<ExtensionSettingsValue>
   saveSettings(serverId: string, key: string, value: unknown, revision: string): Promise<ExtensionSettingsValue>
+  planSettings(serverId: string, key: string, value: unknown, revision: string): Promise<{ id: string; digest: string; expires_at: string }>
+  applySettings(serverId: string, key: string, planId: string, digest: string): Promise<ExtensionSettingsValue>
 }
 
 export const extensionApi: ExtensionApi = {
@@ -30,6 +32,20 @@ export const extensionApi: ExtensionApi = {
     return api<ExtensionSettingsValue>(
       `/console-api/servers/${encodeURIComponent(serverId)}/extension-settings?${search.toString()}`,
       { method: 'PUT', body: JSON.stringify({ value, revision }) },
+    )
+  },
+  async planSettings(serverId, key, value, revision) {
+    const search = new URLSearchParams({ key })
+    return api(
+      `/console-api/servers/${encodeURIComponent(serverId)}/extension-settings/plan?${search.toString()}`,
+      { method: 'POST', body: JSON.stringify({ value, revision }) },
+    )
+  },
+  async applySettings(serverId, key, planId, digest) {
+    const search = new URLSearchParams({ key })
+    return api(
+      `/console-api/servers/${encodeURIComponent(serverId)}/extension-settings/apply?${search.toString()}`,
+      { method: 'POST', body: JSON.stringify({ plan_id: planId, digest }) },
     )
   },
 }

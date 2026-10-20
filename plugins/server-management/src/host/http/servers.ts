@@ -14,6 +14,7 @@ import {
 import { jobView } from '../tasks/queries.ts'
 import { readJson, sendJson } from './reply.ts'
 import { extensionSettings, saveExtensionSettings } from '../extensions/settings.ts'
+import { applyExtensionSettingsPlan, planExtensionSettings } from '../extensions/settings-plan.ts'
 import { parseServerListQuery } from './server-query.ts'
 
 export async function routeServers(
@@ -71,6 +72,32 @@ export async function routeServers(
     return sendJson(response, 200, {
       value: await deps.extensions.runQuery(server, key, new URL(request.url ?? '/', 'http://localhost').searchParams),
     })
+  }
+  if (parts.length === 3 && parts[1] === 'extension-settings' && (parts[2] === 'plan' || parts[2] === 'apply') && request.method === 'POST') {
+    const server = await serverRead(deps, id)
+    if (server === undefined) throw new HttpError(404, 'server_not_found')
+    const key = new URL(request.url ?? '/', 'http://localhost').searchParams.get('key') ?? ''
+    const found = deps.extensions.settings(server, key)
+    if (found.entry.affectsExecution !== true) throw new HttpError(422, 'extension_settings_requires_plan')
+    const body = await readJson(request)
+    const value = body !== null && typeof body === 'object' ? (body as { value?: unknown }).value : undefined
+    const owner = found.entry.owner
+    const section = key.slice(owner.length + 1)
+    if (parts[2] === 'plan') {
+      const revision =
+        body !== null && typeof body === 'object' && typeof (body as { revision?: unknown }).revision === 'string'
+          ? (body as { revision: string }).revision
+          : undefined
+      if (revision === undefined || !/^\d+$/.test(revision))
+        throw new HttpError(422, 'extension_settings_invalid')
+      const validated = found.runtime.validate(value)
+      return sendJson(response, 200, await planExtensionSettings(deps.db, { serverId: id, owner, section, value: validated, expectedRevision: revision }))
+    }
+    const planId = body !== null && typeof body === 'object' ? (body as { plan_id?: unknown }).plan_id : undefined
+    const planDigest = body !== null && typeof body === 'object' ? (body as { digest?: unknown }).digest : undefined
+    if (typeof planId !== 'string' || !UUID.test(planId) || typeof planDigest !== 'string' || !/^[0-9a-f]{64}$/.test(planDigest))
+      throw new HttpError(422, 'extension_plan_invalid')
+    return sendJson(response, 200, await applyExtensionSettingsPlan(deps.db, { serverId: id, owner, section, planId, digest: planDigest }))
   }
   if (parts.length === 2 && parts[1] === 'extension-settings') {
     const server = await serverRead(deps, id)
