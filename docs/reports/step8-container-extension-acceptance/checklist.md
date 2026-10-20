@@ -133,11 +133,11 @@
 
 #### CONT-07 daemon 停止
 
-- [ ] 在 `container-ready` 停止 Docker daemon。
-- [ ] 执行巡检。
-- [ ] 错误明确为 daemon／socket 不可用。
-- [ ] 上次成功容器清单仍可见。
-- [ ] 恢复 daemon 后下一次巡检成功。
+- [x] 在 `container-ready` 停止 Docker daemon。
+- [x] 执行巡检。
+- [x] 错误明确为 daemon／socket 不可用。
+- [x] 上次成功容器清单仍可见。
+- [x] 恢复 daemon 后下一次巡检成功。
 
 #### CONT-08 关闭采集
 
