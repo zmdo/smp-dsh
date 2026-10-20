@@ -18,6 +18,7 @@ export interface ServerExtensionRuntime {
   queries?: Record<string, (server: ServerDto, search: URLSearchParams) => Promise<Json>>
   settings?: Record<string, { defaults: Json; validate(value: unknown): Json }>
   inspections?: Record<string, {
+    enabled?(value: Json | undefined): boolean
     validate(raw: string): Json
     commit?(db: DbClient, server: ExtensionInspectionServer, result: Json): Promise<void>
   }>

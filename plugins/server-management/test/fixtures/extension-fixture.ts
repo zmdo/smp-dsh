@@ -49,6 +49,7 @@ export const fixtureExtension: ServerExtensionBundle = {
       key: 'database-check',
       name: { zh: '数据库检查', en: 'Database check' },
       appliesTo: { types: [fixtureType] },
+      settingsKey: '@test/extension-fixture/database-settings',
       script: {
         path: fileURLToPath(new URL('./inspection.sh', import.meta.url)),
         interpreter: 'posix-sh',
@@ -64,7 +65,10 @@ export const fixtureRuntime: ServerExtensionRuntime = {
     'database-status': async () => ({ online: true }),
   },
   inspections: {
-    'database-check': { validate: (raw) => JSON.parse(raw) },
+    'database-check': {
+      enabled: (value) => (value as { collect?: boolean } | undefined)?.collect === true,
+      validate: (raw) => JSON.parse(raw),
+    },
   },
   settings: {
     'database-settings': {

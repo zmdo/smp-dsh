@@ -55,6 +55,7 @@ const extensions: ServerExtensionBundle = {
       key: 'database-check',
       name: { zh: '数据库检查', en: 'Database check' },
       appliesTo: { types: [type] },
+      settingsKey: `${owner}/database-settings`,
       script: {
         path: fileURLToPath(new URL('../scripts/inspection.sh', import.meta.url)),
         interpreter: 'posix-sh',
@@ -70,7 +71,10 @@ const runtime: ServerExtensionRuntime = {
     'database-status': async (server) => ({ online: true, server: server.name }),
   },
   inspections: {
-    'database-check': { validate: (raw) => JSON.parse(raw) },
+    'database-check': {
+      enabled: (value) => (value as { collect?: boolean } | undefined)?.collect === true,
+      validate: (raw) => JSON.parse(raw),
+    },
   },
   settings: {
     'database-settings': {

@@ -191,6 +191,9 @@ export class ServerExtensionRegistry {
           ...(kind === 'settings' && 'affectsExecution' in item && item.affectsExecution === true
             ? { affectsExecution: true }
             : {}),
+          ...(kind === 'inspection' && 'settingsKey' in item && typeof item.settingsKey === 'string'
+            ? { settingsKey: item.settingsKey }
+            : {}),
         })
       }
     }

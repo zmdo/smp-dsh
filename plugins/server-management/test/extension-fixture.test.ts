@@ -114,7 +114,7 @@ test('the core inspect path executes a fixture script and stores an extension ob
     },
     release() {},
   }
-  const db = { connect: async () => client } as unknown as Db
+  const db = { connect: async () => client, query: client.query.bind(client) } as unknown as Db
   const definitions = new DefinitionRegistry(db, builtinCatalog())
   const definitionsRegistration = definitions.registerDefinitions(fixtureDefinitions)
   await definitionsRegistration.ready
@@ -166,6 +166,90 @@ test('the core inspect path executes a fixture script and stores an extension ob
   assert.equal((committed as { server: { id: string; type_key: string } }).server.id, 'server-1')
   assert.equal((committed as { server: { type_key: string } }).server.type_key, fixtureType)
   await registration.dispose()
+  await definitionsRegistration.dispose()
+  extensions.close()
+  await definitions.close()
+})
+
+test('a disabled extension setting skips the inspection script', async () => {
+  const client = {
+    async query(sql: string) {
+      if (sql.includes('from server_extension_settings'))
+        return { rows: [{ value: { collect: false }, revision: '1' }] }
+      if (sql.includes('from server_jobs')) return { rows: [{ id: 'job-1' }] }
+      if (sql.includes('from servers')) return { rows: [{ id: 'server-1' }] }
+      return { rows: [] }
+    },
+    release() {},
+  }
+  const db = { connect: async () => client, query: client.query.bind(client) } as unknown as Db
+  const definitions = new DefinitionRegistry(db, builtinCatalog())
+  const definitionsRegistration = definitions.registerDefinitions(fixtureDefinitions)
+  await definitionsRegistration.ready
+  const extensions = new ServerExtensionRegistry(definitions)
+  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, fixtureRuntime)
+  await registration.ready
+  let executed = 0
+  const context = {
+    db,
+    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
+    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    session: {
+      async exec() {
+        executed += 1
+        return { code: 0, stdout: '{"ok":true}\n', stderr: '' }
+      },
+    },
+    guard: async () => {},
+    extensions,
+  } as unknown as WorkerContext
+  assert.deepEqual(await runExtensionInspections(context, extensions), [])
+  assert.equal(executed, 0)
+  await registration.dispose()
+  await definitionsRegistration.dispose()
+  extensions.close()
+  await definitions.close()
+})
+
+test('a provider that unloads during the script cannot publish a success observation', async () => {
+  const captured: unknown[][] = []
+  const client = {
+    async query(sql: string, params?: unknown[]) {
+      if (sql.includes('insert into server_extension_observations')) {
+        captured.push(params ?? [])
+        return { rows: [] }
+      }
+      if (sql.includes('from server_jobs')) return { rows: [{ id: 'job-1' }] }
+      if (sql.includes('from servers')) return { rows: [{ id: 'server-1' }] }
+      return { rows: [] }
+    },
+    release() {},
+  }
+  const db = { connect: async () => client, query: client.query.bind(client) } as unknown as Db
+  const definitions = new DefinitionRegistry(db, builtinCatalog())
+  const definitionsRegistration = definitions.registerDefinitions(fixtureDefinitions)
+  await definitionsRegistration.ready
+  const extensions = new ServerExtensionRegistry(definitions)
+  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, fixtureRuntime)
+  await registration.ready
+  const context = {
+    db,
+    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
+    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    session: {
+      async exec() {
+        await registration.dispose()
+        return { code: 0, stdout: '{"ok":true}\n', stderr: '' }
+      },
+    },
+    guard: async () => {},
+    extensions,
+  } as unknown as WorkerContext
+  const results = await runExtensionInspections(context, extensions)
+  assert.equal(results.length, 1)
+  assert.equal(results[0]?.status, 'failed')
+  assert.equal(captured.length, 1)
+  assert.equal(captured[0]?.[3], 'failed')
   await definitionsRegistration.dispose()
   extensions.close()
   await definitions.close()

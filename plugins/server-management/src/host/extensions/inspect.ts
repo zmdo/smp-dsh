@@ -5,6 +5,7 @@ import { scrubValue } from '../remote/parse.ts'
 import { scriptCommand } from '../recipes/script.ts'
 import type { WorkerContext } from '../execution/context.ts'
 import { owned } from '../execution/ownership.ts'
+import { readSettings } from './persistence/settings-repository.ts'
 import { saveExtensionObservation } from './persistence/observation-repository.ts'
 import type { ServerExtensionRegistry } from './registry.ts'
 
@@ -25,7 +26,7 @@ export async function runExtensionInspections(
   const results: ExtensionInspectionResult[] = []
   for (const entry of entries) {
     await context.guard()
-    const inspection = extensions.inspection(entry.key)
+    let inspection = extensions.inspection(entry.key)
     if (inspection === undefined) {
       results.push({
         key: entry.key,
@@ -34,6 +35,13 @@ export async function runExtensionInspections(
         error: errorPayload(new ServerError('extension_inspection_unavailable', { key: entry.key })),
       })
       continue
+    }
+    if (inspection.entry.settingsKey !== undefined) {
+      const settings = extensions.settings(context.server, inspection.entry.settingsKey)
+      const section = inspection.entry.settingsKey.slice(settings.entry.owner.length + 1)
+      const stored = (await readSettings(context.db, context.server.id, settings.entry.owner, section)).rows[0]
+      const value = stored?.value ?? settings.runtime.defaults
+      if (inspection.runtime.enabled?.(value) === false) continue
     }
     try {
       const response = await context.session.exec(scriptCommand(inspection.script), inspection.script.timeoutMs, {
@@ -44,6 +52,9 @@ export async function runExtensionInspections(
           key: entry.key,
           detail: response.stderr.slice(-500),
         })
+      inspection = extensions.inspection(entry.key)
+      if (inspection === undefined)
+        throw new ServerError('extension_inspection_unavailable', { key: entry.key })
       const result = inspection.runtime.validate(response.stdout)
       results.push({ key: entry.key, owner: entry.owner, status: 'succeeded', result })
     } catch (cause) {

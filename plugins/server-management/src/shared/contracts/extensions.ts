@@ -40,6 +40,8 @@ export interface ExtensionInspection {
   readonly appliesTo?: ExtensionScope
   /** Read-only script snapshot; the core executor owns SSH and the task fence. */
   readonly script: ScriptDefinition
+  /** Optional settings section that can disable this inspection. */
+  readonly settingsKey?: DefinitionKey
 }
 
 /**
@@ -65,4 +67,5 @@ export interface ExtensionCatalogEntry {
   readonly order: number
   readonly appliesTo: ExtensionScope
   readonly affectsExecution?: boolean
+  readonly settingsKey?: DefinitionKey
 }
