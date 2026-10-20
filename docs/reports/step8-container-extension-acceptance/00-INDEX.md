@@ -20,7 +20,7 @@
 | 09 | CONT-05 Compose 容器 | 通过 | [09-CONT-05.md](09-CONT-05.md) |
 | 13 | SW-01 安装缺失软件 | 部分通过；加组修复的定向回归通过，完整首次安装待重测 | [13-SW-01.md](13-SW-01.md) / [17-SW-01-RETEST.md](17-SW-01-RETEST.md) / [18-SW-01-VALIDATION.md](18-SW-01-VALIDATION.md) / [19-SW-01-DIAGNOSTIC.md](19-SW-01-DIAGNOSTIC.md) / [20-SW-01-GROUP-FIX.md](20-SW-01-GROUP-FIX.md) |
 | 14 | SW-02 单台 Docker 升级 | 回测通过 | [14-SW-02.md](14-SW-02.md) / [16-SW-02-RETEST.md](16-SW-02-RETEST.md) |
-| 15 | SW-04 批量升级 | 阻塞 | [15-SW-04.md](15-SW-04.md) |
+| 15 | SW-04 批量升级 | 成功路径通过 | [15-SW-04.md](15-SW-04.md) / [23-SW-04.md](23-SW-04.md) |
 | 10 | CONT-06 权限不足 | 回测通过 | [10-CONT-06.md](10-CONT-06.md) / [12-CONT-06-RETEST.md](12-CONT-06-RETEST.md) |
 
 ## 本轮发现并修复
