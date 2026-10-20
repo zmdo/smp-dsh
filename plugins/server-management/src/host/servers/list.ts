@@ -37,6 +37,7 @@ export function displayStatus(input: {
     state: string
     healthy: boolean | null
     compliant: boolean
+    detail?: string
   }[]
   operation?: ActiveOperation
   now: number
@@ -57,7 +58,10 @@ export function displayStatus(input: {
       softwareEn: software.name?.en ?? software.key,
     }
     if (software.state === 'missing') attention.push(reason('software_missing', parameters))
-    else if (software.state !== 'installed') unverified.push(reason('software_unknown', parameters))
+    else if (software.state !== 'installed')
+      (software.detail?.includes('permission denied') ? attention : unverified).push(
+        reason('software_unknown', parameters),
+      )
     else if (software.healthy === false) attention.push(reason('software_unhealthy', parameters))
     else if (!software.compliant) attention.push(reason('software_version', parameters))
     else if (software.healthy !== true) unverified.push(reason('software_unknown', parameters))
@@ -260,6 +264,7 @@ function enrich(
       state,
       healthy: fresh ? fact.healthy : null,
       compliant,
+      detail: fact?.error?.detail,
     }
   })
   const compatible = typeSupportsOs(

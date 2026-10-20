@@ -13,12 +13,12 @@
 | 02 | PLUGIN-01 插件加载与目录 | 通过 | [02-PLUGIN-01.md](02-PLUGIN-01.md) |
 | 03 | PLUGIN-02 容器面板 | 通过 | [03-PLUGIN-02.md](03-PLUGIN-02.md) |
 | 04 | PLUGIN-03 容器设置 | 通过 | [04-PLUGIN-03.md](04-PLUGIN-03.md) |
-| 05 | CONT-01 无 Docker | 部分通过 | [05-CONT-01.md](05-CONT-01.md) |
+| 05 | CONT-01 无 Docker | 回测通过 | [05-CONT-01.md](05-CONT-01.md) / [11-CONT-01-RETEST.md](11-CONT-01-RETEST.md) |
 | 06 | CONT-02 空容器清单 | 通过 | [06-CONT-02.md](06-CONT-02.md) |
 | 07 | CONT-03 运行容器 | 通过 | [07-CONT-03.md](07-CONT-03.md) |
 | 08 | CONT-04 停止容器 | 通过 | [08-CONT-04.md](08-CONT-04.md) |
 | 09 | CONT-05 Compose 容器 | 通过 | [09-CONT-05.md](09-CONT-05.md) |
-| 10 | CONT-06 权限不足 | 失败 | [10-CONT-06.md](10-CONT-06.md) |
+| 10 | CONT-06 权限不足 | 回测通过 | [10-CONT-06.md](10-CONT-06.md) / [12-CONT-06-RETEST.md](12-CONT-06-RETEST.md) |
 
 ## 本轮发现并修复
 
@@ -30,7 +30,7 @@
    - 插件巡检改为 `docker ps -a --format '{{json .}}'`
    - 插件巡检 commit 写回 `server_containers`
 
-## 未通过项
+## 已修复并回测
 
 ### CONT-06 权限不足
 

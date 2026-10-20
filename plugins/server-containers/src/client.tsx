@@ -22,6 +22,7 @@ interface OwnerProps {
 function ContainersPanel(props: OwnerProps) {
   const copy = serverCopy(props.active).ui
   const server = props.server
+  const docker = (server.software_status ?? {})[`${owner}/docker-engine`] as { state?: string; detail?: string } | undefined
   const [containers, setContainers] = useState<{ container_id: string; name: string; image: string; status: string; ports: string }[]>([])
   useEffect(() => {
     let stopped = false
@@ -34,6 +35,9 @@ function ContainersPanel(props: OwnerProps) {
     <section className="panel">
       <div className="panel-head"><h2>{copy.containers}</h2></div>
       <div className="panel-body">
+        {docker !== undefined && docker.state !== 'installed' && (
+          <p className="error">{docker.detail ?? 'Docker 未安装或未验证。'}</p>
+        )}
         {containers.length === 0 ? (
           <p className="empty">{copy.noContainers}</p>
         ) : (
