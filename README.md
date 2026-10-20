@@ -4,7 +4,7 @@ Cyber Evolving System（赛博演进系统）。
 
 CES 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harness（`dsh`）里的一组 Cordis 插件，提供登录、侧栏、平台设置、数据库、加密密钥、会话和工作区存储。CES 的业务栏目作为插件装到基座上，不另起进程，也不再经过单独的网站后台。
 
-本进程默认听 `9090`（`http://127.0.0.1:9090/`）。原来 `8080` 上的控制台已关闭。
+本地 CES 实例约定使用 `9090`（`http://127.0.0.1:9090/`），实际监听地址和端口由 dsh 启动参数决定。
 
 `dsh` 崩了就重启。数据库里的登记和远端容器不受这次重启影响。
 
@@ -15,6 +15,7 @@ CES 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harn
 | `@smp/console-database` | 连接池、密文、迁移 |
 | `@smp/console-session-persistence` | 把会话写入 PostgreSQL |
 | `@smp/console-workspace-storage` | 把工作区登记写入数据库 |
+| `@smp/console-workspace-groups` | 工作区组、目录归属、切组与原生侧栏／工作区选择器适配 |
 | `@smp/console-install` | 第一次启动时写入数据库地址和加密密钥 |
 | `@smp/console-frame` | 侧栏、登录、网站、菜单、安全 |
 | `@smp/console-encryption-key` | 查看和更换加密密钥 |
@@ -23,7 +24,9 @@ CES 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harn
 | `@smp/console-settings-models` | 模型 |
 | `@smp/console-plugin-inventory` | 插件清单 |
 
-目录、包名和补丁 id 以 `docs/spec/plugins.md` 为准。控制台怎么做以 `docs/design/remote-console/design.md` 为准。
+当前架构、插件、存储、运行方式、模块状态和后续任务从 [框架与业务交接文档](docs/framework/README.md) 进入。`docs/design` 保留历史需求和方案，使用前核对实现状态；[漂移对照](docs/framework/handoff/design-drift.md)列出了主要差异。
+
+CES 当前还包含 `@smp/console-server-management`，负责服务器实例、密钥、软件计划和升级管理。独立容器插件与详情面板扩展仍处于已确认、待实施阶段，见 [服务器管理交接](docs/framework/modules/server-management/handoff.md)。
 
 ## 留在外面的
 
