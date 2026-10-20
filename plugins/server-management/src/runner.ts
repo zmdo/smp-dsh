@@ -1,22 +1,6 @@
-import { readPolicies, restrictLease } from './policies.ts'
-import { preflightRequest, savePreflight, type ChangeRequest } from './changes.ts'
-import { detectUpdates, saveUpdateChecks } from './upgrades.ts'
-import type { DefinitionRegistry, TypeLease } from './registry.ts'
-import { typeSupportsOs } from './definitions.ts'
-import { osVerification } from './operating-systems.ts'
-import { probeOs } from './os-probe.ts'
-import { errorPayload, ServerError } from './i18n.ts'
-import { scrub, scrubValue } from './parse.ts'
-import { connectSsh, type SshSession } from './ssh.ts'
-import { detectSoftware, inspectContainers, type SoftwareStatus } from './software.ts'
-import {
-  markConnected,
-  saveComponentStatus,
-  saveObservation,
-  saveOsProbe,
-  serverSecret,
-  type Db,
-} from './store.ts'
+import { randomUUID } from 'node:crypto'
+import { preflightRequest, savePreflight } from './changes.ts'
+import { type Db } from './host/db.ts'
 import {
   finishJob,
   heartbeat,
@@ -27,10 +11,22 @@ import {
   savePlan,
   type JobRecord,
 } from './job-store.ts'
+import { probeOs } from './os-probe.ts'
+import { scrub, scrubValue } from './parse.ts'
+import { checkPlan, preparePlan } from './plans.ts'
+import { readPolicies, restrictLease } from './policies.ts'
 import { canonical, validObservation } from './recipe.ts'
-import { checkPlan, preparePlan, type PreparedPlan } from './plans.ts'
+import type { DefinitionRegistry, TypeLease } from './registry.ts'
 import { remoteOperation, type RemoteResult } from './remote-operation.ts'
-import { randomUUID } from 'node:crypto'
+import { type ChangeRequest, type PreparedPlan } from './shared/changes.ts'
+import { typeSupportsOs } from './shared/definitions.ts'
+import { ServerError } from './shared/errors.ts'
+import { errorDetail, errorPayload } from './shared/i18n.ts'
+import { osVerification } from './shared/operating-systems.ts'
+import { detectSoftware, inspectContainers, type SoftwareStatus } from './software.ts'
+import { connectSsh, type SshSession } from './ssh.ts'
+import { markConnected, saveComponentStatus, saveObservation, saveOsProbe, serverSecret } from './store.ts'
+import { detectUpdates, saveUpdateChecks } from './upgrades.ts'
 
 interface Secrets {
   decrypt(ciphertext: string): string
@@ -262,7 +258,7 @@ export async function executeJob(
     )
   } catch (cause) {
     if (cause instanceof ServerError && cause.code === 'job_lease_lost') return
-    const message = scrub(cause instanceof Error ? cause.message : '任务失败。', secret)
+    const message = scrub(errorDetail(cause, '任务失败。'), secret)
     if (mutation) {
       await recovering(db, job, message)
       return

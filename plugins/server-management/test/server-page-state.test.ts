@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createServerPageState } from '../src/pages/server-page-state.ts'
+import { createServerPageState } from '../src/client/shared/server-page-state.ts'
 
 test('settings navigation preserves list filters and the detail destination within one plugin instance', () => {
   const state = createServerPageState(), separate = createServerPageState()

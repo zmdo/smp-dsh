@@ -1,9 +1,12 @@
-import { finishPreflight, commitBinding, type ChangeRequest } from './changes.ts'
 import { randomUUID } from 'node:crypto'
-import type { Db, DbClient, ServerSecret } from './store.ts'
-import { ServerError, errorPayload } from './i18n.ts'
+import { commitBinding, finishPreflight } from './changes.ts'
+import type { Db, DbClient } from './host/db.ts'
 import { digest } from './recipe.ts'
-import type { PreparedPlan } from './plans.ts'
+import type { PreparedPlan } from './shared/changes.ts'
+import { type ChangeRequest } from './shared/changes.ts'
+import { ServerError } from './shared/errors.ts'
+import { errorPayload } from './shared/i18n.ts'
+import type { ServerSecret } from './store.ts'
 
 export interface JobRecord {
   id: string

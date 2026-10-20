@@ -9,7 +9,7 @@ import { builtinCatalog } from '../src/catalog.ts'
 import { Enrollment } from '../src/enrollment.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
 import { connectSsh, FingerprintMismatch, SshError } from '../src/ssh.ts'
-import type { Db } from '../src/store.ts'
+import type { Db } from '../src/host/db.ts'
 
 const { Server, utils } = createRequire(import.meta.url)('ssh2') as typeof import('ssh2')
 const privateKey = generateKeyPairSync('rsa', {

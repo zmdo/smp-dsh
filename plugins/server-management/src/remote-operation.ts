@@ -1,9 +1,9 @@
-import type { LoadedScript } from './recipe.ts'
+import { environment } from './plans.ts'
 import { quote } from './recipe.ts'
-import type { SshSession } from './ssh.ts'
 import type { TypeLease } from './registry.ts'
-import { environment, type PreparedPlan } from './plans.ts'
-import { ServerError } from './i18n.ts'
+import { type PreparedPlan } from './shared/changes.ts'
+import { ServerError } from './shared/errors.ts'
+import type { SshSession } from './ssh.ts'
 
 /** A root-owned journal and flock survive SSH disconnects. An unknown result never authorizes replay. */
 export const REMOTE_SUPERVISOR = String.raw`

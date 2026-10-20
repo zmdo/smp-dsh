@@ -5,10 +5,10 @@ import { SecretsCodec } from '../../database/src/fernet.ts'
 import { Enrollment } from '../src/enrollment.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
 import { builtinCatalog } from '../src/catalog.ts'
-import { GENERAL_TYPE, VACANT_TYPE } from '../src/definitions.ts'
-import { declaredOsFromDetected } from '../src/operating-systems.ts'
+import { GENERAL_TYPE, VACANT_TYPE } from '../src/shared/definitions.ts'
+import { declaredOsFromDetected } from '../src/shared/operating-systems.ts'
 import { LINUX_PROBE, WINDOWS_PROBE } from '../src/os-probe.ts'
-import type { Db } from '../src/store.ts'
+import type { Db } from '../src/host/db.ts'
 import type { connectSsh, SshSession } from '../src/ssh.ts'
 
 const credentials = {

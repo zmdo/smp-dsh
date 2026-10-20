@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { IncomingMessage, ServerResponse } from 'node:http'
 import { Socket } from 'node:net'
 import test from 'node:test'
+import { ERROR_CODES, ServerError } from '../src/shared/errors.ts'
 import {
-  ServerError,
   componentText,
   enumLabel,
   errorPayload,
@@ -12,11 +12,13 @@ import {
   formatDate,
   serverCopy,
   statusReason,
-} from '../src/i18n.ts'
-import { pageLabel } from '../src/page-label.ts'
-import { displayError, displayJobError, responseError } from '../src/pages/api.ts'
+} from '../src/shared/i18n.ts'
+import { pageLabel } from '../src/client/shared/page-label.ts'
+import { displayError, displayJobError } from '../src/shared/i18n.ts'
+import { responseError } from '../src/client/shared/api.ts'
 import { routeGroups, routeKeys, routeServers } from '../src/records.ts'
-import { HttpError, type Db } from '../src/store.ts'
+import { HttpError } from '../src/host/http/error.ts'
+import { type Db } from '../src/host/db.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
 import { Enrollment } from '../src/enrollment.ts'
 import { builtinCatalog } from './fixtures.ts'
@@ -35,6 +37,10 @@ test('Chinese and English cover the same messages and placeholders', () => {
   }
   compare(serverCopy('zh'), serverCopy('en'))
   assert.equal(serverCopy('fr'), serverCopy('en'))
+  assert.deepEqual([...ERROR_CODES].sort(), Object.keys(serverCopy('en').errors).sort())
+  const error = new ServerError('ssh_auth_failed')
+  assert.equal(error.message, 'ssh_auth_failed')
+  assert.equal(errorPayload(error).detail, errorText('zh', error.code))
 })
 
 test('an existing error and dynamic navigation labels follow the active language', () => {

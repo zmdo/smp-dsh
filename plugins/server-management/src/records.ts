@@ -1,33 +1,36 @@
-import { parsePolicies, readPolicies, restrictLease, writePolicies } from './policies.ts'
-import { canonical } from './recipe.ts'
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Component } from './catalog.ts'
-import {
-  GENERAL_TYPE,
-  VACANT_TYPE,
-  sameSoftware,
-  typeSupportsOs,
-  type GroupRecord,
-  type ServerTypeView,
-} from './definitions.ts'
-import { errorPayload, ServerError, type ErrorCode } from './i18n.ts'
+import type { Enrollment } from './enrollment.ts'
+import { type Db } from './host/db.ts'
+import { HttpError } from './host/http/error.ts'
+import { enqueueOn as enqueue, type JobRecord } from './job-store.ts'
 import { keyInUse, retestAfterEdit, type RetestSnap } from './jobs.ts'
-import {
-  parseDeclaredOs,
-  sameDeclaredOs,
-  osVerification,
-  type DeclaredOs,
-  type DetectedOs,
-} from './operating-systems.ts'
+import { parsePolicies, readPolicies, restrictLease, writePolicies } from './policies.ts'
+import { canonical } from './recipe.ts'
 import { chosenRegion, lookupRegion } from './region.ts'
 import { DefinitionRegistry, type TypeLease } from './registry.ts'
 import { field, readJson, sendJson, text } from './reply.ts'
-import { componentView, enqueueOn as enqueue, HttpError, type Db, type JobRecord } from './store.ts'
-import { keyFingerprint, SshError } from './ssh.ts'
-import type { Enrollment } from './enrollment.ts'
-import { parseTaskQuery, taskHistory } from './task-history.ts'
 import { parseServerListQuery, serverList, serverRead } from './server-list.ts'
+import {
+  GENERAL_TYPE,
+  sameSoftware,
+  typeSupportsOs,
+  VACANT_TYPE,
+  type GroupRecord,
+  type ServerTypeView,
+} from './shared/definitions.ts'
+import { type ErrorCode } from './shared/errors.ts'
+import {
+  osVerification,
+  parseDeclaredOs,
+  sameDeclaredOs,
+  type DeclaredOs,
+  type DetectedOs,
+} from './shared/operating-systems.ts'
+import { keyFingerprint, SshError } from './ssh.ts'
+import { componentView } from './store.ts'
+import { parseTaskQuery, taskHistory } from './task-history.ts'
 
 interface Secrets {
   encrypt(secret: string): string

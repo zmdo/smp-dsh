@@ -43,8 +43,8 @@
 | 位置 | 当前行为 | 对新需求的影响 |
 | --- | --- | --- |
 | `plugins/server-management/locale/{zh,en}.json` | 已补齐现有页面、状态、内置软件说明及错误翻译 | 后续类型、系统分组和升级管理继续扩展该文案来源 |
-| `src/client.tsx`、`src/page-label.ts` | 已注入 `locale`，栏目与页签标签动态读取语言 | 复用现有壳的标签能力，不替换侧栏 |
-| `src/pages/ServersPage.tsx`、`KeysPage.tsx` | 已订阅语言，页面、表单、分页、状态和提示随语言更新，日期显式采用平台语言 | 切换不重建页面状态，不重新加载表单；用户输入和原始输出保持原文 |
+| `src/client.tsx`、`src/client/shared/page-label.ts` | 已注入 `locale`，栏目与页签标签动态读取语言 | 复用现有壳的标签能力，不替换侧栏 |
+| `src/client/servers/ServersPage.tsx`、`src/client/keys/KeysPage.tsx` | 已订阅语言，页面、表单、分页、状态和提示随语言更新，日期显式采用平台语言 | 切换不重建页面状态，不重新加载表单；用户输入和原始输出保持原文 |
 | `src/records.ts` | 按目标分组校验类型，必要软件由后端推导；系统分组不可删除或由浏览器伪造；涉及不同必要软件的非空目标暂时阻止转换 | 后续补齐预检、冲突确认与成功后提交移动 |
 | `src/catalog.ts`、`registry.ts`、`service.ts` | 内置目录与插件注册统一解析为类型、必要软件依赖及配方修订；注册属于贡献插件生命周期 | 版本范围、精确包解析、升级与替换契约仍待实现 |
 | 实际配置的组件脚本 | Docker、Compose 检测输出普通文字；安装时发现可用软件就跳过 | 不支持判断目标版本是否符合，更不能直接承担升级、降级或替换 |

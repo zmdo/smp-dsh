@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseDeclaredOs, sameDeclaredOs, osVerification, supportsOs, type OsSupport } from '../src/operating-systems.ts'
+import {
+  parseDeclaredOs,
+  sameDeclaredOs,
+  osVerification,
+  supportsOs,
+  type OsSupport,
+} from '../src/shared/operating-systems.ts'
 import { parseLinuxOs, parseWindowsOs } from '../src/os-probe.ts'
 
 test('catalog identities ignore forged version values, while custom names never imply support', () => {

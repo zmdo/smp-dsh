@@ -1,14 +1,9 @@
-import type { Db } from './store.ts'
-import type { TypeLease } from './registry.ts'
-import type { VersionRule } from './versions.ts'
+import type { Db } from './host/db.ts'
 import { digest } from './recipe.ts'
-import { ServerError } from './i18n.ts'
+import type { TypeLease } from './registry.ts'
+import { ServerError } from './shared/errors.ts'
+import type { SoftwarePolicy } from './shared/policies.ts'
 
-export interface SoftwarePolicy {
-  software_key: string
-  restriction: VersionRule
-  detect_updates: boolean
-}
 export function parsePolicies(value: unknown): SoftwarePolicy[] {
   if (value === undefined) return []
   if (!Array.isArray(value) || value.length > 128) throw new ServerError('policy_invalid')

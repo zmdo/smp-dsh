@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { ServerTypeView } from '../src/definitions.ts'
-import { ServerError } from '../src/i18n.ts'
-import { declaredOsFromDetected } from '../src/operating-systems.ts'
-import { EnrollmentPreview, type IdentificationResult } from '../src/pages/enrollment-preview.ts'
+import type { ServerTypeView } from '../src/shared/definitions.ts'
+import { ServerError } from '../src/shared/errors.ts'
+import { declaredOsFromDetected } from '../src/shared/operating-systems.ts'
+import {
+  EnrollmentPreview,
+  type IdentificationResult,
+} from '../src/client/servers/form/enrollment-preview.ts'
 
 const detected = { family: 'builtin/ubuntu', version: '24.04', architecture: 'x86_64' }
 const os = declaredOsFromDetected(detected)

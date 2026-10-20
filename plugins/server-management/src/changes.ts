@@ -1,31 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import type { Db, JobRecord, ServerSecret } from './store.ts'
-import { HttpError } from './store.ts'
-import { canonical, digest } from './recipe.ts'
-import type { PreparedPlan } from './plans.ts'
-import { parsePolicies, readPolicies, restrictLease, writePolicies, type SoftwarePolicy } from './policies.ts'
+import type { Db } from './host/db.ts'
+import { HttpError } from './host/http/error.ts'
+import type { JobRecord } from './job-store.ts'
+import { parsePolicies, restrictLease, writePolicies } from './policies.ts'
+import { digest } from './recipe.ts'
 import type { DefinitionRegistry } from './registry.ts'
-import { ServerError } from './i18n.ts'
-import type { ServerTypeView } from './definitions.ts'
+import type { ChangeRequest, ChangeSelection, PreparedPlan } from './shared/changes.ts'
+import type { ServerTypeView } from './shared/definitions.ts'
+import { ServerError } from './shared/errors.ts'
+import type { ServerSecret } from './store.ts'
 
-export interface ChangeSelection {
-  serverIds: string[]
-  versions: Record<string, string>
-  binding?: { groupId: string | null; typeKey: string; installMissing: boolean; policies: SoftwarePolicy[] }
-}
-export interface ChangeRequest {
-  selection: ChangeSelection
-  targets?: {
-    id: string
-    serverId: string
-    configRevision: string
-    environmentRevision: string
-    definitionRevision: string
-    plan: PreparedPlan
-  }[]
-  execution?: { start: string; end: string; timezone: string; concurrency: number }
-  acknowledgments?: { replacement: boolean; major: boolean; serviceImpact: boolean }
-}
 export interface PlanRow {
   id: string
   kind: 'prepare' | 'move' | 'upgrade'

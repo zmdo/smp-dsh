@@ -1,18 +1,13 @@
-import type { Candidate, RecipeRequest, ResolvedSoftwareChange, SoftwareObservation } from './contracts.ts'
 import type { Component } from './catalog.ts'
-import type { DetectedOs } from './operating-systems.ts'
-import { ServerError } from './i18n.ts'
 import { canonical, invokeRecipe } from './recipe.ts'
-import type { SshSession } from './ssh.ts'
 import type { TypeLease } from './registry.ts'
+import type { PreparedPlan } from './shared/changes.ts'
+import type { Candidate, ResolvedSoftwareChange, SoftwareObservation } from './shared/contracts.ts'
+import { ServerError } from './shared/errors.ts'
+import { errorDetail } from './shared/i18n.ts'
+import type { DetectedOs } from './shared/operating-systems.ts'
+import type { SshSession } from './ssh.ts'
 
-export interface PreparedPlan {
-  definitionRevision: string
-  os: DetectedOs
-  changes: ResolvedSoftwareChange[]
-  risks?: { major: boolean; replacement: boolean; serviceImpact: boolean }
-  targetType?: import('./definitions.ts').ServerTypeView
-}
 export function environment(component: Component, os: DetectedOs) {
   return {
     contractVersion: 2 as const,
@@ -40,7 +35,7 @@ export async function observe(
     return {
       state: 'unknown',
       code: cause instanceof ServerError ? cause.code : 'detection_failed',
-      detail: cause instanceof Error ? cause.message : '',
+      detail: errorDetail(cause, ''),
     }
   }
 }

@@ -1,4 +1,4 @@
-import type { DeclaredOs, DetectedOs } from './operating-systems.ts'
+import type { DeclaredOs, DetectedOs } from './shared/operating-systems.ts'
 import type { SshSession } from './ssh.ts'
 
 export type OsProbe = { state: 'detected'; os: DetectedOs } | { state: 'failed'; code: 'os_probe_failed' }

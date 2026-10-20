@@ -7,7 +7,7 @@ import { Pool } from 'pg'
 import { parseTaskQuery } from '../src/task-history.ts'
 import { routeJobs } from '../src/records.ts'
 import { claimNext, enqueue, finishJob } from '../src/job-store.ts'
-import { HttpError } from '../src/store.ts'
+import { HttpError } from '../src/host/http/error.ts'
 
 test('task queries validate limits, explicit time zones, filters and range ordering', () => {
   const server = randomUUID()

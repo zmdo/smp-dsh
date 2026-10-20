@@ -1,8 +1,14 @@
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
-import type { Candidate, RecipeRequest, RecipeResponse, ScriptDefinition, SoftwareObservation } from './contracts.ts'
-import { ServerError } from './i18n.ts'
+import type {
+  Candidate,
+  RecipeRequest,
+  RecipeResponse,
+  ScriptDefinition,
+  SoftwareObservation,
+} from './shared/contracts.ts'
+import { ServerError } from './shared/errors.ts'
 import type { SshSession } from './ssh.ts'
 
 export interface LoadedScript {

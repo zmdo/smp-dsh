@@ -1,11 +1,11 @@
-import type { LocalizedText, RecipeDefinition } from './contracts.ts'
+import { aptScript } from './builtin-recipes.ts'
 import type { LoadedScript } from './recipe.ts'
 import { digest } from './recipe.ts'
-import type { OsSelector } from './operating-systems.ts'
-import { APT_SOFTWARE_OS } from './operating-systems.ts'
-import { stableVersions, type VersionAdapter, type VersionRule } from './versions.ts'
-import { aptScript } from './builtin-recipes.ts'
-import { ServerError } from './i18n.ts'
+import type { LocalizedText, RecipeDefinition } from './shared/contracts.ts'
+import { ServerError } from './shared/errors.ts'
+import type { OsSelector } from './shared/operating-systems.ts'
+import { APT_SOFTWARE_OS } from './shared/operating-systems.ts'
+import { stableVersions, type VersionAdapter, type VersionRule } from './shared/versions.ts'
 
 export interface Component {
   id: string

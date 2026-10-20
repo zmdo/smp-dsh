@@ -1,14 +1,16 @@
-import type { DefinitionRegistry, TypeLease } from './registry.ts'
-import { defaultTypeForOs, typeSupportsOs } from './definitions.ts'
-import { declaredOsFromDetected } from './operating-systems.ts'
+import { type Db } from './host/db.ts'
+import { HttpError } from './host/http/error.ts'
 import { probeOs } from './os-probe.ts'
-import { digest } from './recipe.ts'
-import { field, text } from './reply.ts'
 import { scrubValue } from './parse.ts'
+import { digest } from './recipe.ts'
+import type { DefinitionRegistry, TypeLease } from './registry.ts'
+import { field, text } from './reply.ts'
+import { defaultTypeForOs, typeSupportsOs } from './shared/definitions.ts'
+import { ServerError } from './shared/errors.ts'
+import { declaredOsFromDetected } from './shared/operating-systems.ts'
 import { detectSoftware } from './software.ts'
-import { HttpError, serverSecret, type Db } from './store.ts'
 import { connectSsh, type SshSession } from './ssh.ts'
-import { ServerError } from './i18n.ts'
+import { serverSecret } from './store.ts'
 
 interface Dependencies {
   db: Db

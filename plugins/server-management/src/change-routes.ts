@@ -1,11 +1,11 @@
-import { readPolicies, restrictLease } from './policies.ts'
-import { ServerError } from './i18n.ts'
-import type { DeclaredOs, DetectedOs } from './operating-systems.ts'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { confirmChangePlan, controlPlan, createChangePlan, readChangePlan, transaction } from './changes.ts'
+import { HttpError } from './host/http/error.ts'
+import { readPolicies, restrictLease } from './policies.ts'
 import type { Deps } from './records.ts'
 import { readJson, sendJson } from './reply.ts'
-import { HttpError } from './store.ts'
-import { createChangePlan, readChangePlan, confirmChangePlan, controlPlan, transaction } from './changes.ts'
+import { ServerError } from './shared/errors.ts'
+import type { DeclaredOs, DetectedOs } from './shared/operating-systems.ts'
 import { queueDetection } from './upgrades.ts'
 
 function object(value: unknown): Record<string, unknown> {

@@ -1,9 +1,11 @@
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData } from 'ws'
+import { type Db } from './host/db.ts'
+import { ServerError, type ErrorCode } from './shared/errors.ts'
+import { errorPayload } from './shared/i18n.ts'
 import { connectSsh, type ShellChannel, type SshSession } from './ssh.ts'
-import { serverSecret, type Db } from './store.ts'
-import { errorPayload, ServerError, type ErrorCode } from './i18n.ts'
+import { serverSecret } from './store.ts'
 
 interface Secrets {
   decrypt(ciphertext: string): string

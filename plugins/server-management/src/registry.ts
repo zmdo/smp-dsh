@@ -1,36 +1,34 @@
 import { randomUUID } from 'node:crypto'
+import { CatalogError, componentRevision, type Component, type LoadedRecipe } from './catalog.ts'
+import type { Db } from './host/db.ts'
+import { digest, loadScript } from './recipe.ts'
 import type {
   DefinitionBundle,
   Registration as RegistrationHandle,
-  RecipeDefinition,
   ServerTypeDefinition,
   SoftwareDefinition,
   SoftwareRequirement,
   SystemGroupDefinition,
-} from './contracts.ts'
-import { CatalogError, componentRevision, type Component, type LoadedRecipe } from './catalog.ts'
+} from './shared/contracts.ts'
+import { type LocalizedText } from './shared/contracts.ts'
 import {
   GENERAL_TYPE,
   VACANT_TYPE,
   type GroupRecord,
   type GroupView,
-  type LocalizedText,
   type ServerTypeView,
   type SoftwareView,
   type TypeOptions,
-} from './definitions.ts'
-import { ServerError } from './i18n.ts'
-import type { Db } from './store.ts'
+} from './shared/definitions.ts'
+import { ServerError } from './shared/errors.ts'
 import {
   APT_SOFTWARE_OS,
-  OS_CATALOG,
   supportsOs,
   validateOsSupport,
   type DeclaredOs,
   type DetectedOs,
-} from './operating-systems.ts'
-import { digest, loadScript } from './recipe.ts'
-import { stableVersions, type VersionAdapter, type VersionRule } from './versions.ts'
+} from './shared/operating-systems.ts'
+import { stableVersions, type VersionAdapter, type VersionRule } from './shared/versions.ts'
 
 interface Owner {
   identity: object

@@ -1,8 +1,9 @@
 import { componentRevision, type Component } from './catalog.ts'
-import { observe } from './plans.ts'
-import type { DetectedOs } from './operating-systems.ts'
-import type { PackageIdentity } from './contracts.ts'
 import { excerpt, parseComposeVersion, parseDockerVersion, parsePs, type ParsedContainer } from './parse.ts'
+import { observe } from './plans.ts'
+import type { PackageIdentity } from './shared/contracts.ts'
+import { errorDetail } from './shared/i18n.ts'
+import type { DetectedOs } from './shared/operating-systems.ts'
 import type { CommandResult, SshSession } from './ssh.ts'
 
 export interface SoftwareProbe {
@@ -85,7 +86,7 @@ async function probeCompose(session: SshSession, prefix: '' | 'sudo -n '): Promi
       parseComposeVersion(result.stdout),
     )
   } catch (cause) {
-    return probe('unknown', cause instanceof Error ? cause.message : '')
+    return probe('unknown', errorDetail(cause, ''))
   }
 }
 
@@ -110,7 +111,7 @@ export async function inspectContainers(session: SshSession): Promise<ContainerO
       prefix = 'sudo -n '
       try { version = await session.exec(prefix + DOCKER_VERSION, 15_000) }
       catch (cause) {
-        return { state: 'error', docker: null, compose: null, detail: `${ordinary}\nsudo -n: ${excerpt(cause instanceof Error ? cause.message : '', 700)}` }
+        return { state: 'error', docker: null, compose: null, detail: `${ordinary}\nsudo -n: ${excerpt(errorDetail(cause, ''), 700)}` }
       }
       if (version.code !== 0)
         return { state: 'error', docker: null, compose: null, detail: `${ordinary}\nsudo -n: ${excerpt(version.stderr || version.stdout, 700)}` }
@@ -128,6 +129,6 @@ export async function inspectContainers(session: SshSession): Promise<ContainerO
       containers: parsePs(listed.stdout),
     }
   } catch (cause) {
-    return { state: 'error', docker: null, compose: null, detail: excerpt(cause instanceof Error ? cause.message : '') }
+    return { state: 'error', docker: null, compose: null, detail: excerpt(errorDetail(cause, '')) }
   }
 }

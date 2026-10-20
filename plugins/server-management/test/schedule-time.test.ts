@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { zonedTime } from '../src/schedule-time.ts'
+import { zonedTime } from '../src/shared/schedule-time.ts'
+
 test('maintenance wall times use the selected IANA zone and reject DST gaps and overlaps', () => {
   assert.equal(zonedTime('2026-10-20T10:00', 'Asia/Shanghai'), '2026-10-20T02:00:00.000Z')
   assert.equal(zonedTime('2026-10-20T10:00', 'UTC'), '2026-10-20T10:00:00.000Z')

@@ -1,33 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { Component } from './catalog.ts'
-import { excerpt } from './parse.ts'
-import type { MetricSample } from './parse.ts'
-import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
-import type { ContainerObservation, SoftwareStatus } from './software.ts'
-import type { DeclaredOs, DetectedOs } from './operating-systems.ts'
+import type { Db } from './host/db.ts'
 import type { OsProbe } from './os-probe.ts'
-
-export interface Db {
-  query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>
-  connect(): Promise<DbClient>
-}
-
-export interface DbClient extends Db {
-  release(): void
-}
-
-export class HttpError extends ServerError {
-  readonly status: number
-
-  constructor(status: number, code: ErrorCode, params: MessageParams = {}, options?: ErrorOptions) {
-    super(code, params, options)
-    this.name = 'HttpError'
-    this.status = status
-  }
-}
-
-export { enqueue, enqueueOn, claimNext } from './job-store.ts'
-export type { JobRecord } from './job-store.ts'
+import type { MetricSample } from './parse.ts'
+import type { DeclaredOs, DetectedOs } from './shared/operating-systems.ts'
+import type { ContainerObservation, SoftwareStatus } from './software.ts'
 
 export interface ServerSecret {
   id: string

@@ -1,40 +1,43 @@
-import { routeChanges } from './change-routes.ts'
-import { scheduleChanges } from './upgrades.ts'
-import { randomUUID } from 'node:crypto'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
+import { randomUUID } from 'node:crypto'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { builtinCatalog } from './catalog.ts'
+import { routeChanges } from './change-routes.ts'
+import { Enrollment } from './enrollment.ts'
+import { type Db } from './host/db.ts'
+import { HttpError } from './host/http/error.ts'
+import { claimNext, enqueue } from './job-store.ts'
 import { startMetrics } from './metrics.ts'
 import { routeComponents, routeGroups, routeJobs, routeKeys, routeServers, routeTypes } from './records.ts'
+import { DefinitionRegistry } from './registry.ts'
 import { cookieHeader, sendJson } from './reply.ts'
 import { executeJob } from './runner.ts'
-import { claimNext, dueInspects, enqueue, HttpError, type Db } from './store.ts'
-import { terminalRoute } from './terminal.ts'
-import { errorPayload, ServerError } from './i18n.ts'
-import { DefinitionRegistry } from './registry.ts'
 import { ServerManagement } from './service.ts'
-import { Enrollment } from './enrollment.ts'
+import { ServerError } from './shared/errors.ts'
+import { errorPayload } from './shared/i18n.ts'
 import { connectSsh } from './ssh.ts'
-
+import { dueInspects } from './store.ts'
+import { terminalRoute } from './terminal.ts'
+import { scheduleChanges } from './upgrades.ts'
 export { ServerManagement } from './service.ts'
-export { VACANT_TYPE, GENERAL_TYPE } from './definitions.ts'
 export type {
   DefinitionBundle,
-  SystemGroupDefinition,
+  RecipeDefinition,
+  RecipeRequest,
+  RecipeResponse,
+  Registration,
+  ScriptDefinition,
   ServerTypeDefinition,
   SoftwareDefinition,
   SoftwareRequirement,
-  RecipeDefinition,
-  ScriptDefinition,
-  Registration,
-  RecipeRequest,
-  RecipeResponse,
-  VersionRule,
+  SystemGroupDefinition,
   VersionAdapter,
-} from './contracts.ts'
-export type { LocalizedText } from './definitions.ts'
-export type { DeclaredOs, DetectedOs, OsSelector, OsSupport } from './operating-systems.ts'
+  VersionRule,
+} from './shared/contracts.ts'
+export { GENERAL_TYPE, VACANT_TYPE } from './shared/definitions.ts'
+export type { LocalizedText } from './shared/contracts.ts'
+export type { DeclaredOs, DetectedOs, OsSelector, OsSupport, ProbedOs } from './shared/operating-system-types.ts'
 
 interface SessionService {
   read(cookieHeader: string): Promise<unknown>

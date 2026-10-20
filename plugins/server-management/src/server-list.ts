@@ -1,11 +1,20 @@
-import {policySignature} from './policies.ts'
-import type { SoftwarePolicy } from './policies.ts'
-import { typeSupportsOs, type GroupRecord, type ServerTypeView, type LocalizedText } from './definitions.ts'
+import { type Db } from './host/db.ts'
+import { HttpError } from './host/http/error.ts'
+import { policySignature } from './policies.ts'
 import { DefinitionRegistry } from './registry.ts'
-import { osLabel, osVerification, type DeclaredOs, type DetectedOs } from './operating-systems.ts'
-import { ServerError } from './i18n.ts'
-import { HttpError, type Db } from './store.ts'
-import { SERVER_STATES, type DisplayStatus, type ServerDisplayStatus, type ServerListItem, type ServerListPage, type StatusReason } from './server-list-contract.ts'
+import { type LocalizedText } from './shared/contracts.ts'
+import { typeSupportsOs, type GroupRecord, type ServerTypeView } from './shared/definitions.ts'
+import { ServerError } from './shared/errors.ts'
+import { osLabel, osVerification, type DeclaredOs, type DetectedOs } from './shared/operating-systems.ts'
+import type { SoftwarePolicy } from './shared/policies.ts'
+import {
+  SERVER_STATES,
+  type DisplayStatus,
+  type ServerDisplayStatus,
+  type ServerListItem,
+  type ServerListPage,
+  type StatusReason,
+} from './shared/server-list-contract.ts'
 
 interface ServerFact {
   id: string
@@ -144,7 +153,7 @@ export function displayStatus(input: {
 interface ReadDeps { db: Db; definitions: DefinitionRegistry; freshnessMs?: number }
 
 async function readSnapshot<T>(deps: ReadDeps, query: ServerListQuery | { id: string }, project: (data: {
-  rows: ReturnType<typeof enrich>[]; groups: import('./definitions.ts').GroupView[]; counts: { all: number; ungrouped: number }; groupId: string | null; now: number
+  rows: ReturnType<typeof enrich>[]; groups: import('./shared/definitions.ts').GroupView[]; counts: { all: number; ungrouped: number }; groupId: string | null; now: number
 }) => T): Promise<T> {
   const client = await deps.db.connect()
   try {

@@ -1,7 +1,8 @@
+import { type Db } from './host/db.ts'
 import { parseSample } from './parse.ts'
+import { osVerification } from './shared/operating-systems.ts'
 import { connectSsh, type SshSession } from './ssh.ts'
-import { saveMetrics, serverIds, serverSecret, type Db } from './store.ts'
-import { osVerification } from './operating-systems.ts'
+import { saveMetrics, serverIds, serverSecret } from './store.ts'
 
 const SAMPLE = `cores=$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo)
 read_cpu() { awk '/^cpu /{idle=$5+$6; t=0; for(i=2;i<=NF;i++) t+=$i; print t, idle}' /proc/stat; }

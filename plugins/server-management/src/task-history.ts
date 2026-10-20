@@ -1,4 +1,5 @@
-import { HttpError, type Db } from './store.ts'
+import { type Db } from './host/db.ts'
+import { HttpError } from './host/http/error.ts'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ACTIONS = ['inspect', 'inspection_report', 'test_connection', 'install_components', 'detect_updates', 'preflight_move', 'preflight_upgrade', 'move_server', 'upgrade_software', 'deploy', 'start', 'stop', 'restart', 'logs']

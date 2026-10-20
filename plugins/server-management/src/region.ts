@@ -1,6 +1,6 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { ServerError } from './i18n.ts'
+import { ServerError } from './shared/errors.ts'
 
 export function formatPlace(country: string, region: string, city: string): string {
   const parts: string[] = []

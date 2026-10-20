@@ -1,7 +1,7 @@
 import { Service, type Context } from '@deepseek-ai/cordis'
-import type { DefinitionBundle, Registration } from './contracts.ts'
 import type { DefinitionRegistry } from './registry.ts'
-import { ServerError } from './i18n.ts'
+import type { DefinitionBundle, Registration } from './shared/contracts.ts'
+import { ServerError } from './shared/errors.ts'
 
 export class ServerManagement {
   protected readonly ctx: Context

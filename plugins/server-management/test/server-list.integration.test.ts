@@ -5,10 +5,10 @@ import test from 'node:test'
 import { Pool } from 'pg'
 import { builtinCatalog, componentRevision } from '../src/catalog.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
-import { GENERAL_TYPE, VACANT_TYPE } from '../src/definitions.ts'
-import { parseDeclaredOs } from '../src/operating-systems.ts'
+import { GENERAL_TYPE, VACANT_TYPE } from '../src/shared/definitions.ts'
+import { parseDeclaredOs } from '../src/shared/operating-systems.ts'
 import { parseServerListQuery, serverList, serverRead } from '../src/server-list.ts'
-import type { Db } from '../src/store.ts'
+import type { Db } from '../src/host/db.ts'
 
 test('server pages aggregate all matching states before pagination and keep counts and observations consistent',
   { skip: !process.env.SMP_TEST_DATABASE_URL, timeout: 60_000 }, async t => {

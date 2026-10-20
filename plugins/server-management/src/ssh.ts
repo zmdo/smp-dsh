@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import type { Client, ClientErrorExtensions, ConnectConfig } from 'ssh2'
-import { ServerError, type ErrorCode, type MessageParams } from './i18n.ts'
+import { ServerError, type ErrorCode, type MessageParams } from './shared/errors.ts'
 
 const { Client: SshClient, utils } = createRequire(import.meta.url)('ssh2') as typeof import('ssh2')
 
