@@ -183,8 +183,24 @@
 }
 .smp-console .smp-server-workspace-panel > .panel {
   flex: 1; min-width: 0; min-height: 0; margin: 0; display: flex; flex-direction: column; overflow: hidden;
+  border: 0; border-radius: 0; background: transparent;
 }
-.smp-console .smp-server-workspace-panel .panel-body { flex: 1; min-height: 0; overflow: auto; }
+.smp-console .smp-server-workspace-panel > .panel > .panel-head {
+  flex: none; min-height: 0; padding: 0 0 12px; border-bottom: 1px solid var(--line);
+}
+.smp-console .smp-server-workspace-panel > .panel > .panel-body {
+  flex: 1; min-height: 0; padding: 16px 0 0; overflow: auto;
+}
+/* The workspace already draws one frame; inner cards use separators instead of nested borders. */
+.smp-console .smp-server-workspace .node-card {
+  border: 0; border-radius: 0; background: transparent; padding: 0;
+}
+.smp-console .smp-server-workspace .smp-required-software { border: 0; border-radius: 0; }
+.smp-console .smp-server-workspace .smp-required-software > h3 { padding-left: 0; background: transparent; }
+.smp-console .smp-server-workspace .smp-server-form-section { border: 0; border-radius: 0; }
+.smp-console .smp-server-workspace .smp-server-form-section > h2 { padding-left: 0; background: transparent; }
+.smp-console .smp-server-workspace .smp-server-form-section-body { padding-left: 0; padding-right: 0; }
+.smp-console .smp-server-workspace .smp-server-form-section > footer { padding-left: 0; padding-right: 0; }
 .smp-server-workspace .smp-task-history { margin-top: 0; }
 .smp-container-meta {
   display: flex; flex-wrap: wrap; gap: 24px; padding: 12px 0 16px; border-bottom: 1px solid var(--line);
