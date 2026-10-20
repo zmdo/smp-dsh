@@ -3,6 +3,16 @@ import type { ServerDto } from '../../shared/dto/servers.ts'
 import type { DeclaredOs } from '../../shared/operating-system-types.ts'
 import type { DbClient } from '../database/connection.ts'
 
+export interface ExtensionInspectionServer {
+  id: string
+  host: string
+  ssh_port: number
+  ssh_user: string
+  type_key: string
+  declared_os: DeclaredOs
+  config_revision: string | number
+}
+
 /** Host-only callbacks. They never cross the client contract boundary. */
 export interface ServerExtensionRuntime {
   queries?: Record<string, (server: ServerDto, search: URLSearchParams) => Promise<Json>>
