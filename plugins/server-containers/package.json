@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "容器服务器类型、容器面板和容器设置",
+  "description": "\u5bb9\u5668\u670d\u52a1\u5668\u7c7b\u578b\u3001\u5bb9\u5668\u9762\u677f\u548c\u5bb9\u5668\u8bbe\u7f6e",
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
@@ -12,8 +12,26 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["lib/index.js", "lib/client.js", "cordis.patch.yml", "locale/*.json", "icon.svg"],
-  "engines": { "dsh": "0.2.1-alpha.5" },
-  "dsh": { "bundle": { "patch": "./cordis.patch.yml" }, "client": { "platform": "web" } },
-  "scripts": { "build": "node ../../scripts/build-plugin.mjs" }
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "scripts/*.sh"
+  ],
+  "engines": {
+    "dsh": "0.2.1-alpha.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-plugin.mjs"
+  }
 }

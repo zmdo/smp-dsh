@@ -1,18 +1,50 @@
-import type { DefinitionBundle } from '../../server-management/src/shared/contracts/definitions.ts'
+import { fileURLToPath } from 'node:url'
+import type { DefinitionBundle, RecipeDefinition, ScriptDefinition } from '../../server-management/src/shared/contracts/definitions.ts'
 import type { ServerExtensionBundle } from '../../server-management/src/shared/contracts/extensions.ts'
+import { APT_SOFTWARE_OS } from '../../server-management/src/shared/operating-systems.ts'
 
 const owner = '@smp/console-server-containers'
+const docker = `${owner}/docker-engine`
+const compose = `${owner}/docker-compose`
 const type = `${owner}/container`
+const script: ScriptDefinition = {
+  path: fileURLToPath(new URL('../scripts/recipe.sh', import.meta.url)),
+  interpreter: 'posix-sh',
+  timeoutMs: 600_000,
+  outputLimitBytes: 1_048_576,
+}
+const recipe = (key: string, software: string): RecipeDefinition => ({
+  key,
+  software,
+  supportedOs: APT_SOFTWARE_OS,
+  detect: script,
+  listCandidates: script,
+  resolve: script,
+  mutation: {
+    actions: ['install', 'upgrade', 'replace'],
+    execute: script,
+    verify: script,
+    recover: script,
+  },
+})
 
 const definitions: DefinitionBundle = {
   contractVersion: 2,
   owner,
+  software: [
+    { key: 'docker-engine', name: { zh: 'Docker', en: 'Docker' }, versions: 'semver-stable' },
+    { key: 'docker-compose', name: { zh: 'Docker Compose', en: 'Docker Compose' }, versions: 'semver-stable' },
+  ],
+  recipes: [recipe('docker-engine-apt', docker), recipe('docker-compose-apt', compose)],
   types: [
     {
       key: 'container',
       name: { zh: '容器服务器', en: 'Container server' },
-      supportedOs: { kind: 'all' },
-      requirements: [],
+      supportedOs: { kind: 'explicit', selectors: APT_SOFTWARE_OS },
+      requirements: [
+        { software: docker, versions: { kind: 'any' }, recipes: [`${owner}/docker-engine-apt`] },
+        { software: compose, versions: { kind: 'any' }, recipes: [`${owner}/docker-compose-apt`] },
+      ],
     },
   ],
   publicTypes: [{ type, order: 10 }],
