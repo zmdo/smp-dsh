@@ -1,4 +1,5 @@
-import type { LocalizedText, RecipeDefinition } from '../../shared/contracts.ts'
+import type { LocalizedText } from '../../shared/contracts/common.ts'
+import type { RecipeDefinition } from '../../shared/contracts/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 import type { OsSelector } from '../../shared/operating-systems.ts'
 import { APT_SOFTWARE_OS } from '../../shared/operating-systems.ts'

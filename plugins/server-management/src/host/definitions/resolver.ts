@@ -1,10 +1,10 @@
+import { type LocalizedText } from '../../shared/contracts/common.ts'
 import type {
   ServerTypeDefinition,
   SoftwareDefinition,
   SoftwareRequirement,
   SystemGroupDefinition,
-} from '../../shared/contracts.ts'
-import { type LocalizedText } from '../../shared/contracts.ts'
+} from '../../shared/contracts/definitions.ts'
 import { GENERAL_TYPE, VACANT_TYPE, type ServerTypeView, type TypeOptions } from '../../shared/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { supportsOs, type DeclaredOs, type DetectedOs } from '../../shared/operating-systems.ts'

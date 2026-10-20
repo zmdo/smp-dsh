@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { PlanView } from '../../shared/api.ts'
+import type { PlanView } from '../../shared/dto/changes.ts'
 import {
   displayError,
   displayJobError,

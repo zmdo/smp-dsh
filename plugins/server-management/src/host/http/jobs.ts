@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { type Db } from '../db.ts'
+import { type Db } from '../database/connection.ts'
 import { HttpError } from '../errors.ts'
 import { UUID } from '../input.ts'
 import { readJob, taskHistory } from '../tasks/queries.ts'

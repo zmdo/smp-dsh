@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {startMetrics} from '../src/host/servers/metrics.ts'
 import {type SshSession} from '../src/host/remote/ssh.ts'
-import type { Db } from '../src/host/db.ts'
+import type { Db } from '../src/host/database/connection.ts'
 
 test('unloading while metrics SSH is opening closes the late connection and does not sample', { timeout: 5000 }, async () => {
   const opening = Promise.withResolvers<void>()

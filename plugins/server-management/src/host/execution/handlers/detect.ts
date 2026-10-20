@@ -1,6 +1,6 @@
 import { ServerError } from '../../../shared/errors.ts'
 import { scrubValue } from '../../remote/parse.ts'
-import { readPolicies } from '../../servers/policy-repository.ts'
+import { readPolicies } from '../../servers/persistence/policy-repository.ts'
 import { detectUpdates } from '../../upgrades/detect.ts'
 import { saveUpdateChecks } from '../../upgrades/detection.ts'
 import { finishJob } from '../completion.ts'

@@ -1,4 +1,4 @@
-import type { PackageIdentity } from '../../shared/contracts.ts'
+import type { PackageIdentity } from '../../shared/contracts/recipes.ts'
 import { errorDetail } from '../../shared/i18n.ts'
 import type { DetectedOs } from '../../shared/operating-systems.ts'
 import { componentRevision, type Component } from '../definitions/catalog.ts'

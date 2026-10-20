@@ -1,4 +1,4 @@
-import type { SoftwareDefinition } from '../../shared/contracts.ts'
+import type { SoftwareDefinition } from '../../shared/contracts/definitions.ts'
 import {
   GENERAL_TYPE,
   VACANT_TYPE,

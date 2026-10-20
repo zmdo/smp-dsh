@@ -8,7 +8,7 @@ import {builtinCatalog} from '../src/host/definitions/catalog.ts'
 import { GENERAL_TYPE, VACANT_TYPE } from '../src/shared/definitions.ts'
 import { declaredOsFromDetected } from '../src/shared/operating-systems.ts'
 import {LINUX_PROBE,WINDOWS_PROBE} from '../src/host/remote/os-probe.ts'
-import type { Db } from '../src/host/db.ts'
+import type { Db } from '../src/host/database/connection.ts'
 import {type connectSsh,type SshSession} from '../src/host/remote/ssh.ts'
 
 const credentials = {

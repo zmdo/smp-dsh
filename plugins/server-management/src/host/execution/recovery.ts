@@ -1,18 +1,18 @@
 import { randomUUID } from 'node:crypto'
 import { type PreparedPlan } from '../../shared/changes.ts'
 import { ServerError } from '../../shared/errors.ts'
-import { type Db } from '../db.ts'
+import { type Db } from '../database/connection.ts'
 import { canonical } from '../recipes/canonical.ts'
 import { validObservation } from '../recipes/protocol.ts'
 import { remoteOperation, type RemoteResult } from '../remote/operation.ts'
 import { scrub, scrubValue } from '../remote/parse.ts'
 import { type SshSession } from '../remote/ssh.ts'
-import { saveComponentStatus } from '../servers/observation-repository.ts'
+import { saveComponentStatus } from '../servers/persistence/observation-repository.ts'
 import { finishJob } from './completion.ts'
-import { type JobRecord } from './model.ts'
 import { owned, recovering } from './ownership.ts'
+import * as repository from './persistence/result-repository.ts'
+import { type JobRecord } from './persistence/rows.ts'
 import { loadPlan } from './plans.ts'
-import * as repository from './result-repository.ts'
 
 export async function reconcile(
   db: Db,

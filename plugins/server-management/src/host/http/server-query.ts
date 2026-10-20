@@ -1,4 +1,4 @@
-import { SERVER_STATES } from '../../shared/server-list-contract.ts'
+import { SERVER_STATES } from '../../shared/server-status.ts'
 import { HttpError } from '../errors.ts'
 import { type ServerListQuery } from '../servers/query.ts'
 

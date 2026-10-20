@@ -1,5 +1,5 @@
 import { format, formatDate, localized, serverCopy } from '../../../shared/i18n.ts'
-import { type ServerListItem } from '../../../shared/server-list-contract.ts'
+import { type ServerListItem } from '../../../shared/dto/servers.ts'
 import { bytes, meter, ratio } from '../../shared/resources.ts'
 import { ServerStatus } from '../components/ServerStatus.tsx'
 export function ServerLine(props: { active: string; server: ServerListItem; onOpen: (id: string) => void }) {

@@ -1,4 +1,4 @@
-import type { ResolvedSoftwareChange } from './contracts.ts'
+import type { ResolvedSoftwareChange } from './contracts/recipes.ts'
 import type { DetectedOs } from './operating-system-types.ts'
 import type { SoftwarePolicy } from './policies.ts'
 export interface PreparedPlan {

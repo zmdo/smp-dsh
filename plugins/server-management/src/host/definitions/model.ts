@@ -2,7 +2,7 @@ import type {
   ServerTypeDefinition,
   SoftwareDefinition,
   SystemGroupDefinition,
-} from '../../shared/contracts.ts'
+} from '../../shared/contracts/definitions.ts'
 import { type ServerTypeView } from '../../shared/definitions.ts'
 import { type Component, type LoadedRecipe } from './catalog.ts'
 

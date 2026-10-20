@@ -1,4 +1,3 @@
-import type { Candidate, SoftwareObservation } from '../../shared/contracts.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { errorPayload } from '../../shared/i18n.ts'
 import type { DetectedOs } from '../../shared/operating-systems.ts'
@@ -8,14 +7,7 @@ import { canonical } from '../recipes/canonical.ts'
 import { candidatesFor, environment, observe } from '../recipes/planning.ts'
 import { invokeRecipe } from '../recipes/protocol.ts'
 import { type SshSession } from '../remote/ssh.ts'
-
-export interface UpdateCheck {
-  software: string
-  before: SoftwareObservation
-  eligible: Candidate[]
-  reason: string | null
-  errors: unknown[]
-}
+import type { UpdateCheck } from './model.ts'
 
 /** Read-only candidate resolution. Neither a detection preference nor a due reminder authorizes execute. */
 export async function detectUpdates(

@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import type { Inventory, Suggestion, Suggestions } from '../../../shared/api.ts'
+import type { Inventory, Suggestion, Suggestions } from '../../../shared/dto/upgrades.ts'
 import { displayError, localized, serverCopy } from '../../../shared/i18n.ts'
 import { api, requestError } from '../../shared/api.ts'
 import type { ServerPageState } from '../../shared/server-page-state.ts'

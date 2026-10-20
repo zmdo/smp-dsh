@@ -1,11 +1,11 @@
 import { ServerError } from '../../shared/errors.ts'
 import { errorPayload } from '../../shared/i18n.ts'
 import { commitBinding, finishPreflight } from '../changes/service.ts'
-import type { Db } from '../db.ts'
-import { savepoint } from '../db.ts'
-import type { JobRecord } from './model.ts'
+import type { Db } from '../database/connection.ts'
+import { savepoint } from '../database/transaction.ts'
 import { owned } from './ownership.ts'
-import * as repository from './repository.ts'
+import * as repository from './persistence/repository.ts'
+import type { JobRecord } from './persistence/rows.ts'
 
 export async function finishJob(
   db: Db,

@@ -3,21 +3,17 @@ import type {
   DefinitionBundle,
   Registration as RegistrationHandle,
   SystemGroupDefinition,
-} from '../../shared/contracts.ts'
-import {
-  GENERAL_TYPE,
-  VACANT_TYPE,
-  type GroupRecord,
-  type GroupView,
-  type TypeOptions,
-} from '../../shared/definitions.ts'
+} from '../../shared/contracts/definitions.ts'
+import { GENERAL_TYPE, VACANT_TYPE, type TypeOptions } from '../../shared/definitions.ts'
+import { type GroupView } from '../../shared/dto/groups.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { validateOsSupport, type DeclaredOs, type DetectedOs } from '../../shared/operating-systems.ts'
-import type { Db } from '../db.ts'
-import { transaction } from '../db.ts'
+import type { Db } from '../database/connection.ts'
+import { transaction } from '../database/transaction.ts'
+import { type GroupRow } from '../groups/persistence/rows.ts'
 import { type Component } from './catalog.ts'
 import type { Owner, TypeLease } from './model.ts'
-import * as repository from './repository.ts'
+import * as repository from './persistence/repository.ts'
 import { DefinitionResolver } from './resolver.ts'
 import { prepareOwner, snapshotBundle } from './validation.ts'
 import { builtinTypes, definitionSignature } from './views.ts'
@@ -116,7 +112,7 @@ export class DefinitionRegistry {
       types: structuredClone(builtinTypes(this.base)),
     }
   }
-  view(row: GroupRecord, os?: DeclaredOs | DetectedOs): GroupView {
+  view(row: GroupRow, os?: DeclaredOs | DetectedOs): GroupView {
     const owner = row.plugin_id ? this.owners.get(row.plugin_id) : undefined,
       group = owner?.groups.get(row.id)
     const options =
@@ -139,7 +135,7 @@ export class DefinitionRegistry {
     return this.view(row, os)
   }
   /** Read all rows synchronously after the database snapshot; no execution lease or script is exposed. */
-  describeType(group: GroupRecord | null, key: string, os: DeclaredOs | DetectedOs) {
+  describeType(group: GroupRow | null, key: string, os: DeclaredOs | DetectedOs) {
     if (this.closed) return
     const options = group ? this.view(group) : this.defaultOptions()
     if (!options.available || !options.types.some((type) => type.key === key)) return

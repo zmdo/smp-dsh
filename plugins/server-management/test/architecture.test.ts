@@ -72,12 +72,16 @@ test('HTTP, workflows and repositories preserve their host boundaries and transa
   for (const name of names.filter((name) => name.endsWith('.ts'))) {
     const file = path.join(sourceRoot, 'host', name),
       source = await readFile(file, 'utf8')
-    const repository = /(?:^|[/\\])(?:[^/\\]+-)?repository\.ts$/.test(name)
+    const persistence = name.includes('/persistence/')
+    const repository = persistence && /(?:repository|catalog-lock)\.ts$/.test(name)
+    const database = name.startsWith('database/')
+    const storageTypes = persistence && /(?:rows|inputs)\.ts$/.test(name)
     const http = name.startsWith('http/')
     const workflow = /(?:service|list|queries|enrollment)\.ts$/.test(name)
-    if (!repository && name !== 'db.ts')
+    if (!repository && !database)
       assert.doesNotMatch(source, /\.query\s*(?:<|\()/, `${name} must delegate SQL`)
     if (repository) {
+      assert.doesNotMatch(source, /\.query\s*\(/, `${name} must declare its SQL result type`)
       assert.doesNotMatch(source, /\.connect\s*\(/, `${name} must use the caller's connection`)
       assert.doesNotMatch(
         source,
@@ -87,8 +91,10 @@ test('HTTP, workflows and repositories preserve their host boundaries and transa
     }
     for (const match of source.matchAll(/(?:from\s+|import\s*\()(['"])([^'"]+)\1/g)) {
       const specifier = match[2]!
-      if (http)
-        assert.doesNotMatch(specifier, /repository\.ts$/, `${name} must call the application boundary`)
+      const target = specifier.startsWith('.')
+        ? path.relative(sourceRoot, path.resolve(path.dirname(file), specifier))
+        : specifier
+      if (http) assert.doesNotMatch(target, /\/persistence\//, `${name} must call the application boundary`)
       if (workflow || repository) {
         assert.notEqual(specifier, 'node:http', `${name} must be independent of HTTP`)
         assert.doesNotMatch(specifier, /(?:^|\/)http\//, `${name} must not depend on HTTP adapters`)
@@ -99,6 +105,22 @@ test('HTTP, workflows and repositories preserve their host boundaries and transa
           /(?:service|queries|routes)\.ts$/,
           `${name} must not depend on workflows`,
         )
+      if (database)
+        assert.ok(target.startsWith('host/database/'), `${name} must not depend on business modules`)
+      if (storageTypes) {
+        assert.doesNotMatch(target, /shared\/dto\//, `${name} must not use HTTP DTOs as database rows`)
+        assert.doesNotMatch(
+          target,
+          /(?:repository|service|detect|queries|routes)\.ts$/,
+          `${name} must not depend on implementations`,
+        )
+      }
+    }
+    if (storageTypes) {
+      // Rows and write inputs describe data; they cannot import live services or open connections.
+      for (const match of source.matchAll(/^import\s+([\s\S]+?)\s+from\s+['"]/gm))
+        assert.ok(match[1]!.startsWith('type '), `${name} must use type-only imports`)
+      assert.doesNotMatch(source, /^export\s+(?:async\s+)?(?:function|class|const|let)\b/m)
     }
   }
 })
@@ -117,10 +139,29 @@ test('recipe evaluation and definition resolution remain independent of storage 
       const target = path.relative(sourceRoot, path.resolve(path.dirname(file), specifier))
       assert.doesNotMatch(
         target,
-        /repository\.ts$|host\/(?:execution|http|servers)\//,
+        /\/persistence\/|host\/(?:execution|http|servers)\//,
         `${name}: ${specifier}`,
       )
-      assert.notEqual(target, 'host/db.ts', `${name} must not depend on database infrastructure`)
+      assert.ok(!target.startsWith('host/database/'), `${name} must not depend on database infrastructure`)
+    }
+  }
+})
+
+test('wire DTOs and public plugin contracts have independent data-only boundaries', async () => {
+  for (const scope of ['dto', 'contracts']) {
+    const directory = path.join(sourceRoot, 'shared', scope)
+    for (const name of await readdir(directory)) {
+      if (!name.endsWith('.ts')) continue
+      const file = path.join(directory, name)
+      const source = await readFile(file, 'utf8')
+      assert.doesNotMatch(source, /\bDate\b/, `${scope}/${name} must use serializable values`)
+      assert.doesNotMatch(source, /secret_ciphertext|private_key/, `${scope}/${name} must not expose secrets`)
+      assert.doesNotMatch(source, /^export\s+(?:async\s+)?(?:function|class|const|let)\b/m)
+      for (const match of source.matchAll(/^import\s+([\s\S]+?)\s+from\s+(['"])([^'"]+)\2/gm)) {
+        assert.ok(match[1]!.startsWith('type '), `${scope}/${name} must use type-only imports`)
+        if (scope === 'contracts')
+          assert.doesNotMatch(match[3]!, /(?:^|\/)dto\//, `${name} must not depend on HTTP DTOs`)
+      }
     }
   }
 })

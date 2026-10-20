@@ -1,18 +1,6 @@
+import type { DetectionResult } from './dto/upgrades.ts'
 import { isErrorCode } from './errors.ts'
 import { displayJobError, serverCopy } from './i18n.ts'
-export interface DetectionResult {
-  server_id: string
-  server_name: string
-  host?: string
-  software_key: string
-  last_check_at: string | null
-  check_error: unknown
-  check_snapshot?: {
-    reason: string | null
-    eligible?: readonly unknown[]
-    before?: { state: string; detail?: string }
-  } | null
-}
 
 /** Error envelopes are persisted JSON: render their messages, never their serialized representation. */
 function messages(active: string, value: unknown, depth = 0): string[] {

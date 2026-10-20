@@ -1,4 +1,9 @@
-import type { Candidate, RecipeRequest, RecipeResponse, SoftwareObservation } from '../../shared/contracts.ts'
+import type {
+  Candidate,
+  RecipeRequest,
+  RecipeResponse,
+  SoftwareObservation,
+} from '../../shared/contracts/recipes.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { type SshSession } from '../remote/ssh.ts'
 import { scriptCommand, type LoadedScript } from './script.ts'

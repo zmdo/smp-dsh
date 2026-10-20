@@ -1,5 +1,9 @@
 import type { PreparedPlan } from '../../shared/changes.ts'
-import type { Candidate, ResolvedSoftwareChange, SoftwareObservation } from '../../shared/contracts.ts'
+import type {
+  Candidate,
+  ResolvedSoftwareChange,
+  SoftwareObservation,
+} from '../../shared/contracts/recipes.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { errorDetail } from '../../shared/i18n.ts'
 import type { DetectedOs } from '../../shared/operating-systems.ts'

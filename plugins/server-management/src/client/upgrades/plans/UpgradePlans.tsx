@@ -1,4 +1,4 @@
-import type { PlanSummary } from '../../../shared/api.ts'
+import type { PlanSummary } from '../../../shared/dto/changes.ts'
 import { displayError, enumLabel, formatDate, serverCopy } from '../../../shared/i18n.ts'
 import { usePollingResource } from '../../shared/usePollingResource.ts'
 

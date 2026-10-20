@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto'
-import type { Candidate } from '../../shared/contracts.ts'
+import type { Candidate } from '../../shared/contracts/recipes.ts'
 import { ServerError } from '../../shared/errors.ts'
-import type { Db } from '../db.ts'
-import { transaction } from '../db.ts'
+import type { Db } from '../database/connection.ts'
+import { transaction } from '../database/transaction.ts'
 import { type TypeLease } from '../definitions/model.ts'
-import { type JobRecord } from '../execution/model.ts'
 import { owned } from '../execution/ownership.ts'
-import { type ServerSecret } from '../servers/model.ts'
-import { saveComponentStatus } from '../servers/observation-repository.ts'
-import * as repository from './background-repository.ts'
-import type { UpdateCheck } from './detect.ts'
+import { type JobRecord } from '../execution/persistence/rows.ts'
+import { saveComponentStatus } from '../servers/persistence/observation-repository.ts'
+import { type ServerSecret } from '../servers/persistence/rows.ts'
+import type { UpdateCheck } from './model.ts'
+import * as repository from './persistence/background-repository.ts'
 
 export async function saveUpdateChecks(
   db: Db,

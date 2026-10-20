@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto'
 import type { PreparedPlan } from '../../shared/changes.ts'
 import { type ChangeRequest } from '../../shared/changes.ts'
 import { ServerError } from '../../shared/errors.ts'
-import type { Db } from '../db.ts'
+import type { Db } from '../database/connection.ts'
 import { digest } from '../recipes/canonical.ts'
-import { type ServerSecret } from '../servers/model.ts'
-import type { JobRecord } from './model.ts'
+import { type ServerSecret } from '../servers/persistence/rows.ts'
 import { owned } from './ownership.ts'
-import * as repository from './repository.ts'
+import * as repository from './persistence/repository.ts'
+import type { JobRecord } from './persistence/rows.ts'
 
 export async function savePlan(
   db: Db,

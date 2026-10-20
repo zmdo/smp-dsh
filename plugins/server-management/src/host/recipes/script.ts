@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
-import type { ScriptDefinition } from '../../shared/contracts.ts'
+import type { ScriptDefinition } from '../../shared/contracts/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 
 export interface LoadedScript {

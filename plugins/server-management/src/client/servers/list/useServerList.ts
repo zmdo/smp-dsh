@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { GroupRow } from '../../../shared/api.ts'
+import type { GroupDto } from '../../../shared/dto/groups.ts'
 import { ServerError } from '../../../shared/errors.ts'
 import { groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
-import { type ServerGroupSummary, type ServerListPage } from '../../../shared/server-list-contract.ts'
+import { type ServerGroupSummary, type ServerListPage } from '../../../shared/dto/servers.ts'
 import { api, requestError } from '../../shared/api.ts'
 import type { ServerListView as ListView } from '../../shared/server-page-state.ts'
 export interface ServerListProps {
@@ -110,7 +110,7 @@ export function useServerList(props: ServerListProps) {
     setCreatingGroup(true)
     setGroupError(null)
     try {
-      const group = await api<GroupRow>('/console-api/server-groups', {
+      const group = await api<GroupDto>('/console-api/server-groups', {
         method: 'POST',
         body: JSON.stringify({ name: groupName }),
       })

@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { type Db } from '../db.ts'
+import { type Db } from '../database/connection.ts'
 import { DefinitionRegistry } from '../definitions/registry.ts'
 import { connectSsh } from '../remote/ssh.ts'
 import { scheduleChanges } from '../upgrades/scheduler.ts'
-import { dueInspects } from './inspection-repository.ts'
+import { dueInspects } from './persistence/inspection-repository.ts'
 import { claimNext, enqueue } from './queue.ts'
 import { executeJob } from './worker.ts'
 

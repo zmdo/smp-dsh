@@ -1,8 +1,8 @@
 import en from '../../locale/en.json' with { type: 'json' }
 import zh from '../../locale/zh.json' with { type: 'json' }
-import type { LocalizedText } from './contracts.ts'
+import type { LocalizedText } from './contracts/common.ts'
 import { ServerError, parseError, type ErrorCode, type MessageParams } from './errors.ts'
-import type { StatusReason } from './server-list-contract.ts'
+import type { StatusReason } from './server-status.ts'
 import type { VersionRule } from './versions.ts'
 export interface LocaleFace {
   getSnapshot(): { active: string }

@@ -1,3 +1,4 @@
+import type { TaskDto, TaskPageDto, TaskResultDto } from '../../../shared/dto/tasks.ts'
 import { useEffect, useState, type FormEvent } from 'react'
 import { type ServerError } from '../../../shared/errors.ts'
 import {
@@ -9,35 +10,8 @@ import {
   serverCopy,
 } from '../../../shared/i18n.ts'
 import { api, requestError } from '../../shared/api.ts'
-interface TaskRow {
-  id: string
-  action: string
-  status: string
-  output_excerpt: string
-  result?: {
-    summary?: string
-    error?: unknown
-    issues?: unknown[]
-    hour_start?: string
-    hour_end?: string
-    succeeded?: number
-    failed?: number
-    steps?: {
-      ordinal: number
-      software: string
-      state: string
-      after?: { version?: string }
-      changes?: { name?: string; version?: string }[]
-    }[]
-  }
-  created_at: string
-}
-interface TaskPage {
-  items: TaskRow[]
-  page: number
-  page_size: number
-  total: number
-}
+type TaskRow = TaskDto<TaskResultDto | null>
+type TaskPage = TaskPageDto<TaskResultDto | null>
 const EMPTY_FILTER = { query: '', action: '', status: '', from: '', to: '' }
 
 export function TaskHistory(props: { active: string; serverId: string; refresh: number }) {

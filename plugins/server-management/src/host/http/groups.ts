@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { type Db } from '../db.ts'
+import { type Db } from '../database/connection.ts'
 import { DefinitionRegistry } from '../definitions/registry.ts'
 import { HttpError } from '../errors.ts'
 import { createGroup, deleteGroup, listGroups } from '../groups/service.ts'

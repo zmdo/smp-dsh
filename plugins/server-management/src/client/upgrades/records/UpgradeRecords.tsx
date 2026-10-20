@@ -1,4 +1,4 @@
-import type { RecordPage } from '../../../shared/api.ts'
+import type { RecordPage } from '../../../shared/dto/upgrades.ts'
 import { displayError, displayJobError, enumLabel, formatDate, serverCopy } from '../../../shared/i18n.ts'
 import { usePollingResource } from '../../shared/usePollingResource.ts'
 import { Pager } from '../Pager.tsx'

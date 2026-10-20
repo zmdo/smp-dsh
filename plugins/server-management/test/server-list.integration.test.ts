@@ -9,7 +9,7 @@ import { GENERAL_TYPE, VACANT_TYPE } from '../src/shared/definitions.ts'
 import { parseDeclaredOs } from '../src/shared/operating-systems.ts'
 import { parseServerListQuery } from '../src/host/http/server-query.ts'
 import { serverList, serverRead } from '../src/host/servers/list.ts'
-import type { Db } from '../src/host/db.ts'
+import type { Db } from '../src/host/database/connection.ts'
 
 test('server pages aggregate all matching states before pagination and keep counts and observations consistent',
   { skip: !process.env.SMP_TEST_DATABASE_URL, timeout: 60_000 }, async t => {

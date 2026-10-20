@@ -1,14 +1,14 @@
-import type { LocalizedText } from './contracts.ts'
+import type { LocalizedText } from './contracts/common.ts'
 import type { OsSelector, OsSupport } from './operating-systems.ts'
 import { supportsOs, type DeclaredOs, type DetectedOs } from './operating-systems.ts'
-export type { LocalizedText } from './contracts.ts'
+export type { LocalizedText } from './contracts/common.ts'
 
 export type {
   DefinitionBundle,
   ServerTypeDefinition,
   SoftwareDefinition,
   SystemGroupDefinition,
-} from './contracts.ts'
+} from './contracts/definitions.ts'
 
 export interface SoftwareView {
   id: string
@@ -42,20 +42,6 @@ export interface TypeOptions {
   }[]
   types: readonly ServerTypeView[]
 }
-
-export interface GroupRecord {
-  id: string
-  name: string
-  kind: 'user' | 'system'
-  plugin_id: string | null
-  group_key: string | null
-  name_i18n: LocalizedText | null
-  sort_order: number
-  definition: TypeOptions
-  server_count?: number
-}
-
-export interface GroupView extends GroupRecord, TypeOptions {}
 
 export const VACANT_TYPE = 'builtin/vacant'
 export const GENERAL_TYPE = 'builtin/general'

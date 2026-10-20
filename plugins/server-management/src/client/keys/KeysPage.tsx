@@ -1,21 +1,15 @@
+import type { KeyListDto } from '../../shared/dto/keys.ts'
 import { Panel } from '@smp/console-kit'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ServerError } from '../../shared/errors.ts'
 import { displayError, formatDate, serverCopy, type LocaleFace } from '../../shared/i18n.ts'
 import { api, requestError } from '../shared/api.ts'
 import { useActiveLocale } from '../shared/locale.ts'
-interface KeyRow {
-  id: string
-  name: string
-  fingerprint: string
-  server_count: number
-  created_at: string
-}
 
 export function KeysPage(props: { locale: LocaleFace }) {
   const active = useActiveLocale(props.locale)
   const copy = serverCopy(active).ui
-  const [keys, setKeys] = useState<KeyRow[]>([])
+  const [keys, setKeys] = useState<KeyListDto[]>([])
   const [query, setQuery] = useState('')
   const [name, setName] = useState('')
   const [secret, setSecret] = useState('')
@@ -25,7 +19,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
 
   useEffect(() => {
     let stopped = false
-    void api<KeyRow[]>('/console-api/ssh-keys')
+    void api<KeyListDto[]>('/console-api/ssh-keys')
       .then((rows) => {
         if (!stopped) setKeys(rows)
       })

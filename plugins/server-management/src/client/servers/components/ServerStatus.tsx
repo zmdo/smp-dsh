@@ -1,5 +1,5 @@
 import { enumLabel, serverCopy, statusReason } from '../../../shared/i18n.ts'
-import { type DisplayStatus } from '../../../shared/server-list-contract.ts'
+import { type DisplayStatus } from '../../../shared/server-status.ts'
 export function ServerStatus({ active, status }: { active: string; status: DisplayStatus }) {
   return (
     <span

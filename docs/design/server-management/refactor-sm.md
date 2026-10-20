@@ -8,97 +8,88 @@
 
 ```text
 src/
-  index.ts                         宿主装配与公共导出
+  index.ts                         宿主装配、公开插件 API 导出
   client.tsx                       客户端槽登记与实例状态所有权
   shared/
-    contracts.ts                   插件注册与配方协议
-    api.ts                         页面使用的 HTTP 数据结构
-    changes.ts                     预检计划与变更请求数据
-    errors.ts                      独立错误码、错误对象和边界解析
-    i18n.ts                        翻译、格式化、错误显示与响应封装
-    operating-system-types.ts      OS 公共模型；ProbedOs 扩展原始探测字段
-    operating-systems.ts            OS 目录及匹配规则
-    versions.ts                    版本约束和比较
-    policies.ts                    软件策略数据
-    definitions.ts                 类型和软件视图、适用性规则
-    server-list-contract.ts         列表和统一状态数据
+    contracts/                     对外插件与脚本协议（仅类型）
+      common.ts                    本地化文本、定义键、修订、JSON 值
+      definitions.ts               定义整包注册、OS／类型／分组／配方元数据
+      recipes.ts                   配方请求、响应、候选及观测协议
+    dto/                           HTTP 数据结构，时间戳使用字符串
+      servers.ts / groups.ts       实例列表／详情、容器与分组视图
+      keys.ts / tasks.ts           密钥公开信息、任务和分页结果
+      changes.ts / upgrades.ts     变更计划、升级建议／检测结果与执行记录
+    definitions.ts                 软件和类型视图、OS 适用性规则
+    changes.ts                     冻结计划与变更请求模型
+    operating-system-types.ts      公共 OS 模型
+    operating-systems.ts            OS 目录与匹配规则
+    versions.ts / policies.ts      版本约束与软件策略模型
+    server-status.ts               统一状态与原因模型
+    errors.ts / i18n.ts             错误模型、翻译与显示
+    detection-result.ts            检测结果展示规则
+    schedule-time.ts               维护时间解析
   host/
-    db.ts                          Db／DbClient、事务、只读快照与目录锁
-    dependencies.ts                单次 apply 的依赖契约，业务服务按需选取
-    errors.ts                      保留 HTTP 状态的业务边界错误
-    input.ts                       与 HTTP 无关的输入校验工具
-    http/                          路由注册、认证／错误映射、请求解析和响应
-      server-query.ts              服务器列表查询参数解析
-      task-query.ts                任务查询参数解析
-      upgrade-query.ts             升级查询参数解析
-    definitions/                   内置目录、类型和插件贡献
-      registry.ts                  注册发布／撤回、租约及等待清理
-      validation.ts                元数据快照、校验和脚本读取
-      resolver.ts                  跨插件依赖、版本交集与 OS 配方解析
-      model.ts / views.ts          所有者／租约模型、展示和修订摘要
-      repository.ts                系统分组持久化
-      service.ts                   对外 Cordis 服务
-      policies.ts                  软件策略校验与租约约束
-    execution/                     后台任务
-      runtime.ts                   领取循环、并发上限、巡检与维护调度、停止等待
-      worker.ts                    SSH／类型租约／心跳生命周期及分发
-      handlers/                    巡检、检测升级、预检、执行计划
-      recovery.ts                  已接受操作的远端日志核对与结果记录
-      ownership.ts                 fencing、心跳、阶段和恢复状态
-      queue.ts / completion.ts     入队／领取、原子完成及计划汇总
-      plans.ts                     自动安装计划与执行准入
-      repository.ts                队列／计划执行 SQL
-      result-repository.ts         步骤结果与断线事实 SQL
-      inspection-repository.ts     到期巡检查询
-      model.ts / context.ts        任务记录和处理器上下文
-    recipes/                       脚本协议与软件操作
-      script.ts                    脚本文件校验、冻结及命令引用
-      protocol.ts                  JSON 协议校验与配方调用
-      canonical.ts                 稳定序列化与摘要
-      planning.ts / software.ts    精确变更计划与只读软件／容器检测
-      builtin.ts                   内置 apt 配方内容
-    remote/                        SSH、WebSocket 终端、OS 探测与输出解析
-      operation.ts / supervisor.ts 远端操作传输与独立监督脚本
-    servers/                       登记／编辑／删除、连接识别、列表聚合
-      service.ts                   配置工作流与事务编排
-      enrollment.ts                临时 SSH 会话、连接回执和系统识别
-      list.ts                      从一致快照计算状态、筛选和分页
-      repository.ts                服务器及运行状态读写
-      list-repository.ts           列表事实查询
-      policy-repository.ts         软件策略读写
-      credential-repository.ts     密文凭据和当前服务器环境读取
-      observation-repository.ts    SSH／OS／软件／容器事实写入
-      metrics.ts                   指标采样及其会话生命周期
-      metrics-repository.ts        指标写入与采样目标查询
-      region.ts / rules.ts         区域解析与配置变更规则
-      model.ts / query.ts          存储事实、配置补丁与查询模型
-      guards.ts                    服务器忙状态约束
-    groups/                        用户分组流程及 SQL
-    keys/                          密钥管理流程及 SQL；私钥读取留在宿主
-    changes/                       变更计划、确认、预检与完成绑定及 SQL
-    upgrades/                      升级建议筛选、共同版本、决策及 SQL
-      detect.ts                    只读候选解析
-      detection.ts                 检测入队与受 fencing 保护的检测结果保存
-      scheduler.ts                 维护窗口过期与到期检测调度
-      background-repository.ts     后台检测／维护 SQL
-    tasks/                         任务读取、展示投影与历史分页 SQL
-  client/
-    shared/                        API、语言订阅、实例页面状态、样式和资源格式化
+    database/
+      connection.ts                Db／DbClient 接口
+      transaction.ts               事务、只读快照、savepoint、唯一冲突识别
+    dependencies.ts                单次 apply 的依赖契约
+    errors.ts / input.ts           业务边界错误与输入校验
+    http/                          路由注册、认证、参数解析、错误映射与响应
     servers/
-      ServersPage.tsx              列表／表单／详情／终端的装配
-      list/                       列表视图与查询、分组操作 Hook
-      form/                       表单视图、认证／系统区域、登记工作流 Hook 和识别缓存
-      detail/                     详情视图及其 Hook、移组弹窗、任务历史
-      terminal/                   终端视图与连接生命周期
-      components/                 软件、安装策略及状态组件
-    keys/                         服务器密钥页面
-    changes/                      登记安装、移组与升级共用的计划详情
+      service.ts                   登记／编辑／删除工作流与事务编排
+      list.ts / query.ts           一致快照聚合、状态计算、筛选分页与查询模型
+      enrollment.ts                临时 SSH 会话、连接回执和识别缓存
+      metrics.ts                   指标采样与生命周期
+      guards.ts / rules.ts         忙状态约束、配置变更规则
+      region.ts                    区域解析
+      persistence/
+        rows.ts                    数据库行、查询投影和私有凭据类型
+        inputs.ts                  写入参数、配置补丁与读取范围
+        repository.ts              实例、容器与运行状态读写
+        list-repository.ts         列表事实查询
+        policy-repository.ts       软件策略读写
+        credential-repository.ts   密文凭据和当前服务器环境
+        observation-repository.ts  SSH／OS／软件／容器事实写入
+        metrics-repository.ts      指标写入和采样目标
+    groups/                        用户分组流程
+      persistence/                 行类型、分组 SQL、业务目录锁
+    keys/                          密钥管理流程
+      persistence/                 公开行／密文投影、写入参数、密钥 SQL
+    changes/                       计划、确认、预检和完成绑定
+      persistence/                 计划／目标行、写入参数、计划 SQL
     upgrades/
-      UpgradesPage.tsx            Tab 内容和计划详情装配
-      UpgradesNavigation.tsx      顶部导航
-      suggestions/                建议视图、筛选、批量安排、推迟及工作流 Hook
-      plans/                      计划列表
-      records/                    执行记录
+      service.ts / query.ts        建议筛选、共同版本、决策与查询模型
+      model.ts                     软件候选检测的业务结果
+      detect.ts                    只读候选解析
+      detection.ts                 入队和受 fencing 保护的检测结果保存
+      scheduler.ts                 维护窗口过期与到期检测调度
+      persistence/                 检测／建议／执行记录行、写入参数、查询和后台 SQL
+    tasks/                         任务读取、展示投影与查询模型
+      persistence/                 任务历史投影与分页 SQL
+    definitions/
+      catalog.ts                   内置目录
+      registry.ts                  原子发布／撤回、租约和卸载等待
+      resolver.ts / validation.ts  跨插件解析、版本交集、OS 匹配与校验
+      model.ts / views.ts          所有者／租约业务模型、展示和修订摘要
+      service.ts / policies.ts     对外 Cordis 服务、软件策略约束
+      persistence/                 系统分组写入参数与 SQL
+    execution/
+      runtime.ts / worker.ts       领取调度、SSH／类型租约／心跳生命周期和分发
+      handlers/                    巡检、升级检测、预检与执行计划
+      recovery.ts                  已接受操作的远端日志核对
+      ownership.ts                 fencing、心跳、阶段和恢复状态
+      queue.ts / completion.ts     入队／领取、原子完成和计划汇总
+      plans.ts                     自动安装计划与执行准入
+      model.ts / context.ts        任务目的／请求模型、租约策略、处理器上下文
+      persistence/                 任务／计划执行行、写入参数、队列／结果／巡检 SQL
+    recipes/                       脚本加载冻结、协议校验、摘要、精确计划与检测
+    remote/                        SSH、终端、OS 探测、远端操作传输与监督脚本
+  client/
+    shared/                        请求、语言订阅、实例状态、样式和格式化
+    servers/                       页面装配、列表、登记表单、详情、终端和软件组件
+    keys/                          密钥页面
+    changes/                       登记安装、移组和升级共用的计划详情
+    upgrades/                      顶部导航、建议、计划和执行记录
 ```
 
 `shared` 仅引用自身和双语资源，不依赖客户端、宿主实现或 Node 内置模块。客户端仅引用自身、`shared`、React 和控制台组件库，包含 type-only 导入在内均受约束。宿主可引用公共模型；`Db` 接口与 HTTP 错误独立于具体存储。
@@ -129,7 +120,7 @@ store → job-store → changes → store
 
 `records.ts` 不再作为服务器、分组、密钥和任务的集中入口；`change-routes.ts` 中的建议决策、共同版本计算与计划重试也迁入各自业务服务。删除这些旧文件并更新调用方，不留转导出的兼容入口。服务不依赖 `node:http` 或 HTTP 模块；repository 不依赖服务，也不取得独立连接、开启或结束事务。
 
-`host/db.ts` 统一连接取得、提交、回滚和释放。事务由工作流明确选择，repository 接收调用方传入的同一连接：
+`host/database/transaction.ts` 统一连接取得、提交、回滚和释放。事务由工作流明确选择，repository 接收调用方传入的同一连接：
 
 | 操作 | 原子边界与保持的约束 |
 | --- | --- |
@@ -169,11 +160,31 @@ store → job-store → changes → store
 
 ### 数据库归属
 
-PostgreSQL 连接池、迁移执行和表结构仍由 `plugins/database` 管理。服务器管理全部业务 SQL 现在位于 `host` 下各业务的 `*repository.ts`；通用事务、只读快照、目录锁和 savepoint 位于 `host/db.ts`。HTTP、任务处理器、定义解析与业务服务不直接执行 SQL。
+PostgreSQL 连接池、迁移执行和表结构仍由 `plugins/database` 管理。服务器管理全部业务 SQL 位于各业务的 `persistence/`；通用连接接口、事务、只读快照和 savepoint 位于 `host/database/`。目录锁属于服务器分组业务，位于 `host/groups/persistence/catalog-lock.ts`。HTTP、任务处理器、定义解析与业务服务不直接执行 SQL。
 
 后台 SQL 按队列／执行结果、检测调度、服务器凭据、观测事实、指标和系统分组分别归属，不再集中在 `store.ts` 或与执行器混写。repository 继续接收调用方连接，不自行取得连接或结束事务。
 
 新增回归测试覆盖后台停止时仍等待迟到的 SSH 连接和最终持久化、脚本读取后原文件变更不影响已接受内容、路径／大小／超时边界；扩展架构约束覆盖全部宿主 SQL 的归属，以及配方／定义解析对存储和任务执行的独立性。现有并发领取、过期 fence、卸载、恢复、移动失败、批量暂停和维护窗口测试继续使用隔离 PostgreSQL schema 和远端替身运行。
+
+## 进一步归类：持久化与模型边界
+
+四步重构之后继续完成以下整理，沿用按业务归属的结构：
+
+| 类别 | 位置 | 约束 |
+| --- | --- | --- |
+| 数据库基础设施 | `host/database/` | 只处理连接接口与事务，不依赖业务模块；连接池仍归数据库插件 |
+| 数据库存储类型与查询投影 | 各业务 `persistence/rows.ts` | 明确 PostgreSQL 的 `Date`、bigint 字符串和 JSON；密文投影只在宿主使用 |
+| 存储输入 | 各业务 `persistence/inputs.ts` | 归类写入参数、配置补丁及查询范围，不与页面 DTO 混用 |
+| 数据库操作 | 各业务 `persistence/*repository.ts` | 接收调用方连接，声明查询结果类型，不私自连接或提交／回滚 |
+| 运行时业务模型 | 对应业务的 `model.ts`／`context.ts` | 定义所有者、租约、检测结果与执行上下文，不为目录整齐而搬进数据库模型 |
+| HTTP DTO | `shared/dto/` | 按页面业务划分；时间戳为字符串，不依赖宿主或密文类型 |
+| 对外插件协议 | `shared/contracts/` | 定义贡献和脚本协议，不依赖 HTTP DTO 或实现 |
+
+不建立跨所有业务的全局 repository／model 大目录，也不引入 ORM 或逐表封装。只有一个 id、状态或计数的局部投影仍可内联；包含业务含义的多字段查询和写入参数使用具名类型。定义注册仅返回 id 的写入无需单独创建一个 rows 文件。
+
+`GroupView` 现在独立描述接口视图，不再继承宿主存储记录；持久化的分组定义允许空对象，与用户分组的数据库默认值一致。任务历史显示类型从组件中抽出，普通时间戳列与 PostgreSQL JSON 聚合内的字符串时间戳分别建模。升级查询补齐了具名投影，移除了读取定义修订和原版本时的宽泛断言。
+
+本轮不改变数据库表、迁移脚本、业务 SQL、公开插件导出、路由或页面行为。任务、升级建议及执行记录在业务出口明确时间字段的序列化，保持原 JSON 时间格式。架构测试按目录检查 SQL 归属、事务所有权、存储类型与 DTO 隔离、数据库基础设施独立，以及插件协议的数据边界。
 
 ## 验证方式
 
@@ -192,3 +203,7 @@ PostgreSQL 连接池、迁移执行和表结构仍由 `plugins/database` 管理�
 第 4 步最终验证：服务器管理 106 项全部通过；全仓 242 项中 239 项通过、3 项既有环境条件测试跳过、0 失败。严格类型检查、全仓构建、最终服务器管理构建及 `git diff --check` 通过。定义解析类使用显式字段初始化，兼容 Node 原生 TypeScript strip-only 测试运行方式。
 
 本地 CES 已重启使用最终产物。浏览器核对实例与详情、既有任务历史、登记表单与已有密钥读取，以及升级建议／检测结果、升级计划、执行记录的导航和标题。浏览器验证未触发真实服务器安装或升级；既有 SSH 超时诊断仍按原记录展示。客户端、公共契约、数据库插件与表结构、本体侧栏 UI 均未修改。
+
+进一步归类的最终验证：服务器管理 107 项全部通过；全仓 243 项中 240 项通过、3 项既有环境相关测试跳过、0 失败。严格类型检查、全仓构建及 `git diff --check` 通过。对重构前后全部业务 SQL 做逐条文本比较，内置 apt 配方与远端监督脚本也逐字比较，均无变化。
+
+本地 CES（127.0.0.1:9090）已重启使用本轮构建。只读浏览器验证通过：实例列表／详情、任务第二页、密钥列表、登记表单及已保存密钥选项，以及升级建议／检测原因、计划、执行记录的顶部导航和标题。未在验证中登记服务器、改动凭据或触发真实安装／升级。

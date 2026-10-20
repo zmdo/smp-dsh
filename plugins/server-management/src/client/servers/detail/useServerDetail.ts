@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { ServerRow } from '../../../shared/api.ts'
+import type { ServerDto } from '../../../shared/dto/servers.ts'
 import { ServerError } from '../../../shared/errors.ts'
 import { serverCopy } from '../../../shared/i18n.ts'
 import { api, requestError } from '../../shared/api.ts'
@@ -7,7 +7,7 @@ import type { ServerDetailProps } from './types.ts'
 export function useServerDetail(props: ServerDetailProps) {
   const { active } = props
   const copy = serverCopy(active).ui
-  const [server, setServer] = useState<ServerRow | undefined>()
+  const [server, setServer] = useState<ServerDto | undefined>()
   const [error, setError] = useState<ServerError | null>(null)
   const [moving, setMoving] = useState(false)
   const [queued, setQueued] = useState(false)
@@ -16,7 +16,7 @@ export function useServerDetail(props: ServerDetailProps) {
   useEffect(() => {
     let stopped = false
     const load = () => {
-      void api<ServerRow>(`/console-api/servers/${props.id}`)
+      void api<ServerDto>(`/console-api/servers/${props.id}`)
         .then((next) => {
           if (!stopped) setServer(next)
         })

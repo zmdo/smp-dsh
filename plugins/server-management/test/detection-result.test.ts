@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { detectionResult, type DetectionResult } from '../src/shared/detection-result.ts'
+import { detectionResult } from '../src/shared/detection-result.ts'
+import { type DetectionResult } from '../src/shared/dto/upgrades.ts'
 
 const check: DetectionResult = {
   server_id: 'test-server',

@@ -1,7 +1,7 @@
-import type { Db } from '../db.ts'
-import { transaction } from '../db.ts'
-import * as repository from './background-repository.ts'
+import type { Db } from '../database/connection.ts'
+import { transaction } from '../database/transaction.ts'
 import { queueDetection } from './detection.ts'
+import * as repository from './persistence/background-repository.ts'
 
 export async function scheduleChanges(db: Db, intervalSeconds = 3600): Promise<void> {
   await transaction(db, async (c) => {

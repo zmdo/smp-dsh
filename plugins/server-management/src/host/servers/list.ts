@@ -1,21 +1,22 @@
-import { type LocalizedText } from '../../shared/contracts.ts'
-import { typeSupportsOs, type GroupRecord } from '../../shared/definitions.ts'
+import { type LocalizedText } from '../../shared/contracts/common.ts'
+import { typeSupportsOs } from '../../shared/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { osLabel, osVerification } from '../../shared/operating-systems.ts'
 import { type SoftwarePolicy } from '../../shared/policies.ts'
 import {
   type DisplayStatus,
   type ServerDisplayStatus,
-  type ServerListItem,
-  type ServerListPage,
   type StatusReason,
-} from '../../shared/server-list-contract.ts'
-import { readTransaction, type Db } from '../db.ts'
+} from '../../shared/server-status.ts'
+import { type ServerListItem, type ServerListPage } from '../../shared/dto/servers.ts'
+import { type Db } from '../database/connection.ts'
+import { readTransaction } from '../database/transaction.ts'
 import { policySignature } from '../definitions/policies.ts'
 import { DefinitionRegistry } from '../definitions/registry.ts'
-import * as groupRepository from '../groups/repository.ts'
-import * as list from './list-repository.ts'
-import { type ActiveOperation, type ServerFact, type SoftwareFact } from './model.ts'
+import * as groupRepository from '../groups/persistence/repository.ts'
+import { type GroupRow } from '../groups/persistence/rows.ts'
+import * as list from './persistence/list-repository.ts'
+import { type ActiveOperation, type ServerFact, type SoftwareFact } from './persistence/rows.ts'
 import { type ServerListQuery } from './query.ts'
 
 function recent(date: Date | null, now: number, maxAge: number): boolean {
@@ -107,7 +108,7 @@ async function readSnapshot<T>(
   query: ServerListQuery | { id: string },
   project: (data: {
     rows: ReturnType<typeof enrich>[]
-    groups: import('../../shared/definitions.ts').GroupView[]
+    groups: import('../../shared/dto/groups.ts').GroupView[]
     counts: { all: number; ungrouped: number }
     groupId: string | null
     now: number
@@ -169,7 +170,7 @@ async function readSnapshot<T>(
 
 function enrich(
   row: ServerFact,
-  group: GroupRecord | null,
+  group: GroupRow | null,
   observations: Map<string, SoftwareFact> | undefined,
   operation: ActiveOperation | undefined,
   definitions: DefinitionRegistry,
@@ -388,4 +389,4 @@ export async function serverRead(deps: ReadDeps, id: string) {
   return readSnapshot(deps, { id }, ({ rows }) => rows[0])
 }
 
-export type { ActiveOperation } from './model.ts'
+export type { ActiveOperation } from './persistence/rows.ts'

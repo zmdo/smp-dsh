@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { GroupRow, KeyRow, ServerRow } from '../../../shared/api.ts'
+import type { GroupDto } from '../../../shared/dto/groups.ts'
+import type { KeyDto } from '../../../shared/dto/keys.ts'
+import type { ServerDto } from '../../../shared/dto/servers.ts'
 import {
   defaultTypeForOs,
   sameSoftware,
@@ -43,13 +45,13 @@ export function useServerForm(props: ServerFormProps) {
   const [savedOs, setSavedOs] = useState<DeclaredOs | undefined>()
   const [region, setRegion] = useState('')
   const [auto, setAuto] = useState(false)
-  const [groups, setGroups] = useState<GroupRow[]>([])
-  const [keys, setKeys] = useState<KeyRow[]>([])
+  const [groups, setGroups] = useState<GroupDto[]>([])
+  const [keys, setKeys] = useState<KeyDto[]>([])
   const [defaults, setDefaults] = useState<TypeOptions | undefined>()
   const [serverLoaded, setServerLoaded] = useState(!props.editing)
   const [error, setError] = useState<ServerError | null>(null)
   const [connection, setConnection] = useState<(ConnectionResult & { revision: number }) | undefined>()
-  const [loadedServer, setLoadedServer] = useState<ServerRow | undefined>()
+  const [loadedServer, setLoadedServer] = useState<ServerDto | undefined>()
   const [pending, setPending] = useState<'test' | 'identify' | null>(null)
   const [previews] = useState(() => new EnrollmentPreview())
   const [cachedIdentification, setCachedIdentification] = useState(false)
@@ -113,8 +115,8 @@ export function useServerForm(props: ServerFormProps) {
   useEffect(() => {
     let stopped = false
     void Promise.all([
-      api<GroupRow[]>('/console-api/server-groups'),
-      api<KeyRow[]>('/console-api/ssh-keys'),
+      api<GroupDto[]>('/console-api/server-groups'),
+      api<KeyDto[]>('/console-api/ssh-keys'),
       api<TypeOptions>('/console-api/server-types'),
     ])
       .then(([nextGroups, nextKeys, nextDefaults]) => {
@@ -134,7 +136,7 @@ export function useServerForm(props: ServerFormProps) {
   useEffect(() => {
     if (!props.editing || props.serverId === '') return
     let stopped = false
-    void api<ServerRow>(`/console-api/servers/${props.serverId}`)
+    void api<ServerDto>(`/console-api/servers/${props.serverId}`)
       .then((server) => {
         if (stopped) return
         setLoadedServer(server)
@@ -345,7 +347,7 @@ export function useServerForm(props: ServerFormProps) {
     try {
       let nextKey = keyId
       if (method === 'private_key' && keyId === '' && secret.trim() !== '') {
-        const created = await api<KeyRow>('/console-api/ssh-keys', {
+        const created = await api<KeyDto>('/console-api/ssh-keys', {
           method: 'POST',
           body: JSON.stringify({ name: keyName.trim() || name.trim(), secret }),
         })
@@ -375,11 +377,11 @@ export function useServerForm(props: ServerFormProps) {
         secret: method === 'password' && secret.trim() !== '' ? secret : undefined,
       }
       const saved = props.editing
-        ? await api<ServerRow>(`/console-api/servers/${props.serverId}`, {
+        ? await api<ServerDto>(`/console-api/servers/${props.serverId}`, {
             method: 'PATCH',
             body: JSON.stringify(body),
           })
-        : await api<ServerRow>('/console-api/servers', { method: 'POST', body: JSON.stringify(body) })
+        : await api<ServerDto>('/console-api/servers', { method: 'POST', body: JSON.stringify(body) })
       props.onDone(saved.id)
     } catch (cause) {
       setError(requestError(cause))

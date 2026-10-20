@@ -1,4 +1,4 @@
-import { type ServerDisplayStatus } from '../../shared/server-list-contract.ts'
+import { type ServerDisplayStatus } from '../../shared/server-status.ts'
 
 export interface ServerListQuery {
   groupId: string | null

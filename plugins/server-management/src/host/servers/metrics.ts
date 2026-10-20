@@ -1,9 +1,9 @@
 import { osVerification } from '../../shared/operating-systems.ts'
-import { type Db } from '../db.ts'
+import { type Db } from '../database/connection.ts'
 import { parseSample } from '../remote/parse.ts'
 import { connectSsh, type SshSession } from '../remote/ssh.ts'
-import { serverSecret } from './credential-repository.ts'
-import { saveMetrics, serverIds } from './metrics-repository.ts'
+import { serverSecret } from './persistence/credential-repository.ts'
+import { saveMetrics, serverIds } from './persistence/metrics-repository.ts'
 
 const SAMPLE = `cores=$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo)
 read_cpu() { awk '/^cpu /{idle=$5+$6; t=0; for(i=2;i<=NF;i++) t+=$i; print t, idle}' /proc/stat; }

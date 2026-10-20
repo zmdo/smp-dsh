@@ -1,5 +1,5 @@
 import { Service, type Context } from '@deepseek-ai/cordis'
-import type { DefinitionBundle, Registration } from '../../shared/contracts.ts'
+import type { DefinitionBundle, Registration } from '../../shared/contracts/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { type DefinitionRegistry } from './registry.ts'
 

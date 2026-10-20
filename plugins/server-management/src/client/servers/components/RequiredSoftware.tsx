@@ -1,10 +1,10 @@
-import type { ServerRow } from '../../../shared/api.ts'
+import type { ServerDto } from '../../../shared/dto/servers.ts'
 import { type SoftwareView } from '../../../shared/definitions.ts'
 import { componentText, format, serverCopy, versionRequirement } from '../../../shared/i18n.ts'
 export function RequiredSoftware(props: {
   active: string
   software: readonly SoftwareView[]
-  status?: ServerRow['software_status']
+  status?: ServerDto['software_status']
 }) {
   const copy = serverCopy(props.active).ui
   return (

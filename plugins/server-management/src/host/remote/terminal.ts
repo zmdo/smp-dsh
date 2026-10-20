@@ -3,8 +3,8 @@ import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData } from 'ws'
 import { ServerError, type ErrorCode } from '../../shared/errors.ts'
 import { errorPayload } from '../../shared/i18n.ts'
-import { type Db } from '../db.ts'
-import { serverSecret } from '../servers/credential-repository.ts'
+import { type Db } from '../database/connection.ts'
+import { serverSecret } from '../servers/persistence/credential-repository.ts'
 import { connectSsh, type ShellChannel, type SshSession } from './ssh.ts'
 
 interface Secrets {

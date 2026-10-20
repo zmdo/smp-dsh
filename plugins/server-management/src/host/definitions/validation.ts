@@ -1,5 +1,5 @@
-import type { DefinitionBundle } from '../../shared/contracts.ts'
-import { type LocalizedText } from '../../shared/contracts.ts'
+import { type LocalizedText } from '../../shared/contracts/common.ts'
+import type { DefinitionBundle } from '../../shared/contracts/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { validateOsSupport } from '../../shared/operating-systems.ts'
 import { digest } from '../recipes/canonical.ts'

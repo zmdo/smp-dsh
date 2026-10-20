@@ -1,12 +1,13 @@
+import type { RecordPage, Suggestions } from '../../shared/dto/upgrades.ts'
 import { ServerError } from '../../shared/errors.ts'
-import { transaction } from '../db.ts'
+import { transaction } from '../database/transaction.ts'
 import { restrictLease } from '../definitions/policies.ts'
 import { type Deps } from '../dependencies.ts'
 import { HttpError } from '../errors.ts'
 import { object } from '../input.ts'
-import { readPolicies } from '../servers/policy-repository.ts'
-import * as upgrades from '../upgrades/repository.ts'
+import { readPolicies } from '../servers/persistence/policy-repository.ts'
 import { queueDetection } from './detection.ts'
+import * as upgrades from './persistence/repository.ts'
 import { type SuggestionQuery } from './query.ts'
 
 type UpgradeDeps = Pick<Deps, 'db' | 'definitions' | 'updateCheckIntervalSeconds'>
@@ -15,19 +16,16 @@ const uuid = /^[a-f\d]{8}(-[a-f\d]{4}){3}-[a-f\d]{12}$/i
 export async function inventory(deps: UpgradeDeps) {
   return (await upgrades.inventory(deps.db)).rows
 }
-export async function listSuggestions(deps: UpgradeDeps, filter: SuggestionQuery) {
+export async function listSuggestions(deps: UpgradeDeps, filter: SuggestionQuery): Promise<Suggestions> {
   const db = deps.db
   const { page, query, decision: state, group, type, software, connection, current, target, server } = filter,
     pageSize = 20
   const rows = (await upgrades.suggestions(db)).rows
   const signatures = await currentSignatures(deps, [...new Set(rows.map((r) => String(r.server_id)))])
   for (const row of rows)
-    if (
-      signatures.get(String(row.server_id)) !==
-      (row.basis_snapshot as { definitionRevision: string }).definitionRevision
-    ) {
+    if (signatures.get(String(row.server_id)) !== row.basis_snapshot.definitionRevision) {
       row.validity = 'blocked'
-      row.reason = { ...(row.reason as object), code: 'job_definition_changed' }
+      row.reason = { ...row.reason, code: 'job_definition_changed' }
     }
   const filtered = rows.filter((r) => {
     const deferred = r.reminder_after && new Date(String(r.reminder_after)).getTime() > Date.now()
@@ -39,10 +37,7 @@ export async function listSuggestions(deps: UpgradeDeps, filter: SuggestionQuery
       (!type || r.type_key === type) &&
       (!software || r.software_key === software) &&
       (!connection || r.connection_state === connection) &&
-      (!current ||
-        String((r.basis_snapshot as { before: { version?: string } }).before.version ?? '').includes(
-          current,
-        )) &&
+      (!current || r.basis_snapshot.before.version.includes(current)) &&
       (!target || String(r.product_version).includes(target)) &&
       (!state ||
         state === 'all' ||
@@ -54,21 +49,26 @@ export async function listSuggestions(deps: UpgradeDeps, filter: SuggestionQuery
   })
   const checks = (await upgrades.checks(db)).rows
   return {
-    items: filtered.slice((page - 1) * pageSize, page * pageSize),
+    items: filtered.slice((page - 1) * pageSize, page * pageSize).map((row) => ({
+      ...row,
+      reminder_after: row.reminder_after?.toISOString() ?? null,
+    })),
     total: filtered.length,
     page,
     page_size: pageSize,
     filtered_server_ids: [...new Set(filtered.map((r) => r.server_id))],
-    checks: checks.filter(
-      (r) =>
-        (!server || r.server_id === server) &&
-        (!group || r.group_id === group) &&
-        (!type || r.type_key === type) &&
-        (!software || r.software_key === software) &&
-        (!connection || r.connection_state === connection) &&
-        (!query ||
-          [r.server_name, r.host, r.software_key].some((v) => String(v).toLowerCase().includes(query))),
-    ),
+    checks: checks
+      .filter(
+        (r) =>
+          (!server || r.server_id === server) &&
+          (!group || r.group_id === group) &&
+          (!type || r.type_key === type) &&
+          (!software || r.software_key === software) &&
+          (!connection || r.connection_state === connection) &&
+          (!query ||
+            [r.server_name, r.host, r.software_key].some((v) => String(v).toLowerCase().includes(query))),
+      )
+      .map((row) => ({ ...row, last_check_at: row.last_check_at?.toISOString() ?? null })),
   }
 }
 export async function commonVersions(deps: UpgradeDeps, body: unknown) {
@@ -104,11 +104,20 @@ export async function commonVersions(deps: UpgradeDeps, body: unknown) {
       )
   return { versions, blockers }
 }
-export async function executionRecords(deps: UpgradeDeps, page: number) {
+export async function executionRecords(deps: UpgradeDeps, page: number): Promise<RecordPage> {
   const db = deps.db
   const rows = (await upgrades.records(db, (page - 1) * 20)).rows
   const total = (await upgrades.recordCount(db)).rows[0]!.count
-  return { items: rows, total: Number(total), page, page_size: 20 }
+  return {
+    items: rows.map((row) => ({
+      ...row,
+      created_at: row.created_at.toISOString(),
+      finished_at: row.finished_at?.toISOString() ?? null,
+    })),
+    total: Number(total),
+    page,
+    page_size: 20,
+  }
 }
 export async function decideSuggestion(deps: UpgradeDeps, id: string, action: string, body: unknown) {
   const db = deps.db,

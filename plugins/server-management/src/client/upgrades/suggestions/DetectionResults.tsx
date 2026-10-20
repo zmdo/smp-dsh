@@ -1,4 +1,5 @@
-import { detectionResult, type DetectionResult } from '../../../shared/detection-result.ts'
+import { detectionResult } from '../../../shared/detection-result.ts'
+import { type DetectionResult } from '../../../shared/dto/upgrades.ts'
 import { format, formatDate, serverCopy } from '../../../shared/i18n.ts'
 export function DetectionResults(props: {
   active: string

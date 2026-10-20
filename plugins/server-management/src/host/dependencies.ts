@@ -1,4 +1,4 @@
-import { type Db } from './db.ts'
+import { type Db } from './database/connection.ts'
 import { type Component } from './definitions/catalog.ts'
 import { type DefinitionRegistry } from './definitions/registry.ts'
 import { type Enrollment } from './servers/enrollment.ts'

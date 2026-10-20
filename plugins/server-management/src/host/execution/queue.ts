@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { ServerError } from '../../shared/errors.ts'
-import type { Db } from '../db.ts'
-import { transaction } from '../db.ts'
-import type { JobRecord } from './model.ts'
+import type { Db } from '../database/connection.ts'
+import { transaction } from '../database/transaction.ts'
 import { LEASE_SECONDS } from './model.ts'
-import * as repository from './repository.ts'
+import * as repository from './persistence/repository.ts'
+import type { JobRecord } from './persistence/rows.ts'
 
 export async function enqueue(
   db: Db,

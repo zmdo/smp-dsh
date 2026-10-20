@@ -1,18 +1,18 @@
 import { defaultTypeForOs, typeSupportsOs } from '../../shared/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { declaredOsFromDetected } from '../../shared/operating-systems.ts'
-import { type Db } from '../db.ts'
+import { type Db } from '../database/connection.ts'
 import { type TypeLease } from '../definitions/model.ts'
 import { type DefinitionRegistry } from '../definitions/registry.ts'
 import { HttpError } from '../errors.ts'
 import { field, text } from '../input.ts'
-import { secretForConnection } from '../keys/repository.ts'
+import { secretForConnection } from '../keys/persistence/repository.ts'
 import { digest } from '../recipes/canonical.ts'
 import { detectSoftware } from '../recipes/software.ts'
 import { probeOs } from '../remote/os-probe.ts'
 import { scrubValue } from '../remote/parse.ts'
 import { connectSsh, type SshSession } from '../remote/ssh.ts'
-import { serverSecret } from './credential-repository.ts'
+import { serverSecret } from './persistence/credential-repository.ts'
 
 interface Dependencies {
   db: Db

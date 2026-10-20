@@ -1,7 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { type Db } from './host/db.ts'
+import { type Db } from './host/database/connection.ts'
 import { builtinCatalog } from './host/definitions/catalog.ts'
 import { DefinitionRegistry } from './host/definitions/registry.ts'
 import { ServerManagement } from './host/definitions/service.ts'
@@ -13,21 +13,18 @@ import { Enrollment } from './host/servers/enrollment.ts'
 import { startMetrics } from './host/servers/metrics.ts'
 
 export { ServerManagement } from './host/definitions/service.ts'
+export type { LocalizedText } from './shared/contracts/common.ts'
 export type {
   DefinitionBundle,
-  LocalizedText,
   RecipeDefinition,
-  RecipeRequest,
-  RecipeResponse,
   Registration,
   ScriptDefinition,
   ServerTypeDefinition,
   SoftwareDefinition,
   SoftwareRequirement,
   SystemGroupDefinition,
-  VersionAdapter,
-  VersionRule,
-} from './shared/contracts.ts'
+} from './shared/contracts/definitions.ts'
+export type { RecipeRequest, RecipeResponse } from './shared/contracts/recipes.ts'
 export { GENERAL_TYPE, VACANT_TYPE } from './shared/definitions.ts'
 export type {
   DeclaredOs,
@@ -36,6 +33,7 @@ export type {
   OsSupport,
   ProbedOs,
 } from './shared/operating-system-types.ts'
+export type { VersionAdapter, VersionRule } from './shared/versions.ts'
 
 interface SessionService {
   read(cookieHeader: string): Promise<unknown>

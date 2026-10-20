@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
   defaultTypeForOs,
-  type GroupView,
   type SoftwareView,
   type TypeOptions,
   typeSupportsOs,
 } from '../../../shared/definitions.ts'
+import { type GroupView } from '../../../shared/dto/groups.ts'
 import { displayError, groupName, localized, serverCopy } from '../../../shared/i18n.ts'
 import type { DeclaredOs } from '../../../shared/operating-systems.ts'
 import type { SoftwarePolicy } from '../../../shared/policies.ts'

@@ -1,6 +1,6 @@
 import { Panel } from '@smp/console-kit'
 import { displayError, format, groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
-import { SERVER_STATES } from '../../../shared/server-list-contract.ts'
+import { SERVER_STATES } from '../../../shared/server-status.ts'
 import type { ServerListView as ListView } from '../../shared/server-page-state.ts'
 import { ServerLine } from './ServerLine.tsx'
 import type { ServerListProps } from './useServerList.ts'
