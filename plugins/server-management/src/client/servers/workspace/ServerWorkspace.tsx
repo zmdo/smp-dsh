@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Panel } from '@smp/console-kit'
-import { displayError, serverCopy } from '../../../shared/i18n.ts'
+import { displayError, localized, serverCopy } from '../../../shared/i18n.ts'
 import { ServerError } from '../../../shared/errors.ts'
 import { api, requestError } from '../../shared/api.ts'
 import type { DetailPanel, ServerPageState, TaskViewState } from '../../shared/server-page-state.ts'
@@ -10,6 +10,10 @@ import { ServerDetail } from '../detail/ServerDetail.tsx'
 import { ServerSettings } from '../settings/ServerSettings.tsx'
 import { ServerTerminal } from '../terminal/ServerTerminal.tsx'
 import { TaskHistory } from '../tasks/TaskHistory.tsx'
+import { ExtensionHost } from '../../extensions/ExtensionHost.tsx'
+import { DETAIL_PANEL_SLOT, SETTINGS_SECTION_SLOT } from '../../extensions/slots.ts'
+import { extensionApi } from '../../extensions/api.ts'
+import type { ExtensionCatalogEntry, RenderSlot, SlotService } from '../../extensions/slots.ts'
 import { useServerResource } from './useServerResource.ts'
 
 export function ServerWorkspace(props: {
@@ -18,6 +22,8 @@ export function ServerWorkspace(props: {
   pageState: ServerPageState
   onBack: () => void
   onUpgrades: (serverId: string) => void
+  renderSlot?: RenderSlot
+  slots?: SlotService
 }) {
   const { active, pageState, serverId } = props
   const snapshot = useSyncExternalStore(pageState.subscribe, pageState.getSnapshot)
@@ -28,6 +34,9 @@ export function ServerWorkspace(props: {
   const [actionError, setActionError] = useState<ServerError | null>(null)
   const [terminalOpened, setTerminalOpened] = useState(false)
   const [settingsOpened, setSettingsOpened] = useState(false)
+  const [extensions, setExtensions] = useState<ExtensionCatalogEntry[]>([])
+  const [extensionsLoaded, setExtensionsLoaded] = useState(false)
+  const [slotVersion, setSlotVersion] = useState(0)
   const [terminalEpoch, setTerminalEpoch] = useState(0)
   const [terminalAutoConnect, setTerminalAutoConnect] = useState(true)
   const previousIdentity = useRef('')
@@ -62,6 +71,53 @@ export function ServerWorkspace(props: {
     if (panel === 'config') setSettingsOpened(true)
   }, [panel])
 
+  useEffect(() => {
+    if (props.slots === undefined) return
+    const bump = () => setSlotVersion((value) => value + 1)
+    const offPanel = props.slots.subscribe(DETAIL_PANEL_SLOT, bump)
+    const offSettings = props.slots.subscribe(SETTINGS_SECTION_SLOT, bump)
+    return () => {
+      offPanel()
+      offSettings()
+    }
+  }, [props.slots])
+
+  const extensionType = server?.type_key ?? ''
+  const extensionOs = JSON.stringify(server?.declared_os ?? null)
+  useEffect(() => {
+    if (extensionType === '') {
+      setExtensions([])
+      setExtensionsLoaded(false)
+      return
+    }
+    let stopped = false
+    const controller = new AbortController()
+    setExtensionsLoaded(false)
+    void api<{ items: ExtensionCatalogEntry[] }>(`/console-api/servers/${serverId}/extensions`, {
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (stopped) return
+        setExtensions(result.items)
+        setExtensionsLoaded(true)
+      })
+      .catch((cause) => {
+        if (stopped) return
+        if ((cause as { name?: string }).name !== 'AbortError') setExtensionsLoaded(true)
+      })
+    return () => {
+      stopped = true
+      controller.abort()
+    }
+  }, [extensionOs, extensionType, serverId, slotVersion])
+
+  const extensionKey = panel.startsWith('extension:') ? panel.slice('extension:'.length) : ''
+  const selectedExtension = extensions.find((entry) => entry.kind === 'panel' && entry.key === extensionKey)
+  useEffect(() => {
+    if (extensionKey !== '' && extensionsLoaded && selectedExtension === undefined)
+      pageState.selectDetailPanel('detail')
+  }, [extensionKey, extensionsLoaded, pageState, selectedExtension])
+
   async function act(path: string): Promise<void> {
     setActionError(null)
     setQueued(false)
@@ -93,6 +149,13 @@ export function ServerWorkspace(props: {
       select: () => pageState.selectDetailPanel('containers'),
     },
     { key: 'config', label: copy.configuration, select: () => pageState.selectDetailPanel('config') },
+    ...extensions
+      .filter((entry) => entry.kind === 'panel')
+      .map((entry) => ({
+        key: `extension:${entry.key}` as DetailPanel,
+        label: localized(entry.name, active),
+        select: () => pageState.selectDetailPanel(`extension:${entry.key}`),
+      })),
   ]
 
   return (
@@ -172,12 +235,34 @@ export function ServerWorkspace(props: {
                   active={active}
                   serverId={serverId}
                   server={server}
+                  extensions={extensions.filter((entry) => entry.kind === 'settings')}
+                  renderSlot={props.renderSlot}
+                  slots={props.slots}
                   onSaved={refresh}
                   onDeleted={props.onBack}
                 />
               </div>
             )}
-            {panel === 'terminal' || panel === 'config' ? null : panel === 'tasks' ? (
+            {extensionKey !== '' && (
+              <div className="smp-server-extension-layer">
+                <ExtensionHost
+                  active={active}
+                  slot={DETAIL_PANEL_SLOT}
+                  entry={extensionKey}
+                  owner={{
+                    server,
+                    active,
+                    refresh,
+                    openTasks: () => pageState.selectDetailPanel('tasks'),
+                    selectPanel: (key: string) => pageState.selectDetailPanel(key as DetailPanel),
+                    api: extensionApi,
+                  }}
+                  renderSlot={props.renderSlot as never}
+                  slots={props.slots}
+                />
+              </div>
+            )}
+            {panel === 'terminal' || panel === 'config' || extensionKey !== '' ? null : panel === 'tasks' ? (
               <Panel title={copy.taskReport} className="smp-task-panel">
                 <TaskHistory
                   key={serverId}

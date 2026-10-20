@@ -56,6 +56,6 @@ freshness 默认至少 90 秒，并受巡检周期影响；配置／环境／配
 
 ## 当前与计划表的分界
 
-尚无 `server_extension_settings`、`server_extension_observations`。未来会增加它们并移交容器表业务归属，见[后续交接](handoff.md)。设计 SQL 附件不是已经执行的迁移。
+`server_extension_settings` 已在 `0017_server_extension_settings.sql` 中提供，用于扩展配置的带修订保存；`server_extension_observations` 仍未建立。扩展配置接口和持久化已落地，通用草稿／执行配置复核仍待步骤 5 补齐。见[后续交接](handoff.md)。
 
 源码：[列表聚合](../../../../plugins/server-management/src/host/servers/list.ts)、[列表 SQL](../../../../plugins/server-management/src/host/servers/persistence/list-repository.ts)、[任务历史 SQL](../../../../plugins/server-management/src/host/tasks/persistence/history-repository.ts)、[迁移](../../../../plugins/database/migrations)。

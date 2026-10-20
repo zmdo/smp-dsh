@@ -5,11 +5,14 @@ import type { ServerListView as ListView, ServerPageState } from '../shared/serv
 import { ServerForm } from './form/ServerForm.tsx'
 import { ServerList } from './list/ServerList.tsx'
 import { ServerWorkspace } from './workspace/ServerWorkspace.tsx'
+import type { RenderSlot, SlotService } from '../extensions/slots.ts'
 
 export function ServersPage(props: {
   locale: LocaleFace
   pageState: ServerPageState
   openConsole?: (key: string) => void
+  renderSlot?: RenderSlot
+  slots?: SlotService
 }) {
   const active = useActiveLocale(props.locale)
   const { screen, serverId, editing, listView } = useSyncExternalStore(
@@ -45,6 +48,8 @@ export function ServersPage(props: {
         active={active}
         serverId={serverId}
         pageState={props.pageState}
+        renderSlot={props.renderSlot}
+        slots={props.slots}
         onBack={() => props.pageState.closeWorkspace()}
         onUpgrades={(id) => {
           props.pageState.update({

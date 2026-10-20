@@ -28,6 +28,7 @@ export type {
   SystemGroupDefinition,
 } from './shared/contracts/definitions.ts'
 export type { RecipeRequest, RecipeResponse } from './shared/contracts/recipes.ts'
+export type { ServerExtensionRuntime } from './host/extensions/runtime.ts'
 export type {
   ExtensionCatalogEntry,
   ExtensionInspection,
@@ -102,6 +103,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     secrets: ctx.secrets,
     catalog,
     definitions,
+    extensions,
     enrollment,
     updateCheckIntervalSeconds: config.updateCheckIntervalSeconds,
     freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000,

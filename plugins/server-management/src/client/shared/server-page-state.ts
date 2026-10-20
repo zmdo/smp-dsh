@@ -9,7 +9,7 @@ export interface ServerListView {
 }
 
 /** Panels inside one server's detail workspace. The local sidebar stays visible for all of them. */
-export type DetailPanel = 'detail' | 'tasks' | 'terminal' | 'containers' | 'config'
+export type DetailPanel = 'detail' | 'tasks' | 'terminal' | 'containers' | 'config' | `extension:${string}`
 
 export interface TaskViewState {
   query: string

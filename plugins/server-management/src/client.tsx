@@ -9,6 +9,8 @@ import { serverCopy, type LocaleFace } from './shared/i18n.ts'
 interface PageSlots {
   inject(name: string, register: () => () => void): void
   register(options: object, component: unknown): () => void
+  entriesOfSlot(name: string): readonly { options: { key?: string; priority?: number } }[]
+  subscribe(name: string, listener: () => void): () => void
 }
 
 interface ClientCtx {
@@ -36,7 +38,11 @@ export function apply(ctx: ClientCtx): void {
         key: 'servers',
         label: pageLabel(() => copy().serversTab, { ...group, icon: 'server' }),
         order: 0,
-        inject: () => ({ locale: ctx.locale, pageState }),
+        children: {
+          'server-management.detail.panel': { kind: 'keyed', scope: 'root' },
+          'server-management.settings.section': { kind: 'keyed', scope: 'root' },
+        },
+        inject: () => ({ locale: ctx.locale, pageState, slots: ctx.slots }),
       },
       ServersPage,
     ),
@@ -76,3 +82,6 @@ export function apply(ctx: ClientCtx): void {
     ),
   )
 }
+
+export { registerServerPanel, registerSettingsSection } from './client/extensions/slots.ts'
+export { extensionApi } from './client/extensions/api.ts'

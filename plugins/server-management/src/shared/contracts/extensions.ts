@@ -19,6 +19,10 @@ export interface ExtensionSettingsSection {
   readonly name: LocalizedText
   readonly order?: number
   readonly appliesTo?: ExtensionScope
+  /** Sensitive fields are not storable until an encrypted settings capability exists. */
+  readonly sensitive?: boolean
+  /** Execution-affecting settings need the plan binding/recheck flow; generic saves are rejected. */
+  readonly affectsExecution?: boolean
 }
 
 export interface ExtensionQuery {
@@ -57,4 +61,5 @@ export interface ExtensionCatalogEntry {
   readonly name: LocalizedText
   readonly order: number
   readonly appliesTo: ExtensionScope
+  readonly affectsExecution?: boolean
 }

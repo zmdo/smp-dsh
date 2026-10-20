@@ -61,7 +61,7 @@ test(
       '0012_server_types.sql',
       '0013_server_observations.sql',
       '0014_server_execution.sql',
-      '0015_server_inspection_reports.sql', '0016_server_version_policies.sql',
+      '0015_server_inspection_reports.sql', '0016_server_version_policies.sql', '0017_server_extension_settings.sql',
     ])
       await pool.query(await readFile(new URL(`../../database/migrations/${name}`, import.meta.url), 'utf8'))
     const catalog = builtinCatalog(),

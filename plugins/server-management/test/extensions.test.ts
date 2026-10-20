@@ -7,6 +7,7 @@ import { DefinitionRegistry } from '../src/host/definitions/registry.ts'
 import { ServerManagement } from '../src/host/definitions/service.ts'
 import { ServerExtensionRegistry } from '../src/host/extensions/registry.ts'
 import type { ServerExtensionBundle } from '../src/shared/contracts/extensions.ts'
+import type { ServerDto } from '../src/shared/dto/servers.ts'
 
 const bundle: ServerExtensionBundle = {
   contractVersion: 1,
@@ -78,6 +79,28 @@ test('unknown type references and duplicate owners or keys are rejected atomical
   const second = extensions.registerExtensions(bundle)
   await assert.rejects(second.ready, { code: 'extension_registration_exists' })
   await first.dispose()
+  extensions.close()
+})
+
+test('runtime query and settings handlers stay behind the metadata catalog', async () => {
+  const definitions = new DefinitionRegistry(noDb, builtinCatalog())
+  const extensions = new ServerExtensionRegistry(definitions)
+  const registration = extensions.registerExtensions(bundle, bundle, {
+    queries: {
+      'database-status': async () => ({ ok: true }),
+    },
+    settings: {
+      'database-settings': {
+        defaults: { collect: true },
+        validate: (value) => value as { collect: boolean },
+      },
+    },
+  })
+  await registration.ready
+  const server = { type_key: 'builtin/general', declared_os: { kind: 'custom', text: 'test' } } as ServerDto
+  assert.deepEqual(await extensions.runQuery(server, '@test/ext/database-status', new URLSearchParams()), { ok: true })
+  assert.deepEqual(extensions.settings(server, '@test/ext/database-settings').runtime.defaults, { collect: true })
+  await registration.dispose()
   extensions.close()
 })
 

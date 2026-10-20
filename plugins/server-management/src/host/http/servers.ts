@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { type Deps } from '../dependencies.ts'
 import { HttpError } from '../errors.ts'
 import { UUID } from '../input.ts'
-import { serverList } from '../servers/list.ts'
+import { serverList, serverRead } from '../servers/list.ts'
 import {
   containersOf,
   createServer,
@@ -13,6 +13,7 @@ import {
 } from '../servers/service.ts'
 import { jobView } from '../tasks/queries.ts'
 import { readJson, sendJson } from './reply.ts'
+import { extensionSettings, saveExtensionSettings } from '../extensions/settings.ts'
 import { parseServerListQuery } from './server-query.ts'
 
 export async function routeServers(
@@ -51,6 +52,53 @@ export async function routeServers(
   }
   if (parts.length === 2 && parts[1] === 'containers' && request.method === 'GET')
     return sendJson(response, 200, await containersOf(deps.db, id))
+  if (parts.length === 2 && parts[1] === 'extensions' && request.method === 'GET') {
+    const server = await serverRead(deps, id)
+    if (server === undefined) throw new HttpError(404, 'server_not_found')
+    return sendJson(response, 200, { items: deps.extensions.catalogFor(server) })
+  }
+  if (parts.length === 2 && parts[1] === 'extension-data' && request.method === 'GET') {
+    const server = await serverRead(deps, id)
+    if (server === undefined) throw new HttpError(404, 'server_not_found')
+    const key = new URL(request.url ?? '/', 'http://localhost').searchParams.get('key') ?? ''
+    return sendJson(response, 200, {
+      value: await deps.extensions.runQuery(server, key, new URL(request.url ?? '/', 'http://localhost').searchParams),
+    })
+  }
+  if (parts.length === 2 && parts[1] === 'extension-settings') {
+    const server = await serverRead(deps, id)
+    if (server === undefined) throw new HttpError(404, 'server_not_found')
+    const key = new URL(request.url ?? '/', 'http://localhost').searchParams.get('key') ?? ''
+    const found = deps.extensions.settings(server, key)
+    if (request.method === 'GET') {
+      const stored = await extensionSettings(deps.db, id, found.entry.owner, key.slice(found.entry.owner.length + 1))
+      return sendJson(response, 200, {
+        value: stored?.value ?? found.runtime.defaults,
+        revision: stored?.revision ?? '0',
+      })
+    }
+    if (request.method === 'PUT') {
+      if (found.entry.affectsExecution === true) throw new HttpError(422, 'extension_settings_requires_plan')
+      const body = await readJson(request)
+      const value = body !== null && typeof body === 'object' ? (body as { value?: unknown }).value : undefined
+      const revision =
+        body !== null && typeof body === 'object' && typeof (body as { revision?: unknown }).revision === 'string'
+          ? (body as { revision: string }).revision
+          : undefined
+      if (revision === undefined || !/^\d+$/.test(revision))
+        throw new HttpError(422, 'extension_settings_invalid')
+      const validated = found.runtime.validate(value)
+      const saved = await saveExtensionSettings(deps.db, {
+        serverId: id,
+        owner: found.entry.owner,
+        section: key.slice(found.entry.owner.length + 1),
+        value: validated,
+        expectedRevision: revision,
+      })
+      if (saved === undefined) throw new HttpError(409, 'extension_settings_conflict')
+      return sendJson(response, 200, saved)
+    }
+  }
   const action =
     parts.length === 2
       ? (
