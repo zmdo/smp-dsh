@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { preflightRequest, savePreflight } from './changes.ts'
+import { preflightRequest, savePreflight } from './host/changes/service.ts'
 import { type Db } from './host/db.ts'
 import {
   finishJob,
@@ -14,7 +14,8 @@ import {
 import { probeOs } from './os-probe.ts'
 import { scrub, scrubValue } from './parse.ts'
 import { checkPlan, preparePlan } from './plans.ts'
-import { readPolicies, restrictLease } from './policies.ts'
+import { readPolicies } from './host/servers/policy-repository.ts'
+import { restrictLease } from './policies.ts'
 import { canonical, validObservation } from './recipe.ts'
 import type { DefinitionRegistry, TypeLease } from './registry.ts'
 import { remoteOperation, type RemoteResult } from './remote-operation.ts'

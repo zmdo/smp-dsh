@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { displayStatus, parseServerListQuery, type ActiveOperation } from '../src/server-list.ts'
+import { displayStatus, type ActiveOperation } from '../src/host/servers/list.ts'
+import { parseServerListQuery } from '../src/host/http/server-query.ts'
 
 const now = Date.parse('2026-10-19T09:00:00Z')
 function base() {

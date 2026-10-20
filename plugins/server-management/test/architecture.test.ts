@@ -10,7 +10,9 @@ const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url))
 test('client and shared modules depend only on their declared boundaries, including type imports', async () => {
   for (const scope of ['shared', 'client']) {
     const names = await readdir(path.join(sourceRoot, scope), { recursive: true })
-    const files = names.filter((name) => /\.tsx?$/.test(name)).map(name => path.join(sourceRoot, scope, name))
+    const files = names
+      .filter((name) => /\.tsx?$/.test(name))
+      .map((name) => path.join(sourceRoot, scope, name))
     if (scope === 'client') files.push(path.join(sourceRoot, 'client.tsx'))
     for (const file of files) {
       const text = await readFile(file, 'utf8')
@@ -62,5 +64,40 @@ test('host and client entry points have no runtime module cycles', async () => {
       visited.add(name)
     }
     for (const name of graph.keys()) visit(name)
+  }
+})
+
+test('HTTP, workflows and repositories preserve their host boundaries and transaction ownership', async () => {
+  const names = await readdir(path.join(sourceRoot, 'host'), { recursive: true })
+  for (const name of names.filter((name) => name.endsWith('.ts'))) {
+    const file = path.join(sourceRoot, 'host', name),
+      source = await readFile(file, 'utf8')
+    const repository = /(?:^|[/\\])(?:[^/\\]+-)?repository\.ts$/.test(name)
+    const http = name.startsWith('http/')
+    const workflow = /(?:service|list|queries|enrollment)\.ts$/.test(name)
+    if (http || workflow) assert.doesNotMatch(source, /\.query\s*(?:<|\()/, `${name} must delegate SQL`)
+    if (repository) {
+      assert.doesNotMatch(source, /\.connect\s*\(/, `${name} must use the caller's connection`)
+      assert.doesNotMatch(
+        source,
+        /['"](?:begin|commit|rollback)['"]/,
+        `${name} must not finish the caller's transaction`,
+      )
+    }
+    for (const match of source.matchAll(/(?:from\s+|import\s*\()(['"])([^'"]+)\1/g)) {
+      const specifier = match[2]!
+      if (http)
+        assert.doesNotMatch(specifier, /repository\.ts$/, `${name} must call the application boundary`)
+      if (workflow || repository) {
+        assert.notEqual(specifier, 'node:http', `${name} must be independent of HTTP`)
+        assert.doesNotMatch(specifier, /(?:^|\/)http\//, `${name} must not depend on HTTP adapters`)
+      }
+      if (repository)
+        assert.doesNotMatch(
+          specifier,
+          /(?:service|queries|routes)\.ts$/,
+          `${name} must not depend on workflows`,
+        )
+    }
   }
 })

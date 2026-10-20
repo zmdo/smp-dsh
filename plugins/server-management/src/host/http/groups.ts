@@ -1,0 +1,28 @@
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { DefinitionRegistry } from '../../registry.ts'
+import { type Db } from '../db.ts'
+import { HttpError } from '../errors.ts'
+import { createGroup, deleteGroup, listGroups } from '../groups/service.ts'
+import { UUID } from '../input.ts'
+import { readJson, sendJson } from './reply.ts'
+
+export async function routeGroups(
+  db: Db,
+  request: IncomingMessage,
+  response: ServerResponse,
+  rest: string,
+  definitions: DefinitionRegistry,
+): Promise<void> {
+  if (rest === '' && request.method === 'GET')
+    return sendJson(response, 200, await listGroups(db, definitions))
+  if (rest === '' && request.method === 'POST')
+    return sendJson(response, 201, await createGroup(db, definitions, await readJson(request)))
+  const id = rest.slice(1)
+  if (request.method === 'DELETE' && UUID.test(id)) {
+    await deleteGroup(db, id)
+    response.writeHead(204)
+    response.end()
+    return
+  }
+  throw new HttpError(404, 'group_not_found')
+}

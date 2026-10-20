@@ -3,19 +3,14 @@ import Schema from '@deepseek-ai/schemastery'
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { builtinCatalog } from './catalog.ts'
-import { routeChanges } from './change-routes.ts'
-import { Enrollment } from './enrollment.ts'
 import { type Db } from './host/db.ts'
-import { HttpError } from './host/http/error.ts'
+import { registerRoutes } from './host/http/routes.ts'
+import { Enrollment } from './host/servers/enrollment.ts'
 import { claimNext, enqueue } from './job-store.ts'
 import { startMetrics } from './metrics.ts'
-import { routeComponents, routeGroups, routeJobs, routeKeys, routeServers, routeTypes } from './records.ts'
 import { DefinitionRegistry } from './registry.ts'
-import { cookieHeader, sendJson } from './reply.ts'
 import { executeJob } from './runner.ts'
 import { ServerManagement } from './service.ts'
-import { ServerError } from './shared/errors.ts'
-import { errorPayload } from './shared/i18n.ts'
 import { connectSsh } from './ssh.ts'
 import { dueInspects } from './store.ts'
 import { terminalRoute } from './terminal.ts'
@@ -23,6 +18,7 @@ import { scheduleChanges } from './upgrades.ts'
 export { ServerManagement } from './service.ts'
 export type {
   DefinitionBundle,
+  LocalizedText,
   RecipeDefinition,
   RecipeRequest,
   RecipeResponse,
@@ -36,8 +32,13 @@ export type {
   VersionRule,
 } from './shared/contracts.ts'
 export { GENERAL_TYPE, VACANT_TYPE } from './shared/definitions.ts'
-export type { LocalizedText } from './shared/contracts.ts'
-export type { DeclaredOs, DetectedOs, OsSelector, OsSupport, ProbedOs } from './shared/operating-system-types.ts'
+export type {
+  DeclaredOs,
+  DetectedOs,
+  OsSelector,
+  OsSupport,
+  ProbedOs,
+} from './shared/operating-system-types.ts'
 
 interface SessionService {
   read(cookieHeader: string): Promise<unknown>
@@ -54,7 +55,11 @@ interface HostCtx extends Context {
     }): () => void
     registerUpgrade(route: {
       path: string
-      handler: (request: IncomingMessage, socket: import('node:stream').Duplex, head: Buffer) => void | Promise<void>
+      handler: (
+        request: IncomingMessage,
+        socket: import('node:stream').Duplex,
+        head: Buffer,
+      ) => void | Promise<void>
     }): () => void
   }
 }
@@ -63,13 +68,13 @@ export interface Config {
   inspectIntervalSeconds: number
   metricsIntervalSeconds: number
   sshReadyTimeoutSeconds: number
-  updateCheckIntervalSeconds:number
+  updateCheckIntervalSeconds: number
 }
 
 export const Config: Schema<Config> = Schema.object({
   inspectIntervalSeconds: Schema.number().default(30),
   metricsIntervalSeconds: Schema.number().default(1),
-  updateCheckIntervalSeconds:Schema.natural().min(60).max(604800).default(3600),
+  updateCheckIntervalSeconds: Schema.natural().min(60).max(604800).default(3600),
   sshReadyTimeoutSeconds: Schema.natural().min(1).max(300).default(30),
 })
 
@@ -85,89 +90,29 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const connect: typeof connectSsh = (input) =>
     connectSsh({ ...input, readyTimeoutMs: config.sshReadyTimeoutSeconds * 1000 })
   const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions }, connect)
-  const deps = { db, secrets: ctx.secrets, catalog, definitions, enrollment, updateCheckIntervalSeconds:config.updateCheckIntervalSeconds, freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000 }
+  const deps = {
+    db,
+    secrets: ctx.secrets,
+    catalog,
+    definitions,
+    enrollment,
+    updateCheckIntervalSeconds: config.updateCheckIntervalSeconds,
+    freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000,
+  }
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield startJobs(ctx, db, config, definitions, connect)
     yield startMetrics(
-      db, ctx.secrets, config.metricsIntervalSeconds,
-      (cause) => { ctx.logger.error(cause) }, connect,
+      db,
+      ctx.secrets,
+      config.metricsIntervalSeconds,
+      (cause) => {
+        ctx.logger.error(cause)
+      },
+      connect,
     )
     yield () => enrollment.close()
-    yield ctx.webServer.register({
-      kind: 'exact',
-      path: '/console-api/servers',
-      handler: (request, response) => guard(ctx, request, response, () => routeServers(deps, request, response, '')),
-    })
-    yield ctx.webServer.register({
-      kind: 'exact',
-      path: '/console-api/servers/test-connection',
-      handler: (request, response) =>
-        guard(ctx, request, response, () => routeServers(deps, request, response, '/test-connection')),
-    })
-    yield ctx.webServer.register({
-      kind: 'exact',
-      path: '/console-api/servers/identify-system',
-      handler: (request, response) =>
-        guard(ctx, request, response, () => routeServers(deps, request, response, '/identify-system')),
-    })
-    yield ctx.webServer.register({
-      kind: 'prefix',
-      path: '/console-api/servers',
-      handler: (request, response) =>
-        guard(ctx, request, response, () =>
-          routeServers(deps, request, response, suffix(request, '/console-api/servers')),
-        ),
-    })
-    yield ctx.webServer.register({
-      kind: 'exact',
-      path: '/console-api/server-groups',
-      handler: (request, response) =>
-        guard(ctx, request, response, () => routeGroups(db, request, response, '', definitions)),
-    })
-    yield ctx.webServer.register({
-      kind: 'prefix',
-      path: '/console-api/server-groups',
-      handler: (request, response) =>
-        guard(ctx, request, response, () =>
-          routeGroups(db, request, response, suffix(request, '/console-api/server-groups'), definitions),
-        ),
-    })
-    yield ctx.webServer.register({
-      kind: 'exact',
-      path: '/console-api/ssh-keys',
-      handler: (request, response) => guard(ctx, request, response, () => routeKeys(deps, request, response, '')),
-    })
-    yield ctx.webServer.register({
-      kind: 'prefix',
-      path: '/console-api/ssh-keys',
-      handler: (request, response) =>
-        guard(ctx, request, response, () =>
-          routeKeys(deps, request, response, suffix(request, '/console-api/ssh-keys')),
-        ),
-    })
-    yield ctx.webServer.register({
-      kind: 'exact',
-      path: '/console-api/server-types',
-      handler: (request, response) => guard(ctx, request, response, () => routeTypes(definitions, request, response)),
-    })
-    yield ctx.webServer.register({
-      kind: 'exact',
-      path: '/console-api/components',
-      handler: (request, response) =>
-        guard(ctx, request, response, async () => {
-          routeComponents(catalog, request, response)
-        }),
-    })
-    yield ctx.webServer.register({
-      kind: 'prefix',
-      path: '/console-api/server-jobs',
-      handler: (request, response) =>
-        guard(ctx, request, response, () =>
-          routeJobs(db, request, response, suffix(request, '/console-api/server-jobs')),
-        ),
-    })
-    yield ctx.webServer.register({kind:'prefix',path:'/console-api/server-changes',handler:(request,response)=>guard(ctx,request,response,()=>routeChanges(deps,request,response,suffix(request,'/console-api/server-changes')))})
+    yield* registerRoutes(ctx, deps)
     const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession, connect)
     yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
     yield () => terminal.close()
@@ -203,10 +148,10 @@ function startJobs(
   }, 400)
   const inspect = setInterval(() => {
     launch(queueInspects)
-    launch(()=>scheduleChanges(db,config.updateCheckIntervalSeconds))
+    launch(() => scheduleChanges(db, config.updateCheckIntervalSeconds))
   }, 5000)
   launch(pump)
-  launch(()=>scheduleChanges(db,config.updateCheckIntervalSeconds))
+  launch(() => scheduleChanges(db, config.updateCheckIntervalSeconds))
   return async () => {
     stopped = true
     clearInterval(claim)
@@ -223,7 +168,7 @@ function startJobs(
         const job = await claimNext(db, workerId)
         if (job === undefined) return
         active += 1
-        const task = executeJob(db, ctx.secrets, definitions, job, connect,config.updateCheckIntervalSeconds)
+        const task = executeJob(db, ctx.secrets, definitions, job, connect, config.updateCheckIntervalSeconds)
           .catch((cause: unknown) => {
             ctx.logger.error(cause)
           })
@@ -246,39 +191,4 @@ function startJobs(
       await enqueue(db, id, 'inspect')
     }
   }
-}
-
-async function guard(
-  ctx: HostCtx,
-  request: IncomingMessage,
-  response: ServerResponse,
-  run: () => Promise<void>,
-): Promise<void> {
-  if ((await ctx.consoleSession.read(cookieHeader(request))) === undefined) {
-    sendJson(response, 401, errorPayload(new ServerError('unauthorized')))
-    return
-  }
-  try {
-    await run()
-  } catch (cause) {
-    if (cause instanceof HttpError) {
-      sendJson(response, cause.status, errorPayload(cause))
-      return
-    }
-    if (cause instanceof ServerError) {
-      sendJson(response, 422, errorPayload(cause))
-      return
-    }
-    if (cause instanceof SyntaxError) {
-      sendJson(response, 400, errorPayload(new ServerError('invalid_request')))
-      return
-    }
-    ctx.logger.error(cause)
-    if (!response.headersSent) sendJson(response, 500, errorPayload(new ServerError('request_failed')))
-  }
-}
-
-function suffix(request: IncomingMessage, prefix: string): string {
-  const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
-  return path.startsWith(prefix) ? path.slice(prefix.length) : ''
 }

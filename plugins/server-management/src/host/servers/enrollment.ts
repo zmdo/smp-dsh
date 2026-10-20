@@ -1,16 +1,17 @@
-import { type Db } from './host/db.ts'
-import { HttpError } from './host/http/error.ts'
-import { probeOs } from './os-probe.ts'
-import { scrubValue } from './parse.ts'
-import { digest } from './recipe.ts'
-import type { DefinitionRegistry, TypeLease } from './registry.ts'
-import { field, text } from './reply.ts'
-import { defaultTypeForOs, typeSupportsOs } from './shared/definitions.ts'
-import { ServerError } from './shared/errors.ts'
-import { declaredOsFromDetected } from './shared/operating-systems.ts'
-import { detectSoftware } from './software.ts'
-import { connectSsh, type SshSession } from './ssh.ts'
-import { serverSecret } from './store.ts'
+import { probeOs } from '../../os-probe.ts'
+import { scrubValue } from '../../parse.ts'
+import { digest } from '../../recipe.ts'
+import { type DefinitionRegistry, type TypeLease } from '../../registry.ts'
+import { defaultTypeForOs, typeSupportsOs } from '../../shared/definitions.ts'
+import { ServerError } from '../../shared/errors.ts'
+import { declaredOsFromDetected } from '../../shared/operating-systems.ts'
+import { detectSoftware } from '../../software.ts'
+import { connectSsh, type SshSession } from '../../ssh.ts'
+import { serverSecret } from '../../store.ts'
+import { type Db } from '../db.ts'
+import { HttpError } from '../errors.ts'
+import { field, text } from '../input.ts'
+import { secretForConnection } from '../keys/repository.ts'
 
 interface Dependencies {
   db: Db
@@ -59,36 +60,44 @@ export class Enrollment {
     return this.run(async () => {
       const credentials = await this.credentials(body)
       const receipt = this.receipt(body, credentials)
-      return this.withSession({ ...credentials, expectedFingerprint: receipt.fingerprint }, async (session) => {
-        const probe = await probeOs(session)
-        if (probe.state !== 'detected') throw new ServerError('os_probe_failed')
-        const declared = declaredOsFromDetected(probe.os)
-        const groupId = text(field(body, 'group_id')) || null
-        if (groupId !== null && !UUID.test(groupId)) throw new ServerError('group_not_found')
-        const options = await this.deps.definitions.options(groupId, probe.os)
-        const types = options.types.filter((type) => typeSupportsOs(type, declared) && typeSupportsOs(type, probe.os))
-        const requested = text(field(body, 'type_key'))
-        const type =
-          types.find((item) => item.key === requested) ??
-          types.find((item) => item.key === defaultTypeForOs(options, declared)) ??
-          types[0]
-        let lease: TypeLease | undefined
-        try {
-          lease = options.available && type ? await this.deps.definitions.lease(groupId, type.key, probe.os) : undefined
-          const status = lease ? await detectSoftware(session, lease.components, probe.os) : {}
-          return {
-            declared_os: declared,
-            detected_os: probe.os,
-            type_key: type?.key ?? '',
-            required_software: lease?.type.software ?? type?.software ?? [],
-            software_status: scrubValue(status, credentials.secret),
-            software_available: lease !== undefined,
-            detected_at: new Date().toISOString(),
+      return this.withSession(
+        { ...credentials, expectedFingerprint: receipt.fingerprint },
+        async (session) => {
+          const probe = await probeOs(session)
+          if (probe.state !== 'detected') throw new ServerError('os_probe_failed')
+          const declared = declaredOsFromDetected(probe.os)
+          const groupId = text(field(body, 'group_id')) || null
+          if (groupId !== null && !UUID.test(groupId)) throw new ServerError('group_not_found')
+          const options = await this.deps.definitions.options(groupId, probe.os)
+          const types = options.types.filter(
+            (type) => typeSupportsOs(type, declared) && typeSupportsOs(type, probe.os),
+          )
+          const requested = text(field(body, 'type_key'))
+          const type =
+            types.find((item) => item.key === requested) ??
+            types.find((item) => item.key === defaultTypeForOs(options, declared)) ??
+            types[0]
+          let lease: TypeLease | undefined
+          try {
+            lease =
+              options.available && type
+                ? await this.deps.definitions.lease(groupId, type.key, probe.os)
+                : undefined
+            const status = lease ? await detectSoftware(session, lease.components, probe.os) : {}
+            return {
+              declared_os: declared,
+              detected_os: probe.os,
+              type_key: type?.key ?? '',
+              required_software: lease?.type.software ?? type?.software ?? [],
+              software_status: scrubValue(status, credentials.secret),
+              software_available: lease !== undefined,
+              detected_at: new Date().toISOString(),
+            }
+          } finally {
+            lease?.release()
           }
-        } finally {
-          lease?.release()
-        }
-      })
+        },
+      )
     })
   }
 
@@ -159,11 +168,7 @@ export class Enrollment {
     const keyId = text(field(body, 'ssh_key_id'))
     if (authMethod === 'private_key' && keyId) {
       if (!UUID.test(keyId)) throw new HttpError(422, 'key_not_found')
-      const key = (
-        await this.deps.db.query<{ secret_ciphertext: string }>('select secret_ciphertext from ssh_keys where id=$1', [
-          keyId,
-        ])
-      ).rows[0]
+      const key = (await secretForConnection(this.deps.db, keyId)).rows[0]
       if (!key) throw new HttpError(422, 'key_not_found')
       secret = this.deps.secrets.decrypt(key.secret_ciphertext)
     } else if (

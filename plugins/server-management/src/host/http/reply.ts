@@ -1,14 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { HttpError } from './host/http/error.ts'
+import { HttpError } from '../errors.ts'
 
 export function sendJson(response: ServerResponse, status: number, body: unknown): void {
-  response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+  response.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+  })
   response.end(JSON.stringify(body))
 }
 
 export function cookieHeader(request: IncomingMessage): string {
   const value = request.headers.cookie
-  return Array.isArray(value) ? value.join('; ') : value ?? ''
+  return Array.isArray(value) ? value.join('; ') : (value ?? '')
 }
 
 export async function readJson(request: IncomingMessage): Promise<unknown> {
@@ -22,13 +25,4 @@ export async function readJson(request: IncomingMessage): Promise<unknown> {
   }
   if (chunks.length === 0) return {}
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
-}
-
-export function field(body: unknown, name: string): unknown {
-  if (body === null || typeof body !== 'object') return undefined
-  return (body as Record<string, unknown>)[name]
-}
-
-export function text(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
 }

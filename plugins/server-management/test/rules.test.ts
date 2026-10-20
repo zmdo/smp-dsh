@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { keyInUse, retestAfterEdit, shouldRetest, type RetestSnap } from '../src/jobs.ts'
-import { omitSecrets } from '../src/records.ts'
+import { omitSecrets } from '../src/host/servers/service.ts'
 import { parsePs, parseSample } from '../src/parse.ts'
 import { chosenRegion, privatePlace } from '../src/region.ts'
 

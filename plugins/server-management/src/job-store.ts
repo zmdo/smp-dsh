@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { commitBinding, finishPreflight } from './changes.ts'
+import { commitBinding, finishPreflight } from './host/changes/service.ts'
 import type { Db, DbClient } from './host/db.ts'
 import { digest } from './recipe.ts'
 import type { PreparedPlan } from './shared/changes.ts'

@@ -1,5 +1,6 @@
-import { routeChanges } from '../src/change-routes.ts'
-import { createChangePlan, readChangePlan, confirmChangePlan, controlPlan } from '../src/changes.ts'
+import { createServer as registerServer, updateServer } from '../src/host/servers/service.ts'
+import { routeChanges } from '../src/host/http/changes.ts'
+import { createChangePlan, readChangePlan, confirmChangePlan, controlPlan } from '../src/host/changes/service.ts'
 import { queueDetection, scheduleChanges } from '../src/upgrades.ts'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -14,12 +15,14 @@ import { GENERAL_TYPE, VACANT_TYPE } from '../src/shared/definitions.ts'
 import type { DefinitionBundle } from '../src/shared/contracts.ts'
 import { errorPayload } from '../src/shared/i18n.ts'
 import { ServerError } from '../src/shared/errors.ts'
-import { routeGroups, routeServers, routeTypes } from '../src/records.ts'
+import { routeGroups } from '../src/host/http/groups.ts'
+import { routeServers } from '../src/host/http/servers.ts'
+import { routeTypes } from '../src/host/http/catalog.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
-import { Enrollment } from '../src/enrollment.ts'
+import { Enrollment } from '../src/host/servers/enrollment.ts'
 import { executeJob } from '../src/runner.ts'
 import { ServerManagement } from '../src/service.ts'
-import { HttpError } from '../src/host/http/error.ts'
+import { HttpError } from '../src/host/errors.ts'
 import { type Db } from '../src/host/db.ts'
 import { claimNext, enqueue, finishJob, phase, type JobRecord } from '../src/job-store.ts'
 import type { SshSession } from '../src/ssh.ts'
@@ -112,6 +115,48 @@ test(
         releaseKey: '24.04',
       },
       ...extra,
+    })
+    await t.test('registration and edits roll back configuration, policies and jobs when enqueue fails', async () => {
+      const failure = new Error('Injected queue write failure')
+      const failingDb: Db = {
+        query: db.query.bind(db),
+        async connect() {
+          const client = await db.connect()
+          return {
+            connect: async () => { throw new Error('Unexpected nested transaction') },
+            release: () => client.release(),
+            async query(sql, params) {
+              if (/insert into server_jobs\b/i.test(sql)) throw failure
+              return client.query(sql, params)
+            },
+          }
+        },
+      }
+      const broken = { ...deps, db: failingDb }
+      const counts = async () => (await db.query(`select
+        (select count(*) from servers) as servers,
+        (select count(*) from server_runtime) as runtime,
+        (select count(*) from server_software_policies) as policies,
+        (select count(*) from server_jobs) as jobs`)).rows[0]
+      const before = await counts()
+      await assert.rejects(registerServer(broken, input({ type_key: GENERAL_TYPE, install_required_software: true })), error => error === failure)
+      assert.deepEqual(await counts(), before)
+      const created = await api('POST', '/servers', input({ type_key: GENERAL_TYPE }))
+      assert.equal(created.status, 201)
+      const id = created.body.id as string
+      const snapshot = async () => ({
+        server: (await db.query('select * from servers where id=$1', [id])).rows[0],
+        runtime: (await db.query('select * from server_runtime where server_id=$1', [id])).rows[0],
+        policies: (await db.query('select * from server_software_policies where server_id=$1 order by software_key', [id])).rows,
+        counts: await counts(),
+      })
+      const original = await snapshot()
+      await assert.rejects(updateServer(broken, id, {
+        name: 'should roll back', host: '192.0.2.250',
+        software_policies: [{ software_key: 'builtin/docker-engine', restriction: {kind:'minimum',version:'28'},detect_updates:true }],
+      }), error => error === failure)
+      assert.deepEqual(await snapshot(), original)
+      assert.equal((await api('DELETE', '/servers/' + id)).status, 204)
     })
     const script = join(directory, 'recipe.sh')
     await writeFile(script, 'protocol fixture')

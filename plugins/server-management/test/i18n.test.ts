@@ -16,11 +16,13 @@ import {
 import { pageLabel } from '../src/client/shared/page-label.ts'
 import { displayError, displayJobError } from '../src/shared/i18n.ts'
 import { responseError } from '../src/client/shared/api.ts'
-import { routeGroups, routeKeys, routeServers } from '../src/records.ts'
-import { HttpError } from '../src/host/http/error.ts'
+import { routeGroups } from '../src/host/http/groups.ts'
+import { routeKeys } from '../src/host/http/keys.ts'
+import { routeServers } from '../src/host/http/servers.ts'
+import { HttpError } from '../src/host/errors.ts'
 import { type Db } from '../src/host/db.ts'
 import { DefinitionRegistry } from '../src/registry.ts'
-import { Enrollment } from '../src/enrollment.ts'
+import { Enrollment } from '../src/host/servers/enrollment.ts'
 import { builtinCatalog } from './fixtures.ts'
 
 test('Chinese and English cover the same messages and placeholders', () => {

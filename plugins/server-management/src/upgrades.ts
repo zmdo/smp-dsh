@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { transaction } from './changes.ts'
+import { transaction } from './host/db.ts'
 import type { Db } from './host/db.ts'
 import type { JobRecord } from './job-store.ts'
 import { owned } from './job-store.ts'
