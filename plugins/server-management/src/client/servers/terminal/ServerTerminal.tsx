@@ -1,5 +1,5 @@
 import { Panel } from '@smp/console-kit'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ServerError } from '../../../shared/errors.ts'
 import { displayError, serverCopy } from '../../../shared/i18n.ts'
 export function ServerTerminal(props: {
@@ -12,6 +12,7 @@ export function ServerTerminal(props: {
   const copy = serverCopy(active).ui
   const [text, setText] = useState('')
   const [error, setError] = useState<ServerError | null>(null)
+  const hostRef = useRef<HTMLPreElement>(null)
   useEffect(() => {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const socket = new WebSocket(
@@ -26,7 +27,7 @@ export function ServerTerminal(props: {
     socket.onerror = () => {
       setError(new ServerError('terminal_failed'))
     }
-    const host = document.querySelector<HTMLElement>('.terminal-host')
+    const host = hostRef.current
     const sendResize = () => {
       if (socket.readyState !== WebSocket.OPEN || host === null) return
       const cols = Math.min(300, Math.max(20, Math.floor(host.clientWidth / 8)))
@@ -59,6 +60,12 @@ export function ServerTerminal(props: {
       socket.close()
     }
   }, [props.id])
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (host !== null) host.scrollTop = host.scrollHeight
+  }, [text])
+
   return (
     <Panel
       title={copy.terminal}
@@ -74,6 +81,7 @@ export function ServerTerminal(props: {
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       <div className="terminal-page">
         <pre
+          ref={hostRef}
           className="terminal-host"
           tabIndex={0}
           style={{ color: '#f2f3f5', whiteSpace: 'pre-wrap', margin: 0 }}

@@ -212,7 +212,8 @@
   flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
 }
 .smp-console .smp-server-terminal-panel .terminal-host {
-  flex: 1; min-height: 0; height: auto; overflow: hidden; box-sizing: border-box;
+  flex: 1; min-height: 0; height: auto; overflow-x: hidden; overflow-y: auto;
+  overscroll-behavior: contain; box-sizing: border-box;
 }
 .smp-container-meta {
   display: flex; flex-wrap: wrap; gap: 24px; padding: 12px 0 16px; border-bottom: 1px solid var(--line);
