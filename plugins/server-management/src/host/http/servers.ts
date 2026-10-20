@@ -4,7 +4,6 @@ import { HttpError } from '../errors.ts'
 import { UUID } from '../input.ts'
 import { serverList, serverRead } from '../servers/list.ts'
 import {
-  containersOf,
   createServer,
   deleteServer,
   enqueueExisting,
@@ -52,8 +51,6 @@ export async function routeServers(
     response.end()
     return
   }
-  if (parts.length === 2 && parts[1] === 'containers' && request.method === 'GET')
-    return sendJson(response, 200, await containersOf(deps.db, id))
   if (parts.length === 2 && parts[1] === 'extensions' && request.method === 'GET') {
     const server = await serverRead(deps, id)
     if (server === undefined) throw new HttpError(404, 'server_not_found')

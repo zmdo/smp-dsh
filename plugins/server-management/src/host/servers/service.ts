@@ -369,10 +369,6 @@ export function omitSecrets(row: Record<string, unknown>): Record<string, unknow
   return visible
 }
 
-export async function containersOf(db: Db, id: string): Promise<unknown[]> {
-  if ((await servers.findServer(db, id)).rows.length === 0) throw new HttpError(404, 'server_not_found')
-  return (await servers.containers(db, id)).rows
-}
 
 async function regionOf(host: string, value: unknown): Promise<string> {
   const written = typeof value === 'string' ? value : ''
