@@ -47,7 +47,7 @@ test('public types enter the user catalog and inherited system groups, but not e
   const catalog = definitions.defaultOptions().types
   assert.deepEqual(
     catalog.map((type) => type.key),
-    ['builtin/vacant', 'builtin/general', '@test/public/database'],
+    ['builtin/vacant', '@test/public/database'],
   )
   assert.equal(definitions.defaultOptions().default_type_key, 'builtin/vacant')
   const inherited = definitions.view({
@@ -76,7 +76,7 @@ test('public types enter the user catalog and inherited system groups, but not e
   await registration.dispose()
   assert.deepEqual(
     definitions.defaultOptions().types.map((type) => type.key),
-    ['builtin/vacant', 'builtin/general'],
+    ['builtin/vacant'],
   )
   await definitions.close()
 })
@@ -98,7 +98,7 @@ test('invalid and duplicate public type references fail registration', async () 
   await assert.rejects(duplicate.ready, { code: 'type_definition_conflict' })
   assert.deepEqual(
     definitions.defaultOptions().types.map((type) => type.key),
-    ['builtin/vacant', 'builtin/general'],
+    ['builtin/vacant'],
   )
   await definitions.close()
 })

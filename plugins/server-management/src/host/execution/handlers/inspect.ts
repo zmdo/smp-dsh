@@ -1,7 +1,7 @@
 import { ServerError } from '../../../shared/errors.ts'
 import { errorPayload } from '../../../shared/i18n.ts'
 import { preparePlan } from '../../recipes/planning.ts'
-import { detectSoftware, inspectContainers } from '../../recipes/software.ts'
+import { detectSoftware } from '../../recipes/software.ts'
 import { scrubValue } from '../../remote/parse.ts'
 import { saveObservation } from '../../servers/persistence/observation-repository.ts'
 import { extensionIssues, runExtensionInspections, scrubExtensionResults } from '../../extensions/inspect.ts'
@@ -16,10 +16,6 @@ export async function inspectJob(context: WorkerContext): Promise<void> {
     lease && probe.state === 'detected'
       ? await detectSoftware(session, lease.components, probe.os)
       : undefined
-  const observation =
-    verified === 'matched' && probe.state === 'detected' && probe.os.family !== 'builtin/windows-server'
-      ? await inspectContainers(session)
-      : { state: 'unavailable' as const, docker: null, compose: null }
   const extensionResults = context.extensions ? await runExtensionInspections(context, context.extensions) : []
   await owned(db, job, (client) =>
     saveObservation(
@@ -27,7 +23,6 @@ export async function inspectJob(context: WorkerContext): Promise<void> {
       server.id,
       job.id,
       status ? scrubValue(status, secret) : undefined,
-      scrubValue(observation, secret),
       '',
       lease?.components ?? [],
     ),
@@ -42,8 +37,6 @@ export async function inspectJob(context: WorkerContext): Promise<void> {
           errorPayload(new ServerError('inspection_software_failed', { software, detail: item.detail })),
         )
     }
-    if (observation.state === 'error')
-      issues.push(errorPayload(new ServerError('containers_failed', { detail: observation.detail ?? '' })))
     issues.push(...extensionIssues(extensionResults))
     if (issues.length) {
       await finishJob(db, job, 'failed', '巡检发现检测异常。', {

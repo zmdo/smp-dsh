@@ -44,7 +44,6 @@ export interface TypeOptions {
 }
 
 export const VACANT_TYPE = 'builtin/vacant'
-export const GENERAL_TYPE = 'builtin/general'
 
 export function sameSoftware(left: ServerTypeView, right: ServerTypeView): boolean {
   const signature = (type: ServerTypeView) =>

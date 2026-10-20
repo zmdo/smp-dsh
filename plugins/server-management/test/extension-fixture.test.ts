@@ -45,7 +45,7 @@ test('the formal fixture contributes one database panel, setting, query and insp
   const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, runtime)
   await registration.ready
   assert.deepEqual(
-    extensions.catalogFor(server('builtin/general')).map((entry) => entry.key),
+    extensions.catalogFor(server('builtin/vacant')).map((entry) => entry.key),
     [],
   )
   assert.deepEqual(
@@ -65,7 +65,7 @@ test('the formal fixture contributes one database panel, setting, query and insp
   assert.ok(inspection)
   assert.match(inspection.script.body, /ok/)
   await assert.rejects(
-    extensions.runQuery(server('builtin/general'), '@test/extension-fixture/database-status', new URLSearchParams()),
+    extensions.runQuery(server('builtin/vacant'), '@test/extension-fixture/database-status', new URLSearchParams()),
     { code: 'extension_unavailable' },
   )
   await registration.dispose()

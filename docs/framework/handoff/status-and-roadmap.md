@@ -19,7 +19,7 @@
 
 ## 下一项明确工作
 
-按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)继续步骤 7。步骤 1～6 已完成；下一步是容器插件迁出与统一切换。
+按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)继续步骤 8。步骤 1～7 已完成。
 
 用户已确认公共类型开放范围、同服务器内终端保留、容器清单默认自动采集，以及仅适用类型显示插件入口。无需重复确认这些产品行为；实施期间发现新冲突或缺失约束时再提出具体问题。
 

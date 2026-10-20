@@ -17,28 +17,28 @@ const bundle: ServerExtensionBundle = {
     {
       key: 'database',
       name: { zh: '数据库管理', en: 'Database management' },
-      appliesTo: { types: ['builtin/general'] },
+      appliesTo: { types: ['builtin/vacant'] },
     },
   ],
   settings: [
     {
       key: 'database-settings',
       name: { zh: '数据库设置', en: 'Database settings' },
-      appliesTo: { types: ['builtin/general'] },
+      appliesTo: { types: ['builtin/vacant'] },
     },
   ],
   queries: [
     {
       key: 'database-status',
       name: { zh: '数据库状态', en: 'Database status' },
-      appliesTo: { types: ['builtin/general'] },
+      appliesTo: { types: ['builtin/vacant'] },
     },
   ],
   inspections: [
     {
       key: 'database-check',
       name: { zh: '数据库检查', en: 'Database check' },
-      appliesTo: { types: ['builtin/general'] },
+      appliesTo: { types: ['builtin/vacant'] },
       script: {
         path: fileURLToPath(new URL('./fixtures/inspection.sh', import.meta.url)),
         interpreter: 'posix-sh',
@@ -56,8 +56,8 @@ test('extension metadata is filtered by type and is removed on dispose', async (
   const extensions = new ServerExtensionRegistry(definitions)
   const registration = extensions.registerExtensions(bundle)
   await registration.ready
-  assert.equal(extensions.list('builtin/general').length, 4)
-  assert.equal(extensions.list('builtin/vacant').length, 0)
+  assert.equal(extensions.list('builtin/vacant').length, 4)
+  assert.equal(extensions.list('@test/other/type').length, 0)
   assert.equal(extensions.list().length, 4)
   const revision = extensions.catalogRevision()
   await registration.dispose()
@@ -104,7 +104,7 @@ test('runtime query and settings handlers stay behind the metadata catalog', asy
     },
   })
   await registration.ready
-  const server = { type_key: 'builtin/general', declared_os: { kind: 'custom', text: 'test' } } as ServerDto
+  const server = { type_key: 'builtin/vacant', declared_os: { kind: 'custom', text: 'test' } } as ServerDto
   assert.deepEqual(await extensions.runQuery(server, '@test/ext/database-status', new URLSearchParams()), { ok: true })
   assert.deepEqual(extensions.settings(server, '@test/ext/database-settings').runtime.defaults, { collect: true })
   await registration.dispose()

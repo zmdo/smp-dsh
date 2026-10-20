@@ -292,8 +292,6 @@ function enrich(
     os_verification: verification,
     type_supported_os: type.supportedOs,
     type_os_compatible: compatible,
-    docker_version: observations?.get('builtin/docker-engine')?.product_version ?? null,
-    compose_version: observations?.get('builtin/docker-compose')?.product_version ?? null,
     type_name_i18n: type.name_i18n,
     type_available: available,
     required_software: required,

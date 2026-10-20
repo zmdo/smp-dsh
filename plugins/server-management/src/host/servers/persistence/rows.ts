@@ -97,16 +97,6 @@ export interface ServerSecret {
   config_revision: string | number
 }
 
-export interface ContainerRecord {
-  container_id: string
-  name: string
-  image: string
-  status: string
-  ports: string
-  managed: boolean
-  strategy_slug: string | null
-  observed_at: Date
-}
 
 export interface SoftwarePolicyRecord extends SoftwarePolicy {
   server_id: string

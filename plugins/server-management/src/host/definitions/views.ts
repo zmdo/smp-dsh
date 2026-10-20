@@ -1,6 +1,5 @@
 import type { SoftwareDefinition } from '../../shared/contracts/definitions.ts'
 import {
-  GENERAL_TYPE,
   VACANT_TYPE,
   type ServerTypeView,
   type SoftwareView,
@@ -54,12 +53,6 @@ export function builtinTypes(catalog: readonly Component[]): readonly ServerType
       name_i18n: { zh: '空置服务器', en: 'Vacant server' },
       software: [],
       supportedOs: { kind: 'all' },
-    },
-    {
-      key: GENERAL_TYPE,
-      name_i18n: { zh: '普通服务器', en: 'General-purpose server' },
-      supportedOs: { kind: 'explicit', selectors: APT_SOFTWARE_OS },
-      software: requiredSoftware(catalog, ['docker', 'compose']).map(softwareView),
     },
   ]
 }

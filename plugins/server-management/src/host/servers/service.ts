@@ -28,15 +28,10 @@ type ServerDeps = Pick<Deps, 'db' | 'secrets' | 'definitions' | 'freshnessMs'>
 export async function serverDetail(deps: ServerDeps, id: string): Promise<unknown> {
   const server = await serverRead(deps, id)
   if (server === undefined) throw new HttpError(404, 'server_not_found')
-  const containers = await servers.containers(deps.db, id)
-  const scan = (await servers.containerScan(deps.db, id)).rows[0]
   const policies = (await servers.policies(deps.db, id)).rows
   return {
     ...server,
     software_policies: policies,
-    containers: containers.rows,
-    containers_state: scan?.state ?? 'unknown',
-    containers_checked_at: scan?.last_success_at ?? null,
   }
 }
 

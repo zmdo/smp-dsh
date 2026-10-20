@@ -4,7 +4,6 @@ import { ServerError } from '../../shared/errors.ts'
 import type { OsSelector } from '../../shared/operating-systems.ts'
 import { APT_SOFTWARE_OS } from '../../shared/operating-systems.ts'
 import { stableVersions, type VersionAdapter, type VersionRule } from '../../shared/versions.ts'
-import { aptScript } from '../recipes/builtin.ts'
 import { digest } from '../recipes/canonical.ts'
 import { type LoadedScript } from '../recipes/script.ts'
 
@@ -37,39 +36,7 @@ export function componentRevision(component: Component): string {
 }
 export class CatalogError extends ServerError {}
 export function builtinCatalog(): Component[] {
-  const script = aptScript()
-  return ['docker', 'compose'].map((id, index) => ({
-    id,
-    software_key: index === 0 ? 'builtin/docker-engine' : 'builtin/docker-compose',
-    name: index === 0 ? 'Docker' : 'Docker Compose',
-    summary: '',
-    name_i18n: {
-      zh: index === 0 ? 'Docker' : 'Docker Compose',
-      en: index === 0 ? 'Docker' : 'Docker Compose',
-    },
-    summary_i18n: { zh: '使用已配置的 apt 软件源安装。', en: 'Install from configured apt repositories.' },
-    supportedOs: APT_SOFTWARE_OS,
-    requires: index === 0 ? [] : ['docker'],
-    recipe: `builtin/${id}-apt`,
-    versions: { kind: 'any' },
-    adapter: stableVersions,
-    scripts: {
-      detect: script,
-      listCandidates: script,
-      resolve: script,
-      execute: script,
-      verify: script,
-      recover: script,
-    },
-    actions: ['install', 'upgrade', 'replace'],
-    revision: digest({
-      software: id,
-      supportedOs: APT_SOFTWARE_OS,
-      script,
-      requires: index === 0 ? [] : ['docker'],
-      versions: stableVersions.revision,
-    }),
-  }))
+  return []
 }
 export function normalizeSelection(catalog: readonly Component[], ids: readonly string[]): string[] {
   const selected = new Set(ids)

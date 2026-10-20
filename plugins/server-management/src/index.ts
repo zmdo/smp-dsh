@@ -39,7 +39,7 @@ export type {
   ExtensionSettingsSection,
   ServerExtensionBundle,
 } from './shared/contracts/extensions.ts'
-export { GENERAL_TYPE, VACANT_TYPE } from './shared/definitions.ts'
+export { VACANT_TYPE } from './shared/definitions.ts'
 export type {
   DeclaredOs,
   DetectedOs,

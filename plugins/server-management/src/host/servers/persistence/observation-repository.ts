@@ -84,56 +84,9 @@ export async function saveObservation(
   serverId: string,
   jobId: string,
   status: SoftwareStatus | undefined,
-  observation: ContainerObservation,
   output: string,
   components: readonly Component[],
 ): Promise<void> {
   const client = db
   if (status !== undefined) await saveComponentStatus(client, serverId, status, components)
-  for (const [id, version] of [
-    ['docker', observation.docker],
-    ['compose', observation.compose],
-  ] as const) {
-    if (version === null || status?.[id]) continue
-    await saveComponentStatus(
-      client,
-      serverId,
-      { [id]: { state: 'installed', installed: true, version, detail: '' } },
-      [
-        {
-          id,
-          software_key: id === 'docker' ? 'builtin/docker-engine' : 'builtin/docker-compose',
-          recipe: 'builtin/container-observation',
-        },
-      ],
-    )
-  }
-  if (observation.state === 'ready') {
-    await client.query<never>('delete from server_containers where server_id = $1', [serverId])
-    for (const item of observation.containers ?? [])
-      await client.query<never>(
-        `insert into server_containers (id,server_id,container_id,name,image,status,ports,managed,strategy_slug,observed_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())`,
-        [
-          randomUUID(),
-          serverId,
-          item.containerId,
-          item.name,
-          item.image,
-          item.status,
-          item.ports,
-          item.managed,
-          item.strategySlug,
-        ],
-      )
-  }
-  await client.query<never>(
-    `insert into server_container_scans(server_id,state,checked_at,last_success_at,error) values($1,$2,now(),case when $2='ready' then now() else null end,$3)
-      on conflict(server_id) do update set state=excluded.state,checked_at=excluded.checked_at,last_success_at=coalesce(excluded.last_success_at,server_container_scans.last_success_at),error=excluded.error`,
-    [
-      serverId,
-      observation.state === 'error' ? 'failed' : observation.state,
-      observation.detail ? JSON.stringify({ detail: observation.detail }) : null,
-    ],
-  )
 }

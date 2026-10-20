@@ -41,18 +41,12 @@ export interface ServerDto {
   host_fingerprint: string | null
   reachability: string
   status: DisplayStatus
-  docker_version: string | null
-  compose_version: string | null
   cpu_percent: number | string | null
   mem_total_bytes: number | string | null
   mem_used_bytes: number | string | null
   disk_total_bytes: number | string | null
   disk_used_bytes: number | string | null
   last_checked_at: string | null
-  container_count?: number | null
-  containers_state: string
-  containers_checked_at: string | null
-  containers?: ContainerDto[]
 }
 
 export interface ContainerDto {

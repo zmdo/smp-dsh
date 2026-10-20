@@ -1,21 +1,7 @@
 import { type Db } from '../../database/connection.ts'
 import type { InsertServerInput, ServerPatch } from './inputs.ts'
-import type { ContainerRecord, ContainerScanRow, ServerBindingRow, SoftwarePolicyRecord } from './rows.ts'
+import type { ServerBindingRow, SoftwarePolicyRecord } from './rows.ts'
 import { type EditableServer } from './rows.ts'
-
-export function containers(db: Db, id: string) {
-  return db.query<ContainerRecord>(
-    'select container_id, name, image, status, ports, managed, strategy_slug, observed_at from server_containers where server_id = $1 order by name',
-    [id],
-  )
-}
-
-export function containerScan(db: Db, id: string) {
-  return db.query<ContainerScanRow>(
-    'select state,last_success_at from server_container_scans where server_id=$1',
-    [id],
-  )
-}
 
 export function policies(db: Db, id: string) {
   return db.query<SoftwarePolicyRecord>(
