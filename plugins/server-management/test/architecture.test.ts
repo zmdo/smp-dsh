@@ -20,7 +20,10 @@ test('client and shared modules depend only on their declared boundaries, includ
         const specifier = match[2]!
         if (!specifier.startsWith('.')) {
           assert.equal(scope, 'client', `${file} must not import ${specifier}`)
-          assert.ok(['react', '@smp/console-kit'].includes(specifier), `${file}: ${specifier}`)
+          assert.ok(
+            ['react', 'react/jsx-runtime', '@smp/console-kit', '@xterm/xterm', '@xterm/addon-fit', '@xterm/xterm/css/xterm.css'].includes(specifier),
+            `${file}: ${specifier}`,
+          )
           continue
         }
         const target = path.relative(sourceRoot, path.resolve(path.dirname(file), specifier))

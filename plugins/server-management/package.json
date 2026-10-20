@@ -38,6 +38,8 @@
     "@deepseek-ai/cordis": "~4.0.5-alpha.2",
     "@deepseek-ai/schemastery": "~3.18.5-alpha.2",
     "@smp/console-kit": "file:../../packages/console-kit",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "ssh2": "^1.16.0",
     "ws": "^8.18.3"
   },

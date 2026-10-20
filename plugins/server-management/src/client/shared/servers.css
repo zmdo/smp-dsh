@@ -215,6 +215,11 @@
   flex: 1; min-height: 0; height: auto; overflow-x: hidden; overflow-y: auto;
   overscroll-behavior: contain; box-sizing: border-box;
 }
+.smp-console .smp-server-terminal-panel .terminal-page { position: relative; }
+.smp-console .smp-server-terminal-panel .terminal-hint {
+  position: absolute; left: 20px; top: 20px; pointer-events: none;
+  color: #8b949e; font: 13px Consolas, "Cascadia Mono", monospace;
+}
 .smp-container-meta {
   display: flex; flex-wrap: wrap; gap: 24px; padding: 12px 0 16px; border-bottom: 1px solid var(--line);
 }
