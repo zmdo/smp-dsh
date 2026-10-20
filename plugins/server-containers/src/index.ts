@@ -35,7 +35,7 @@ const recipe = (key: string, software: string): RecipeDefinition => ({
   },
 })
 
-const definitions: DefinitionBundle = {
+export const containerDefinitions: DefinitionBundle = {
   contractVersion: 2,
   owner,
   software: [
@@ -57,7 +57,7 @@ const definitions: DefinitionBundle = {
   publicTypes: [{ type, order: 10 }],
 }
 
-const extensions: ServerExtensionBundle = {
+export const containerExtensions: ServerExtensionBundle = {
   contractVersion: 1,
   owner,
   panels: [
@@ -69,7 +69,7 @@ const extensions: ServerExtensionBundle = {
   ],
   queries: [
     {
-      key: 'containers',
+      key: 'container-list',
       name: { zh: '容器清单', en: 'Container list' },
       appliesTo: { types: [type] },
     },
@@ -122,12 +122,12 @@ interface Ctx {
 export const inject = ['serverManagement', 'database']
 
 export async function apply(ctx: Ctx): Promise<void> {
-  const definitionsReady = ctx.serverManagement.registerDefinitions(definitions)
+  const definitionsReady = ctx.serverManagement.registerDefinitions(containerDefinitions)
   await definitionsReady.ready
   const extensionRuntime: ServerExtensionRuntime = {
     ...runtime,
     queries: {
-      containers: async (server) => ({
+      'container-list': async (server) => ({
         rows: (await ctx.database.pool.query(
           'select container_id,name,image,status,ports from server_containers where server_id=$1 order by name',
           [server.id],
@@ -135,6 +135,6 @@ export async function apply(ctx: Ctx): Promise<void> {
       }),
     },
   }
-  const extensionsReady = ctx.serverManagement.registerServerExtensions(extensions, extensionRuntime)
+  const extensionsReady = ctx.serverManagement.registerServerExtensions(containerExtensions, extensionRuntime)
   await extensionsReady.ready
 }

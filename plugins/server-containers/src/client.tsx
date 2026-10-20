@@ -25,7 +25,7 @@ function ContainersPanel(props: OwnerProps) {
   const [containers, setContainers] = useState<{ container_id: string; name: string; image: string; status: string; ports: string }[]>([])
   useEffect(() => {
     let stopped = false
-    void props.api?.data(server.id, `${owner}/containers`).then((value) => {
+    void props.api?.data(server.id, `${owner}/container-list`).then((value) => {
       if (!stopped) setContainers(((value as { rows?: typeof containers }).rows ?? []) as typeof containers)
     })
     return () => { stopped = true }
@@ -72,6 +72,6 @@ function ContainerSettings(props: OwnerProps) {
 export const inject = ['slots']
 
 export function apply(ctx: SlotCtx): void {
-  ctx.slots.inject(PANEL, () => ctx.slots.register({ name: PANEL, key: `${owner}/containers` }, ContainersPanel))
+  ctx.slots.inject(PANEL, () => ctx.slots.register({ name: PANEL, key: `${owner}/container-list` }, ContainersPanel))
   ctx.slots.inject(SETTINGS, () => ctx.slots.register({ name: SETTINGS, key: `${owner}/container-settings` }, ContainerSettings))
 }
