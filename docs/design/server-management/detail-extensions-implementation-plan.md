@@ -364,6 +364,6 @@
 - 状态：进行中。核心基础设施已落地，但尚未满足完整验收。
 - 已实现：`ServersPage` 声明 `server-management.detail.panel`、`server-management.settings.section` 两个 keyed root 槽；新增 `registerServerPanel()`、`registerSettingsSection()` 和受约束的扩展 API 客户端。工作区从 `/console-api/servers/:id/extensions` 读取主机目录，按类型／系统适用条件追加侧栏面板和配置栏目；贡献消失时回到基础详情，重复登记显示冲突，组件异常由独立错误边界隔离。
 - 已实现：`GET /console-api/servers/:id/extensions`、`extension-data`、`extension-settings`（GET/PUT）和 `extension-inspections` 目录。宿主扩展运行时支持只读查询和非敏感观察配置；新增 `server_extension_settings` 迁移和带修订号的条件保存，冲突返回 409。`sensitive` 配置在注册时拒绝，`affectsExecution` 配置禁止普通保存并要求计划／复核路径。配置栏目有通用草稿、保存、失败和冲突重载外壳，插件组件只需编辑值。
-- 测试：全仓构建通过；服务器管理 93 项，88 通过、5 项数据库环境跳过、0 失败。新增扩展运行时测试；`types.integration` 已把 `0017_server_extension_settings.sql` 纳入数据库测试迁移列表。浏览器确认页面在声明子槽后正常加载，`ServersPage` 收到 `renderSlot` 和 `slots`，现有五个面板不回归。
-- 未完成：没有正式测试插件／端到端面板与配置栏目；`affectsExecution` 只有拒绝路径，没有计划绑定／复核接口；没有真实 PostgreSQL 的扩展目录／配置集成测试；配置保存后的扩展入口刷新和双页面并发仍需验证。
+- 测试：全仓构建通过；服务器管理 94 项，88 通过、6 项数据库环境跳过、0 失败。新增扩展运行时测试和带修订号条件写入的 PostgreSQL 集成测试（无数据库环境时跳过）；`types.integration` 已把 `0017_server_extension_settings.sql` 纳入数据库测试迁移列表。浏览器确认页面在声明子槽后正常加载，`ServersPage` 收到 `renderSlot` 和 `slots`，现有五个面板不回归。
+- 未完成：没有正式测试插件／端到端面板与配置栏目；`affectsExecution` 只有拒绝路径，没有计划绑定／复核接口；没有正式扩展 HTTP／目录集成测试（配置条件写入已有可跳过的 PostgreSQL 集成测试）；配置保存后的扩展入口刷新和双页面并发仍需验证。
 - 下一步：继续步骤 5，补测试插件、扩展配置通用保存状态和执行配置复核；通过后再进入步骤 6。
