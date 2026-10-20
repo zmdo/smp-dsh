@@ -39,7 +39,7 @@ export async function remoteOperation(
     30_000,
     { stdin: JSON.stringify({ operation, operationId, digest, steps }), outputLimitBytes: 1_048_576 },
   )
-  if (result.code !== 0) throw new ServerError('job_recovering', { detail: result.stderr.slice(-500) })
+  if (result.code !== 0) throw new ServerError('job_recovering', { detail: result.stderr.slice(-500), operation })
   let value: unknown
   try {
     value = JSON.parse(result.stdout)
