@@ -1,10 +1,10 @@
 # 步骤 8：容器插件与扩展体系验收清单
 
-- 状态：未开始
+- 状态：进行中；单项结果以[报告索引](00-INDEX.md)为准，下面未逐项勾选的模板不能代表全部尚未执行。
 - 分支：`ces/detail-extensions`
 - 对应计划：[服务器详情扩展与容器插件分步实施计划](../../design/server-management/detail-extensions-implementation-plan.md)
 - 测试类型：破坏性测试数据 + 真实 SSH 测试服务器
-- 开始时间：
+- 开始时间：2026-10-20 20:50 CST
 - 完成时间：
 
 ## 1. 验收目标

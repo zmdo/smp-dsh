@@ -1,5 +1,5 @@
 exec python3 -c '
-import sys,json,subprocess,re,hashlib,tempfile,os
+import sys,json,subprocess,re,hashlib,tempfile,os,pwd,grp
 r=json.load(sys.stdin)
 op=r['\''operation'\'']
 software=r['\''software'\'']
@@ -80,16 +80,34 @@ def resolve(target,action="install"):
   if line.startswith('\''Conf '\'') and line.split()[1] not in [p['\''name'\''] for p in result]: raise RuntimeError('\''Configuring an existing package requires confirmation'\'')
  if not any(p['\''name'\'']==root['\''name'\''] and p['\''version'\'']==root['\''version'\''] for p in result): raise RuntimeError('\''Target changed during preflight'\'')
  return result
-def add_docker_group():
+def planned_docker_user():
+ # Resolve runs as the SSH user; execute runs as root in the remote supervisor.
+ if software!='\''@smp/console-server-containers/docker-engine'\'':return None
+ user=pwd.getpwuid(os.geteuid())
+ return dict(name=user.pw_name,uid=user.pw_uid)
+def docker_user(change):
+ if software!='\''@smp/console-server-containers/docker-engine'\'':return None
+ target=change['\''payload'\''].get('\''dockerUser'\'')
+ if not isinstance(target,dict) or not isinstance(target.get('\''name'\''),str) or type(target.get('\''uid'\'')) is not int:
+  raise RuntimeError('\''Docker access user is missing from the plan; run preflight again'\'')
+ user=pwd.getpwnam(target['\''name'\''])
+ if user.pw_uid!=target['\''uid'\'']:raise RuntimeError('\''Docker access user changed after preflight'\'')
+ return user
+def docker_access_ready(user):
+ if user is None or user.pw_uid==0:return True
+ try:group=grp.getgrnam('\''docker'\'')
+ except KeyError:return False
+ return group.gr_gid in os.getgrouplist(user.pw_name,user.pw_gid)
+def add_docker_group(user):
+ if docker_access_ready(user):return []
+ # Only the confirmed account is changed, including sudoers-only accounts.
+ command=['\''usermod'\'','\''-aG'\'','\''docker'\'','\''--'\'',user.pw_name]
  try:
-  import grp
-  members=grp.getgrnam('\''sudo'\'').gr_mem
-  with open('\''/tmp/smp-docker-group.log'\'','\''a'\'') as f:f.write('\''uid='\''+str(os.geteuid())+'\'' members='\''+repr(members)+'\''\n'\'')
-  for user in members:
-   if os.geteuid()==0: run(['\''usermod'\'','\''-aG'\'','\''docker'\'',user])
-   else: run(['\''sudo'\'','\''-n'\'','\''usermod'\'','\''-aG'\'','\''docker'\'',user])
- except Exception as e:
-  with open('\''/tmp/smp-docker-group.log'\'','\''a'\'') as f:f.write('\''error='\''+repr(e)+'\''\n'\'')
+  run(command if os.geteuid()==0 else ['\''sudo'\'','\''-n'\'']+command)
+ except (OSError,RuntimeError) as e:
+  raise RuntimeError('\''Cannot add Docker access user '\''+user.pw_name+'\'' to docker: '\''+str(e)) from e
+ if not docker_access_ready(user):raise RuntimeError('\''Docker group membership was not applied for '\''+user.pw_name)
+ return [dict(kind='\''group-membership'\'',group='\''docker'\'',user=user.pw_name,uid=user.pw_uid)]
 def guarded_install(expected,current,action):
  hook="""import sys,json,subprocess,hashlib
 expected=json.load(open(sys.argv[1]))
@@ -108,17 +126,26 @@ for path in sys.stdin.read().splitlines():
   with open(hookpath,'\''w'\'') as f:f.write(hook)
   with open(planpath,'\''w'\'') as f:json.dump(expected,f)
   run(['\''apt-get'\'','\''--yes'\'','\''--no-install-recommends'\'','\''--no-remove'\'','\''-o'\'','\''APT::Get::AllowUnauthenticated=false'\'','\''-o'\'','\''DPkg::Pre-Install-Pkgs::=python3 '\''+hookpath+'\'' '\''+planpath,'\''install'\'']+(['\''--allow-downgrades'\''] if action=='\''replace'\'' else [])+[p['\''name'\'']+'\''='\''+p['\''version'\''] for p in current])
+package_mutation_started=False
 try:
  if op=='\''detect'\'': result=dict(operation=op,result=detect())
  elif op=='\''list-candidates'\'': result=dict(operation=op,candidates=candidates())
  elif op=='\''resolve'\'':
   action=r.get('\''action'\'','\''install'\'');packages=resolve(r['\''target'\''],action)
-  result=dict(operation=op,change=dict(software=software,recipe=r['\''recipe'\''],recipeRevision=r['\''recipeRevision'\''],action=action,before=r['\''installed'\''],target=r['\''target'\''],dependencies=[],effects=[dict(kind='\''service-restart'\'',description=dict(zh='\''软件变更可能重启服务或中断容器，请安排维护时间。'\'',en='\''Software changes may restart services or interrupt containers. Schedule a maintenance window.'\''))],payload=dict(packages=packages)),additionalRequirements=[])
+  user=planned_docker_user();payload=dict(packages=packages)
+  effects=[dict(kind='\''service-restart'\'',description=dict(zh='\''软件变更可能重启服务或中断容器，请安排维护时间。'\'',en='\''Software changes may restart services or interrupt containers. Schedule a maintenance window.'\''))]
+  if user is not None:
+   payload['\''dockerUser'\'']=user
+   if user['\''uid'\'']!=0:
+    label=user['\''name'\'']+'\'' (UID '\''+str(user['\''uid'\''])+'\'')'\''
+    effects.append(dict(kind='\''configuration'\'',description=dict(zh='\''确保 SSH 用户 '\''+label+'\'' 加入 docker 组，新 SSH 会话生效。'\'',en='\''Ensure SSH user '\''+label+'\'' belongs to the docker group; applies to new SSH sessions.'\'')))
+  result=dict(operation=op,change=dict(software=software,recipe=r['\''recipe'\''],recipeRevision=r['\''recipeRevision'\''],action=action,before=r['\''installed'\''],target=r['\''target'\''],dependencies=[],effects=effects,payload=payload),additionalRequirements=[])
  elif op=='\''execute'\'':
   change=r['\''change'\'']; expected=change['\''payload'\'']['\''packages'\'']; root=change['\''target'\'']['\''packages'\''][0]
+  user=docker_user(change)
   actual=detect()
   if actual['\''state'\'']=='\''installed'\'' and actual['\''targetIdentity'\'']==change['\''target'\'']['\''targetIdentity'\'']:
-   result=dict(operation=op,state='\''completed'\'',changes=[])
+   changed=[]
   else:
    if actual!=change['\''before'\'']: raise RuntimeError('\''Software changed after preflight'\'')
    current=resolve(change['\''target'\''],change['\''action'\''])
@@ -128,22 +155,26 @@ try:
     if not any(q['\''name'\'']==p['\''name'\''] for q in current):
      found=installed(p['\''name'\''])
      if not found or found[0]!=p['\''version'\'']: raise RuntimeError('\''Dependency changed'\'')
+   package_mutation_started=True
    guarded_install(expected,current,change['\''action'\''])
-   add_docker_group()
-   result=dict(operation=op,state='\''completed'\'',changes=expected)
+   changed=list(expected)
+  changed.extend(add_docker_group(user))
+  result=dict(operation=op,state='\''completed'\'',changes=changed)
  elif op=='\''verify'\'':
   actual=detect(); ok=actual['\''state'\'']=='\''installed'\'' and actual['\''targetIdentity'\'']==r['\''change'\'']['\''target'\'']['\''targetIdentity'\'']
   for p in r['\''change'\'']['\''payload'\'']['\''packages'\'']:
    found=installed(p['\''name'\''])
    if not found or found[0]!=p['\''version'\'']:ok=False
-  result=dict(operation=op,result=actual,healthy=ok)
+  access=docker_access_ready(docker_user(r['\''change'\'']))
+  result=dict(operation=op,result=actual,healthy=ok and access)
+  if not access:result.update(code='\''docker_group_membership_missing'\'',detail='\''Confirmed SSH user is not a member of the docker group'\'')
  elif op=='\''recover'\'': result=dict(operation=op,state='\''unknown'\'',changes=[],code='\''use_host_operation_record'\'')
  else: raise RuntimeError('\''Unknown operation'\'')
  print(json.dumps(result))
 except Exception as e:
  if op=='\''detect'\'': print(json.dumps(dict(operation=op,result=dict(state='\''unknown'\'',code='\''detection_failed'\'',detail=str(e)[-500:]))))
  elif op=='\''execute'\'':
-  changed=[p for p in r['\''change'\'']['\''payload'\'']['\''packages'\''] if installed(p['\''name'\'']) and installed(p['\''name'\''])[0]==p['\''version'\'']]
+  changed=[p for p in r['\''change'\'']['\''payload'\'']['\''packages'\''] if installed(p['\''name'\'']) and installed(p['\''name'\''])[0]==p['\''version'\'']] if package_mutation_started else []
   print(json.dumps(dict(operation=op,state='\''failed'\'',changes=changed,code='\''installation_failed'\'',detail=str(e)[-500:])))
  else: print(str(e)[-500:],file=sys.stderr);sys.exit(1)
 '

@@ -1,6 +1,6 @@
 # 步骤 8 验收执行记录
 
-- 执行时间：2026-10-20 20:50～21:05 CST
+- 首轮执行时间：2026-10-20 20:50～21:05 CST；最近补充：2026-10-21
 - 分支：`ces/detail-extensions`
 - 测试环境：本地控制台 + 4 台真实 SSH 测试服务器
 - 状态：进行中
@@ -18,7 +18,7 @@
 | 07 | CONT-03 运行容器 | 通过 | [07-CONT-03.md](07-CONT-03.md) |
 | 08 | CONT-04 停止容器 | 通过 | [08-CONT-04.md](08-CONT-04.md) |
 | 09 | CONT-05 Compose 容器 | 通过 | [09-CONT-05.md](09-CONT-05.md) |
-| 13 | SW-01 安装缺失软件 | 部分通过 | [13-SW-01.md](13-SW-01.md) / [17-SW-01-RETEST.md](17-SW-01-RETEST.md) / [18-SW-01-VALIDATION.md](18-SW-01-VALIDATION.md) / [19-SW-01-DIAGNOSTIC.md](19-SW-01-DIAGNOSTIC.md) |
+| 13 | SW-01 安装缺失软件 | 部分通过；加组修复的定向回归通过，完整首次安装待重测 | [13-SW-01.md](13-SW-01.md) / [17-SW-01-RETEST.md](17-SW-01-RETEST.md) / [18-SW-01-VALIDATION.md](18-SW-01-VALIDATION.md) / [19-SW-01-DIAGNOSTIC.md](19-SW-01-DIAGNOSTIC.md) / [20-SW-01-GROUP-FIX.md](20-SW-01-GROUP-FIX.md) |
 | 14 | SW-02 单台 Docker 升级 | 回测通过 | [14-SW-02.md](14-SW-02.md) / [16-SW-02-RETEST.md](16-SW-02-RETEST.md) |
 | 15 | SW-04 批量升级 | 阻塞 | [15-SW-04.md](15-SW-04.md) |
 | 10 | CONT-06 权限不足 | 回测通过 | [10-CONT-06.md](10-CONT-06.md) / [12-CONT-06-RETEST.md](12-CONT-06-RETEST.md) |
@@ -37,18 +37,21 @@
 
 ### CONT-06 权限不足
 
-- 任务失败，但服务器状态为 `unverified`，不是“需关注”。
-- 容器查询返回空行，不返回权限错误。
-- 面板因此可能显示“空清单”，无法解释 Docker 权限失败。
-- 需要修状态派生或扩展查询错误展示后重测。
+- 原问题：权限失败时服务器显示 `unverified`，面板可能误显示为空清单。
+- 已修复并回测，结果见[报告 12](12-CONT-06-RETEST.md)。
 
 ### CONT-01 面板诊断
 
-- 无 Docker 时状态和软件状态正确。
-- 容器面板的诊断文案尚未在浏览器确认；如仍显示空清单，需要同样修正。
+- 无 Docker 时的状态和面板诊断已回测，结果见[报告 11](11-CONT-01-RETEST.md)。
+
+### SW-01 Docker 用户组
+
+- 预检固定实际 SSH 用户及 UID，不再遍历 `sudo` 组；执行和校验确认成员关系，失败原因进入远端任务结果。
+- 自动化测试 20 项通过；`43.128.69.189` 上复现权限拒绝后，使用新配方恢复权限，新 SSH 会话验证通过。
+- 此次保持 Docker 版本不变，只完成用户组专项回归；完整首次安装仍待重测。详见[报告 20](20-SW-01-GROUP-FIX.md)。
 
 ## 下一步
 
-- 修权限不足状态和面板诊断。
+- 使用新预检计划完成 SW-01 的完整首次安装回归。
 - 继续 SW 安装／升级、GROUP 临时插件、PLUG 生命周期、CFG 并发、TASK 取消、TERM/UI。
 - 每完成一项补独立编号报告。

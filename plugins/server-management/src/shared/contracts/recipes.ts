@@ -96,12 +96,14 @@ export type RecipeResponse =
       readonly state: 'completed' | 'failed'
       readonly changes: readonly Json[]
       readonly code?: string
+      readonly detail?: string
     }
   | {
       readonly operation: 'verify'
       readonly result: SoftwareObservation
       readonly healthy: boolean
       readonly code?: string
+      readonly detail?: string
     }
   | {
       readonly operation: 'recover'

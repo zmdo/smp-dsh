@@ -9,6 +9,10 @@ def write(path,value):
  os.replace(temp,path)
 def read(path):
  with open(path) as f:return json.load(f)
+def failure(prefix,response):
+ # Preserve recipe diagnostics in the durable result, including partial mutations.
+ detail=': '.join(str(response[key]) for key in ('code','detail') if response.get(key))
+ return RuntimeError((prefix+(': '+detail if detail else ''))[:500])
 def command(script):
  if script['interpreter']!='posix-sh':raise RuntimeError('unsupported_interpreter')
  return ['sh','-c',script['body']]
@@ -50,11 +54,11 @@ def worker(request,path,lock):
      if actual!=change['before']:raise RuntimeError('software_drift')
      execution=run(step['execute'],dict(step['request'],operation='execute'))
      result['changes']=execution.get('changes',[]);write(path+'/result.json',record)
-     if execution.get('operation')!='execute' or execution.get('state')!='completed':raise RuntimeError('execution_failed')
+     if execution.get('operation')!='execute' or execution.get('state')!='completed':raise failure('execution_failed',execution)
     verification=run(step['verify'],dict(step['request'],operation='verify'))
     result['after']=verification.get('result')
     after=result['after'] or {}
-    if verification.get('operation')!='verify' or not verification.get('healthy') or after.get('state')!='installed' or not after.get('healthy') or after.get('targetIdentity')!=target['targetIdentity']:raise RuntimeError('verification_failed')
+    if verification.get('operation')!='verify' or not verification.get('healthy') or after.get('state')!='installed' or not after.get('healthy') or after.get('targetIdentity')!=target['targetIdentity']:raise failure('verification_failed',verification)
     result['state']='succeeded'
    write(path+'/result.json',record)
   record['state']='completed'

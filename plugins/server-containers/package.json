@@ -32,6 +32,7 @@
     }
   },
   "scripts": {
-    "build": "node ../../scripts/build-plugin.mjs"
+    "build": "node ../../scripts/build-plugin.mjs",
+    "test": "node --test test/*.test.ts"
   }
 }
