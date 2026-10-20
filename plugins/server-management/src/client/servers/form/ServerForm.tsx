@@ -26,11 +26,13 @@ export function ServerForm(props: ServerFormProps) {
 
   return (
     <Panel
-      title={props.editing ? copy.editServer : copy.registerServer}
+      title={props.title ?? (props.editing ? copy.editServer : copy.registerServer)}
       extra={
-        <button className="link" type="button" onClick={props.onCancel}>
-          {copy.back}
-        </button>
+        props.embedded ? undefined : (
+          <button className="link" type="button" onClick={props.onCancel}>
+            {copy.back}
+          </button>
+        )
       }
     >
       {error !== null && (

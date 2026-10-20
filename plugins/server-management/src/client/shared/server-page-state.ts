@@ -7,11 +7,33 @@ export interface ServerListView {
   needsUpgrade?: boolean
   order: 'name' | 'last_checked'
 }
+
+/** Panels inside one server's detail workspace. The local sidebar stays visible for all of them. */
+export type DetailPanel = 'detail' | 'tasks' | 'terminal' | 'containers' | 'config'
+
+export interface TaskViewState {
+  query: string
+  action: string
+  status: string
+  from: string
+  to: string
+  page: number
+  pageSize: number
+}
+
+export const DEFAULT_TASK_PAGE_SIZE = 10
+
+export function emptyTaskView(pageSize = DEFAULT_TASK_PAGE_SIZE): TaskViewState {
+  return { query: '', action: '', status: '', from: '', to: '', page: 1, pageSize }
+}
+
 export interface ServerPageSnapshot {
-  screen: 'list' | 'form' | 'detail' | 'terminal'
+  screen: 'list' | 'form' | 'detail'
   serverId: string
   editing: boolean
+  detailPanel: DetailPanel
   listView: ServerListView
+  taskViews: Record<string, TaskViewState>
   upgradeContext?: { serverId?: string; groupId?: string }
   upgradeView: {
     tab: 'suggestions' | 'plans' | 'records'
@@ -26,7 +48,9 @@ export function createServerPageState() {
     screen: 'list',
     serverId: '',
     editing: false,
+    detailPanel: 'detail',
     listView: { groupId: null, query: '', page: 1, pageSize: 10, status: '', order: 'name' },
+    taskViews: {},
     upgradeView: { tab: 'suggestions', page: 1, planId: '' },
   }
   const listeners = new Set<() => void>()
@@ -43,6 +67,22 @@ export function createServerPageState() {
       }
     },
     update,
+    /** A server switch starts at the base detail panel; its task filters remain under taskView(). */
+    openServer(serverId: string) {
+      update({ screen: 'detail', serverId, editing: false, detailPanel: 'detail' })
+    },
+    closeWorkspace() {
+      update({ screen: 'list', serverId: '', editing: false, detailPanel: 'detail' })
+    },
+    selectDetailPanel(detailPanel: DetailPanel) {
+      update({ detailPanel })
+    },
+    taskView(serverId: string): TaskViewState {
+      return snapshot.taskViews[serverId] ?? emptyTaskView()
+    },
+    setTaskView(serverId: string, view: TaskViewState) {
+      update({ taskViews: { ...snapshot.taskViews, [serverId]: view } })
+    },
     selectUpgradeTab(tab: ServerPageSnapshot['upgradeView']['tab']) {
       update({ upgradeView: { tab, page: 1, planId: '' } })
     },

@@ -2,7 +2,12 @@ import { Panel } from '@smp/console-kit'
 import { useEffect, useState } from 'react'
 import { ServerError } from '../../../shared/errors.ts'
 import { displayError, serverCopy } from '../../../shared/i18n.ts'
-export function ServerTerminal(props: { active: string; id: string; onBack: () => void }) {
+export function ServerTerminal(props: {
+  active: string
+  id: string
+  onBack: () => void
+  embedded?: boolean
+}) {
   const { active } = props
   const copy = serverCopy(active).ui
   const [text, setText] = useState('')
@@ -58,9 +63,11 @@ export function ServerTerminal(props: { active: string; id: string; onBack: () =
     <Panel
       title={copy.terminal}
       extra={
-        <button className="link" type="button" onClick={props.onBack}>
-          {copy.back}
-        </button>
+        props.embedded ? undefined : (
+          <button className="link" type="button" onClick={props.onBack}>
+            {copy.back}
+          </button>
+        )
       }
     >
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}

@@ -10,28 +10,33 @@ import {
   serverCopy,
 } from '../../../shared/i18n.ts'
 import { api, requestError } from '../../shared/api.ts'
+import { emptyTaskView, type TaskViewState } from '../../shared/server-page-state.ts'
+import { taskQuery } from './query.ts'
 type TaskRow = TaskDto<TaskResultDto | null>
 type TaskPage = TaskPageDto<TaskResultDto | null>
-const EMPTY_FILTER = { query: '', action: '', status: '', from: '', to: '' }
 
-export function TaskHistory(props: { active: string; serverId: string; refresh: number }) {
-  const { active } = props
+export interface TaskHistoryProps {
+  active: string
+  serverId: string
+  view: TaskViewState
+  onView: (view: TaskViewState) => void
+  refresh?: number
+}
+
+/** Rendered only while the task panel is active, so its polling stops when the panel is left. */
+export function TaskHistory(props: TaskHistoryProps) {
+  const { active, serverId, view, onView } = props
   const copy = serverCopy(active).ui
-  const [draft, setDraft] = useState(EMPTY_FILTER)
-  const [filter, setFilter] = useState({ ...EMPTY_FILTER, page: 1, pageSize: 10 })
+  const [draft, setDraft] = useState(() => ({
+    query: view.query,
+    action: view.action,
+    status: view.status,
+    from: view.from,
+    to: view.to,
+  }))
   const [loaded, setLoaded] = useState<{ key: string; data: TaskPage }>()
   const [error, setError] = useState<ServerError | null>(null)
-  const params = new URLSearchParams({
-    server_id: props.serverId,
-    q: filter.query,
-    action: filter.action,
-    status: filter.status,
-    page: String(filter.page),
-    page_size: String(filter.pageSize),
-  })
-  if (filter.from) params.set('from', new Date(filter.from).toISOString())
-  if (filter.to) params.set('to', new Date(filter.to).toISOString())
-  const key = params.toString()
+  const key = taskQuery(serverId, view)
   const data = loaded?.key === key ? loaded.data : undefined
 
   useEffect(() => {
@@ -65,13 +70,19 @@ export function TaskHistory(props: { active: string; serverId: string; refresh: 
 
   function search(event: FormEvent) {
     event.preventDefault()
-    setFilter({ ...filter, ...draft, page: 1 })
+    onView({ ...view, ...draft, page: 1 })
   }
-  const page = data?.page ?? filter.page
-  const pages = Math.max(1, Math.ceil((data?.total ?? 0) / filter.pageSize))
+
+  function reset() {
+    const next = emptyTaskView(view.pageSize)
+    setDraft({ query: '', action: '', status: '', from: '', to: '' })
+    onView({ ...next, page: 1 })
+  }
+
+  const page = data?.page ?? view.page
+  const pages = Math.max(1, Math.ceil((data?.total ?? 0) / view.pageSize))
   return (
-    <section className="smp-task-history" aria-label={copy.jobs}>
-      <h2>{copy.jobs}</h2>
+    <section className="smp-task-history" aria-label={copy.taskReport}>
       <p className="muted">{copy.inspectionHistoryHint}</p>
       <form className="smp-task-filters" onSubmit={search}>
         <label>
@@ -132,14 +143,7 @@ export function TaskHistory(props: { active: string; serverId: string; refresh: 
         <button className="secondary" type="submit">
           {copy.search}
         </button>
-        <button
-          className="link"
-          type="button"
-          onClick={() => {
-            setDraft(EMPTY_FILTER)
-            setFilter({ ...EMPTY_FILTER, page: 1, pageSize: filter.pageSize })
-          }}
-        >
+        <button className="link" type="button" onClick={reset}>
           {copy.reset}
         </button>
       </form>
@@ -187,8 +191,8 @@ export function TaskHistory(props: { active: string; serverId: string; refresh: 
         <span>
           {format(data?.total ? copy.taskRange : copy.taskTotal, {
             count: data?.total ?? 0,
-            from: (page - 1) * filter.pageSize + 1,
-            to: Math.min(page * filter.pageSize, data?.total ?? 0),
+            from: (page - 1) * view.pageSize + 1,
+            to: Math.min(page * view.pageSize, data?.total ?? 0),
           })}
         </span>
         <div className="row">
@@ -196,8 +200,8 @@ export function TaskHistory(props: { active: string; serverId: string; refresh: 
             {copy.perPage}
             <select
               aria-label={copy.tasksPageSize}
-              value={filter.pageSize}
-              onChange={(event) => setFilter({ ...filter, pageSize: Number(event.target.value), page: 1 })}
+              value={view.pageSize}
+              onChange={(event) => onView({ ...view, pageSize: Number(event.target.value), page: 1 })}
             >
               {[10, 20, 50, 100].map((size) => (
                 <option key={size} value={size}>
@@ -210,7 +214,7 @@ export function TaskHistory(props: { active: string; serverId: string; refresh: 
             className="secondary"
             type="button"
             disabled={!data || page <= 1}
-            onClick={() => setFilter({ ...filter, page: page - 1 })}
+            onClick={() => onView({ ...view, page: page - 1 })}
           >
             {copy.previous}
           </button>
@@ -219,7 +223,7 @@ export function TaskHistory(props: { active: string; serverId: string; refresh: 
             className="secondary"
             type="button"
             disabled={!data || page >= pages}
-            onClick={() => setFilter({ ...filter, page: page + 1 })}
+            onClick={() => onView({ ...view, page: page + 1 })}
           >
             {copy.next}
           </button>

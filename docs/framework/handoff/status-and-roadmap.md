@@ -13,13 +13,13 @@
 | 主侧栏悬浮变蓝和收起浮层 | 已有实现 | [客户端](../development/client-ui.md) |
 | 服务器分组、类型、OS、登记识别、版本与升级 | 已有实现 | [服务器管理](../modules/server-management/README.md) |
 | 服务器管理业务／SQL／模型分层重构 | 已完成到当前目录结构 | [模块结构](../modules/server-management/README.md) |
-| 单台服务器详情工作区与终端保留 | 已确认，待实施 | [交接](../modules/server-management/handoff.md) |
+| 单台服务器详情工作区与终端保留 | 详情、任务、终端、容器、配置工作区已实现（步骤 1）；终端会话保留待步骤 2 | [交接](../modules/server-management/handoff.md) |
 | 类型专属面板、配置、巡检扩展和容器插件 | 已确认，待实施 | 同上 |
 | 会话侧服务器目录／远程命令工具 | 仍未实现；旧设计需重审当前规则 | [漂移对照](design-drift.md) |
 
 ## 下一项明确工作
 
-按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)从步骤 1 开始。当前计划状态全部未开始，不要跳过基础状态隔离直接实现容器面板。
+按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)继续步骤 2。步骤 1 已完成；不要跳过终端生命周期直接实现容器面板。
 
 用户已确认公共类型开放范围、同服务器内终端保留、容器清单默认自动采集，以及仅适用类型显示插件入口。无需重复确认这些产品行为；实施期间发现新冲突或缺失约束时再提出具体问题。
 

@@ -49,7 +49,7 @@ HTTP 接口以 `/console-api` 为主；Harness 自己的 RPC／资源能力继�
 
 仓库当前没有旧设计中的交易所、量化、钱包管理、资金账户等业务插件。frame 保留针对旧 `wallets` 表的密码重加密逻辑，不能据此推断完整钱包模块已经交付。
 
-服务器管理仍内置空置／普通类型以及 Docker／Compose 能力。独立容器插件、详情侧栏和类型专属面板属于[待实施工作](../handoff/status-and-roadmap.md)。
+服务器管理仍内置空置／普通类型以及 Docker／Compose 能力。详情工作区（含独立任务、终端、容器、配置面板）已实现；独立容器插件、类型专属面板和自定义配置栏目属于[待实施工作](../handoff/status-and-roadmap.md)。
 
 当前数据库基线依赖既有 SMP 表结构；仓库迁移不完整创建 `accounts` 和 `wallets`。因此 `npm install` 加安装页不能视为完整的新机器空库部署方案，见[运行前置条件](../operations/configuration-and-startup.md)。
 

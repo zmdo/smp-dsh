@@ -1,15 +1,11 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { type LocaleFace } from '../../shared/i18n.ts'
 import { useActiveLocale } from '../shared/locale.ts'
-import type {
-  ServerListView as ListView,
-  ServerPageSnapshot,
-  ServerPageState,
-} from '../shared/server-page-state.ts'
-import { ServerDetail } from './detail/ServerDetail.tsx'
+import type { ServerListView as ListView, ServerPageState } from '../shared/server-page-state.ts'
 import { ServerForm } from './form/ServerForm.tsx'
 import { ServerList } from './list/ServerList.tsx'
-import { ServerTerminal } from './terminal/ServerTerminal.tsx'
+import { ServerWorkspace } from './workspace/ServerWorkspace.tsx'
+
 export function ServersPage(props: {
   locale: LocaleFace
   pageState: ServerPageState
@@ -20,9 +16,6 @@ export function ServersPage(props: {
     props.pageState.subscribe,
     props.pageState.getSnapshot,
   )
-  const setScreen = (screen: ServerPageSnapshot['screen']) => props.pageState.update({ screen })
-  const setServerId = (serverId: string) => props.pageState.update({ serverId })
-  const setEditing = (editing: boolean) => props.pageState.update({ editing })
   const setListView = useCallback(
     (listView: ListView) => props.pageState.update({ listView }),
     [props.pageState],
@@ -35,46 +28,29 @@ export function ServersPage(props: {
         serverId={serverId}
         initialGroupId={listView.groupId ?? ''}
         onDone={(id) => {
-          setServerId(id)
-          setScreen(id === '' ? 'list' : 'detail')
+          if (id === '') props.pageState.update({ screen: 'list', serverId: '', editing: false })
+          else props.pageState.openServer(id)
         }}
         onCancel={() => {
-          setScreen(serverId === '' ? 'list' : 'detail')
+          if (serverId === '') props.pageState.update({ screen: 'list', editing: false })
+          else props.pageState.update({ screen: 'detail', editing: false })
         }}
       />
     )
   }
   if (screen === 'detail')
     return (
-      <ServerDetail
+      <ServerWorkspace
         active={active}
-        id={serverId}
-        onUpgrades={() => {
+        serverId={serverId}
+        pageState={props.pageState}
+        onBack={() => props.pageState.closeWorkspace()}
+        onUpgrades={(id) => {
           props.pageState.update({
-            upgradeContext: { serverId },
+            upgradeContext: { serverId: id },
             upgradeView: { tab: 'suggestions', page: 1, planId: '' },
           })
           props.openConsole?.('server-upgrades')
-        }}
-        onEdit={() => {
-          setEditing(true)
-          setScreen('form')
-        }}
-        onTerminal={() => {
-          setScreen('terminal')
-        }}
-        onBack={() => {
-          setScreen('list')
-        }}
-      />
-    )
-  if (screen === 'terminal')
-    return (
-      <ServerTerminal
-        active={active}
-        id={serverId}
-        onBack={() => {
-          setScreen('detail')
         }}
       />
     )
@@ -91,14 +67,15 @@ export function ServersPage(props: {
         props.openConsole?.('server-upgrades')
       }}
       onOpen={(id) => {
-        setServerId(id)
-        setEditing(false)
-        setScreen('detail')
+        props.pageState.openServer(id)
       }}
       onCreate={() => {
-        setServerId('')
-        setEditing(false)
-        setScreen('form')
+        props.pageState.update({
+          screen: 'form',
+          serverId: '',
+          editing: false,
+          detailPanel: 'detail',
+        })
       }}
     />
   )

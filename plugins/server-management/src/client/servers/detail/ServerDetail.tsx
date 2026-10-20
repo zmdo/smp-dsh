@@ -1,52 +1,47 @@
+import { useState } from 'react'
 import { Panel } from '@smp/console-kit'
+import type { ServerDto } from '../../../shared/dto/servers.ts'
+import type { ServerError } from '../../../shared/errors.ts'
 import {
   displayError,
   enumLabel,
-  format,
   formatDate,
   localized,
   serverCopy,
   statusReason,
 } from '../../../shared/i18n.ts'
 import { osLabel } from '../../../shared/operating-systems.ts'
+import { bytes, meter, ratio } from '../../shared/resources.ts'
 import { RequiredSoftware } from '../components/RequiredSoftware.tsx'
-import { ServerStatus, SoftwareState } from '../components/ServerStatus.tsx'
+import { SoftwareState } from '../components/ServerStatus.tsx'
 import { MoveServer } from './MoveServer.tsx'
-import { TaskHistory } from './TaskHistory.tsx'
-import type { ServerDetailProps } from './types.ts'
-import { useServerDetail } from './useServerDetail.ts'
-export function ServerDetail(props: ServerDetailProps) {
-  const { active, copy, server, error, queued, taskRefresh, moving, setMoving, act, remove } =
-    useServerDetail(props)
 
-  if (server === undefined)
-    return (
-      <Panel title={copy.server}>
-        <p className="muted">{error === null ? copy.loading : displayError(active, error)}</p>
-      </Panel>
-    )
+export interface ServerDetailProps {
+  active: string
+  server: ServerDto
+  error: ServerError | null
+  queued: boolean
+  onEdit: () => void
+  onTerminal: () => void
+  onUpgrades: () => void
+  onTest: () => void
+  onInspect: () => void
+  onInstall: () => void
+  onDelete: () => void
+}
+
+export function ServerDetail(props: ServerDetailProps) {
+  const { active, server, error, queued } = props
+  const copy = serverCopy(active).ui
+  const [moving, setMoving] = useState(false)
   const missing =
     server.type_available && server.required_software.length > 0 && server.software_state !== 'ready'
-  const containers = server.containers ?? []
-  const containerNote =
-    server.containers_state === 'unavailable'
-      ? copy.containerUnavailable
-      : server.containers_state === 'failed'
-        ? copy.containerError
-        : server.containers_state === 'unknown'
-          ? copy.containerUnknown
-          : containers.length === 0
-            ? copy.noContainers
-            : ''
+  const group = server.group_name_i18n
+    ? localized(server.group_name_i18n, active)
+    : server.group_name || copy.ungrouped
+
   return (
-    <Panel
-      title={server.name}
-      extra={
-        <button className="link" type="button" onClick={props.onBack}>
-          {copy.back}
-        </button>
-      }
-    >
+    <Panel title={copy.serverDetails}>
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       {queued ? <p className="banner ok">{copy.jobQueued}</p> : null}
       {!server.type_available && <p className="banner error">{copy.typeUnavailable}</p>}
@@ -56,12 +51,6 @@ export function ServerDetail(props: ServerDetailProps) {
         </p>
       )}
       <div className="node-card">
-        <div className="node-title">
-          <span className="name-text">
-            {server.host}:{server.ssh_port}
-          </span>
-          <ServerStatus active={active} status={server.status} />
-        </div>
         {server.status.reasons.length > 0 && (
           <ul className="smp-server-status-reasons">
             {server.status.reasons.map((reason, index) => (
@@ -83,6 +72,10 @@ export function ServerDetail(props: ServerDetailProps) {
             {server.region || '—'}
           </div>
           <div>
+            <span>{copy.group}</span>
+            {group}
+          </div>
+          <div>
             <span>{copy.operatingSystem}</span>
             {osLabel(server.declared_os)}
           </div>
@@ -101,12 +94,20 @@ export function ServerDetail(props: ServerDetailProps) {
             <SoftwareState active={active} state={server.software_state} />
           </div>
           <div>
-            <span>Docker</span>
-            {server.docker_version || '—'}
+            <span>{copy.lastCheck}</span>
+            {formatDate(server.last_checked_at, active)}
           </div>
           <div>
-            <span>Compose</span>
-            {server.compose_version || '—'}
+            <span>CPU</span>
+            {meter(server.cpu_percent, '%')}
+          </div>
+          <div>
+            <span>{copy.memory}</span>
+            {meter(ratio(server.mem_used_bytes, server.mem_total_bytes), bytes(server.mem_used_bytes))}
+          </div>
+          <div>
+            <span>{copy.disk}</span>
+            {meter(ratio(server.disk_used_bytes, server.disk_total_bytes), bytes(server.disk_used_bytes))}
           </div>
           <div>
             <span>{copy.hostFingerprint}</span>
@@ -121,32 +122,14 @@ export function ServerDetail(props: ServerDetailProps) {
           <button className="secondary" type="button" onClick={props.onUpgrades}>
             {serverCopy(active).upgrades.openUpgrades} ({server.upgrade_count})
           </button>
-          <button
-            className="secondary"
-            type="button"
-            onClick={() => {
-              void act(`/console-api/servers/${server.id}/test`)
-            }}
-          >
+          <button className="secondary" type="button" onClick={props.onTest}>
             {copy.testConnection}
           </button>
-          <button
-            className="secondary"
-            type="button"
-            onClick={() => {
-              void act(`/console-api/servers/${server.id}/inspect`)
-            }}
-          >
+          <button className="secondary" type="button" onClick={props.onInspect}>
             {copy.refresh}
           </button>
           {missing ? (
-            <button
-              className="secondary"
-              type="button"
-              onClick={() => {
-                void act(`/console-api/servers/${server.id}/install-components`)
-              }}
-            >
+            <button className="secondary" type="button" onClick={props.onInstall}>
               {copy.installComponents}
             </button>
           ) : null}
@@ -156,52 +139,12 @@ export function ServerDetail(props: ServerDetailProps) {
           <button className="secondary" type="button" onClick={props.onEdit}>
             {copy.edit}
           </button>
-          <button
-            className="link danger"
-            type="button"
-            onClick={() => {
-              void remove()
-            }}
-          >
+          <button className="link danger" type="button" onClick={props.onDelete}>
             {copy.delete}
           </button>
         </div>
       </div>
       <RequiredSoftware active={active} software={server.required_software} status={server.software_status} />
-      <h2>{copy.containers}</h2>
-      {containerNote !== '' && <p className="empty">{containerNote}</p>}
-      {server.containers_checked_at !== null && (
-        <p className="muted">
-          {format(copy.containerObserved, { time: formatDate(server.containers_checked_at, active) })}
-        </p>
-      )}
-      {containers.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>{copy.name}</th>
-              <th>{copy.image}</th>
-              <th>{copy.status}</th>
-              <th>{copy.ports}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {containers.map((item) => (
-              <tr key={item.container_id}>
-                <td>{item.name}</td>
-                <td>{item.image}</td>
-                <td>
-                  <span className={`pill ${item.status}`}>
-                    {enumLabel(serverCopy(active).containerStatus, item.status)}
-                  </span>
-                </td>
-                <td>{item.ports}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <TaskHistory key={props.id} active={active} serverId={props.id} refresh={taskRefresh} />
     </Panel>
   )
 }

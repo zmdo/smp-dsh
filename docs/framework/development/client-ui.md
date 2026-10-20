@@ -24,7 +24,7 @@ frame 的 `main` 内容声明 `console.page`、`console.page-navigation` 和 `co
 - 平台设置聚合通用、安全、模型、Harness、插件、数据等注册页面；Harness 内部的设置栏目由 `settings.section` 与 `settings.general.item` 承载。
 - 主侧栏“服务器管理”是分组，下有“服务器实例”“服务器密钥”“升级管理”。
 - 进入升级管理，页面最顶部显示“升级建议”“升级计划”“执行记录”三个 Tab；内容标题随 Tab 改变。
-- 当前单台服务器详情仍是大面板，内含容器和任务；终端、编辑是单独屏幕。设计中的局部详情侧栏尚未存在。
+- 单台服务器详情是带局部侧栏的工作区：服务器详情、任务报告、终端、容器、配置五个面板；侧栏在面板切换时保留。
 
 ## 侧栏交互
 
@@ -50,6 +50,6 @@ frame 的 `main` 内容声明 `console.page`、`console.page-navigation` 和 `co
 
 长表格使用受限布局、横向滚动和现有分页；不要让筛选控件靠临时宽度挤成不规则多行。DOM 监听、ResizeObserver、轮询和样式节点都要清理。
 
-当前终端视图使用局部屏幕挂载管理连接，离开即断开；保留同服务器内会话是下一轮改造，不能在交接时承诺已经实现。
+终端视图已嵌入详情工作区，但连接仍随面板卸载关闭；由工作区持有会话是步骤 2 的改造目标。
 
 源码：[服务器页面登记](../../../plugins/server-management/src/client.tsx)、[Harness 设置槽](../../../plugins/harness-settings/src/client.tsx)、[共享 UI 导出](../../../packages/console-kit/src/index.ts)。

@@ -20,6 +20,10 @@ export interface ServerFormProps {
   editing: boolean
   serverId: string
   initialGroupId: string
+  /** The workspace config panel overrides the create/edit heading. */
+  title?: string
+  /** The workspace sidebar already provides the return entry. */
+  embedded?: boolean
   onDone: (id: string) => void
   onCancel: () => void
 }
