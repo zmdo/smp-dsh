@@ -14,6 +14,7 @@ import {
 import { jobView } from '../tasks/queries.ts'
 import { readJson, sendJson } from './reply.ts'
 import { extensionSettings, saveExtensionSettings } from '../extensions/settings.ts'
+import { readExtensionObservations } from '../extensions/observations.ts'
 import { applyExtensionSettingsPlan, planExtensionSettings } from '../extensions/settings-plan.ts'
 import { parseServerListQuery } from './server-query.ts'
 
@@ -57,6 +58,11 @@ export async function routeServers(
     const server = await serverRead(deps, id)
     if (server === undefined) throw new HttpError(404, 'server_not_found')
     return sendJson(response, 200, { items: deps.extensions.catalogFor(server) })
+  }
+  if (parts.length === 2 && parts[1] === 'extension-observations' && request.method === 'GET') {
+    const server = await serverRead(deps, id)
+    if (server === undefined) throw new HttpError(404, 'server_not_found')
+    return sendJson(response, 200, { items: (await readExtensionObservations(deps.db, id)).rows })
   }
   if (parts.length === 2 && parts[1] === 'extension-inspections' && request.method === 'GET') {
     const server = await serverRead(deps, id)

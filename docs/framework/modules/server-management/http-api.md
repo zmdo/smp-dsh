@@ -79,6 +79,6 @@ POST 返回 202 的任务／计划只是已接受，不是安装成功。客户�
 
 ## 尚不存在的接口
 
-`registerServerExtensions()` 已提供宿主元数据注册（步骤 4）。步骤 5 已分派 `GET /servers/:id/extensions`、`GET /extension-data`、`GET/PUT /extension-settings` 和 `GET /extension-inspections`。会话侧 `server_list/server_shell/server_move` 等工具也未在当前宿主入口注册；设计中的 `session_access/login_privilege` 不是当前表字段。
+`registerServerExtensions()` 已提供宿主元数据注册（步骤 4）。步骤 5 已分派 `GET /servers/:id/extensions`、`GET /extension-data`、`GET/PUT /extension-settings`、`GET /extension-inspections` 和 `GET /extension-observations`。会话侧 `server_list/server_shell/server_move` 等工具也未在当前宿主入口注册；设计中的 `session_access/login_privilege` 不是当前表字段。
 
 源码：[路由装配](../../../../plugins/server-management/src/host/http/routes.ts)、[服务器](../../../../plugins/server-management/src/host/http/servers.ts)、[计划](../../../../plugins/server-management/src/host/http/changes.ts)、[任务](../../../../plugins/server-management/src/host/http/jobs.ts)、[DTO](../../../../plugins/server-management/src/shared/dto)、[终端](../../../../plugins/server-management/src/host/remote/terminal.ts)。

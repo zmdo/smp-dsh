@@ -254,3 +254,87 @@ test('a provider that unloads during the script cannot publish a success observa
   extensions.close()
   await definitions.close()
 })
+
+test('a setting revision change during the script rejects the success observation', async () => {
+  const captured: unknown[][] = []
+  let changed = false
+  const client = {
+    async query(sql: string, params?: unknown[]) {
+      if (sql.includes('from server_extension_settings'))
+        return { rows: [{ value: { collect: true }, revision: changed ? '2' : '1' }] }
+      if (sql.includes('insert into server_extension_observations')) {
+        captured.push(params ?? [])
+        return { rows: [] }
+      }
+      if (sql.includes('from server_jobs')) return { rows: [{ id: 'job-1' }] }
+      if (sql.includes('from servers')) return { rows: [{ id: 'server-1' }] }
+      return { rows: [] }
+    },
+    release() {},
+  }
+  const db = { connect: async () => client, query: client.query.bind(client) } as unknown as Db
+  const definitions = new DefinitionRegistry(db, builtinCatalog())
+  const definitionsRegistration = definitions.registerDefinitions(fixtureDefinitions)
+  await definitionsRegistration.ready
+  const extensions = new ServerExtensionRegistry(definitions)
+  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, fixtureRuntime)
+  await registration.ready
+  const context = {
+    db,
+    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
+    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    session: {
+      async exec() {
+        changed = true
+        return { code: 0, stdout: '{"ok":true}\n', stderr: '' }
+      },
+    },
+    guard: async () => {},
+    extensions,
+  } as unknown as WorkerContext
+  const results = await runExtensionInspections(context, extensions)
+  assert.equal(results[0]?.status, 'failed')
+  assert.equal((results[0]?.error as { code?: string }).code, 'extension_inspection_setting_changed')
+  assert.equal(captured[0]?.[3], 'failed')
+  await registration.dispose()
+  await definitionsRegistration.dispose()
+  extensions.close()
+  await definitions.close()
+})
+
+test('a lost fence prevents publishing observations', async () => {
+  const captured: unknown[][] = []
+  const client = {
+    async query(sql: string, params?: unknown[]) {
+      if (sql.includes('insert into server_extension_observations')) {
+        captured.push(params ?? [])
+        return { rows: [] }
+      }
+      if (sql.includes('from server_jobs')) return { rows: [] }
+      if (sql.includes('from servers')) return { rows: [{ id: 'server-1' }] }
+      return { rows: [] }
+    },
+    release() {},
+  }
+  const db = { connect: async () => client, query: async () => ({ rows: [] }) } as unknown as Db
+  const definitions = new DefinitionRegistry(db, builtinCatalog())
+  const definitionsRegistration = definitions.registerDefinitions(fixtureDefinitions)
+  await definitionsRegistration.ready
+  const extensions = new ServerExtensionRegistry(definitions)
+  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, fixtureRuntime)
+  await registration.ready
+  const context = {
+    db,
+    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
+    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    session: { async exec() { return { code: 0, stdout: '{"ok":true}\n', stderr: '' } } },
+    guard: async () => {},
+    extensions,
+  } as unknown as WorkerContext
+  await assert.rejects(runExtensionInspections(context, extensions), { code: 'job_lease_lost' })
+  assert.equal(captured.length, 0)
+  await registration.dispose()
+  await definitionsRegistration.dispose()
+  extensions.close()
+  await definitions.close()
+})

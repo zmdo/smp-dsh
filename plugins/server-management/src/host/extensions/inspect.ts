@@ -36,10 +36,12 @@ export async function runExtensionInspections(
       })
       continue
     }
+    let settingRevision: string | undefined
     if (inspection.entry.settingsKey !== undefined) {
       const settings = extensions.settings(context.server, inspection.entry.settingsKey)
       const section = inspection.entry.settingsKey.slice(settings.entry.owner.length + 1)
       const stored = (await readSettings(context.db, context.server.id, settings.entry.owner, section)).rows[0]
+      settingRevision = stored?.revision ?? '0'
       const value = stored?.value ?? settings.runtime.defaults
       if (inspection.runtime.enabled?.(value) === false) continue
     }
@@ -55,6 +57,13 @@ export async function runExtensionInspections(
       inspection = extensions.inspection(entry.key)
       if (inspection === undefined)
         throw new ServerError('extension_inspection_unavailable', { key: entry.key })
+      if (inspection.entry.settingsKey !== undefined) {
+        const settings = extensions.settings(context.server, inspection.entry.settingsKey)
+        const section = inspection.entry.settingsKey.slice(settings.entry.owner.length + 1)
+        const latest = (await readSettings(context.db, context.server.id, settings.entry.owner, section)).rows[0]
+        if ((latest?.revision ?? '0') !== settingRevision)
+          throw new ServerError('extension_inspection_setting_changed', { key: entry.key })
+      }
       const result = inspection.runtime.validate(response.stdout)
       results.push({ key: entry.key, owner: entry.owner, status: 'succeeded', result })
     } catch (cause) {

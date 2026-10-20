@@ -360,6 +360,7 @@
     "extension_plan_not_pending": "The extension settings plan was already handled.",
     "extension_plan_expired": "The extension settings plan expired; create a new one.",
     "extension_inspection_failed": "Extension inspection failed: {detail}",
+    "extension_inspection_setting_changed": "The extension settings changed during the inspection; this result was not used.",
     "extension_inspection_unavailable": "The extension inspection is unavailable: {key}",
     "extension_plan_invalid": "The extension settings plan digest is invalid.",
     "connection_test_required": "Test the connection again with the current authentication details.",

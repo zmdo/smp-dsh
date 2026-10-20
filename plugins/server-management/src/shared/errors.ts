@@ -105,6 +105,7 @@ export const ERROR_CODES = [
   'extension_plan_invalid',
   'extension_inspection_failed',
   'extension_inspection_unavailable',
+  'extension_inspection_setting_changed',
   'connection_test_required',
   'task_query_invalid',
   'inspection_software_failed',
