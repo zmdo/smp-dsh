@@ -50,6 +50,6 @@ frame 的 `main` 内容声明 `console.page`、`console.page-navigation` 和 `co
 
 长表格使用受限布局、横向滚动和现有分页；不要让筛选控件靠临时宽度挤成不规则多行。DOM 监听、ResizeObserver、轮询和样式节点都要清理。
 
-终端视图已嵌入详情工作区，但连接仍随面板卸载关闭；由工作区持有会话是步骤 2 的改造目标。
+终端层由详情工作区保留：切到其他面板只隐藏，xterm 实例和 WebSocket 继续存活；显示时重新 fit 并 refresh。
 
 源码：[服务器页面登记](../../../plugins/server-management/src/client.tsx)、[Harness 设置槽](../../../plugins/harness-settings/src/client.tsx)、[共享 UI 导出](../../../packages/console-kit/src/index.ts)。

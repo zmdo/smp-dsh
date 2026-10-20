@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Panel } from '@smp/console-kit'
 import { displayError, serverCopy } from '../../../shared/i18n.ts'
 import { ServerError } from '../../../shared/errors.ts'
@@ -26,6 +26,10 @@ export function ServerWorkspace(props: {
   const { server, error, refresh } = useServerResource(serverId)
   const [queued, setQueued] = useState(false)
   const [actionError, setActionError] = useState<ServerError | null>(null)
+  const [terminalOpened, setTerminalOpened] = useState(false)
+  const [terminalEpoch, setTerminalEpoch] = useState(0)
+  const [terminalAutoConnect, setTerminalAutoConnect] = useState(true)
+  const previousIdentity = useRef('')
   const taskView = pageState.taskView(serverId)
   const setTaskView = useCallback(
     (view: TaskViewState) => {
@@ -37,6 +41,24 @@ export function ServerWorkspace(props: {
   useEffect(() => {
     if (error?.code === 'server_not_found') props.onBack()
   }, [error?.code, props.onBack])
+  const identity = server === undefined ? '' : terminalIdentity(server)
+  useEffect(() => {
+    if (identity === '') return
+    if (previousIdentity.current === '') {
+      previousIdentity.current = identity
+      return
+    }
+    if (previousIdentity.current === identity) return
+    previousIdentity.current = identity
+    if (!terminalOpened) return
+    // A changed host, user or key must not silently reuse the old terminal.
+    setTerminalAutoConnect(false)
+    setTerminalEpoch((value) => value + 1)
+  }, [identity, terminalOpened])
+
+  useEffect(() => {
+    if (panel === 'terminal') setTerminalOpened(true)
+  }, [panel])
 
   async function act(path: string): Promise<void> {
     setActionError(null)
@@ -138,7 +160,20 @@ export function ServerWorkspace(props: {
             </select>
           </label>
           <section className="smp-server-workspace-panel">
-            {panel === 'tasks' ? (
+            {terminalOpened && (
+              <div className="smp-server-terminal-layer" hidden={panel !== 'terminal'}>
+                <ServerTerminal
+                  key={`${serverId}:${terminalEpoch}`}
+                  active={active}
+                  id={serverId}
+                  visible={panel === 'terminal'}
+                  autoConnect={terminalAutoConnect}
+                  embedded
+                  onBack={() => pageState.selectDetailPanel('detail')}
+                />
+              </div>
+            )}
+            {panel === 'terminal' ? null : panel === 'tasks' ? (
               <Panel title={copy.taskReport}>
                 <TaskHistory
                   key={serverId}
@@ -150,13 +185,6 @@ export function ServerWorkspace(props: {
               </Panel>
             ) : panel === 'containers' ? (
               <ContainerPanel active={active} server={server} />
-            ) : panel === 'terminal' ? (
-              <ServerTerminal
-                active={active}
-                id={serverId}
-                embedded
-                onBack={() => pageState.selectDetailPanel('detail')}
-              />
             ) : panel === 'config' ? (
               <ServerForm
                 active={active}
@@ -196,4 +224,22 @@ export function ServerWorkspace(props: {
       )}
     </div>
   )
+}
+
+function terminalIdentity(server: {
+  host: string
+  ssh_port: number
+  ssh_user: string
+  auth_method: string
+  ssh_key_id: string | null
+  host_fingerprint: string | null
+}): string {
+  return JSON.stringify([
+    server.host,
+    server.ssh_port,
+    server.ssh_user,
+    server.auth_method,
+    server.ssh_key_id,
+    server.host_fingerprint,
+  ])
 }

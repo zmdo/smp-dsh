@@ -75,7 +75,7 @@ POST 返回 202 的任务／计划只是已接受，不是安装成功。客户�
 
 ## 浏览器终端
 
-精确升级路径：`/console-api/servers/terminal?id=<server-uuid>`。连接建立后转接 SSH shell，支持输入和 resize 消息。当前终端随页面视图卸载关闭；同服务器切面板保持连接是后续工作。
+精确升级路径：`/console-api/servers/terminal?id=<server-uuid>`。连接建立后转接 SSH shell，支持输入和 resize 消息。同一详情工作区内切面板保持连接（步骤 2 的隐藏 xterm）；离开工作区、切换服务器或连接身份变化时关闭。
 
 ## 尚不存在的接口
 

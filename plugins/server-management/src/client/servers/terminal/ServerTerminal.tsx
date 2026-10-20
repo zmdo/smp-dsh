@@ -13,16 +13,27 @@ const THEME = {
   selectionBackground: '#264f78',
 } as const
 
+type TerminalStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed'
+
 export function ServerTerminal(props: {
   active: string
   id: string
+  visible: boolean
+  autoConnect?: boolean
   onBack: () => void
   embedded?: boolean
 }) {
   const { active } = props
   const copy = serverCopy(active).ui
+  const [status, setStatus] = useState<TerminalStatus>('idle')
   const [error, setError] = useState<ServerError | null>(null)
   const hostRef = useRef<HTMLDivElement>(null)
+  const terminalRef = useRef<Terminal>()
+  const fitRef = useRef<FitAddon>()
+  const observerRef = useRef<ResizeObserver>()
+  const socketRef = useRef<WebSocket>()
+  const connectRef = useRef<() => void>(() => {})
+  const disconnectRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     const style = document.createElement('style')
@@ -37,7 +48,6 @@ export function ServerTerminal(props: {
   useEffect(() => {
     const host = hostRef.current
     if (host === null) return
-    setError(null)
     const terminal = new Terminal({
       cursorBlink: true,
       fontFamily: 'Consolas, "Cascadia Mono", monospace',
@@ -48,23 +58,15 @@ export function ServerTerminal(props: {
     const fit = new FitAddon()
     terminal.loadAddon(fit)
     terminal.open(host)
+    terminalRef.current = terminal
+    fitRef.current = fit
 
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = new WebSocket(
-      `${proto}//${location.host}/console-api/servers/terminal?id=${encodeURIComponent(props.id)}`,
-    )
-    socket.binaryType = 'arraybuffer'
     const sendResize = () => {
-      if (socket.readyState !== WebSocket.OPEN) return
+      const socket = socketRef.current
+      if (socket?.readyState !== WebSocket.OPEN) return
       socket.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }))
     }
-    const resize = terminal.onResize(() => {
-      sendResize()
-    })
-    const input = terminal.onData((data) => {
-      if (socket.readyState === WebSocket.OPEN) socket.send(data)
-    })
-    const observe = new ResizeObserver(() => {
+    const fitVisible = () => {
       if (host.clientWidth === 0 || host.clientHeight === 0) return
       try {
         fit.fit()
@@ -72,33 +74,111 @@ export function ServerTerminal(props: {
         // The host can be between layout passes while a panel is opening.
       }
       sendResize()
+    }
+    const resize = terminal.onResize(sendResize)
+    const input = terminal.onData((data) => {
+      const socket = socketRef.current
+      if (socket?.readyState === WebSocket.OPEN) socket.send(data)
     })
-    observe.observe(host)
-    socket.addEventListener('open', () => {
-      try {
-        fit.fit()
-      } catch {
-        // A zero-sized host is ignored; the observer reports the next size.
+    const observer = new ResizeObserver(fitVisible)
+    if (props.visible) observer.observe(host)
+    observerRef.current = observer
+
+    const connect = () => {
+      if (socketRef.current !== undefined) return
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const socket = new WebSocket(
+        `${proto}//${location.host}/console-api/servers/terminal?id=${encodeURIComponent(props.id)}`,
+      )
+      socket.binaryType = 'arraybuffer'
+      socketRef.current = socket
+      setError(null)
+      setStatus('connecting')
+      socket.addEventListener('open', () => {
+        if (socketRef.current !== socket) return
+        setStatus('connected')
+        fitVisible()
+      })
+      socket.onmessage = (event) => {
+        if (socketRef.current !== socket) return
+        if (typeof event.data === 'string') terminal.write(event.data)
+        else terminal.write(new Uint8Array(event.data as ArrayBuffer))
       }
-      terminal.focus()
-      sendResize()
-    })
-    socket.onmessage = (event) => {
-      if (typeof event.data === 'string') terminal.write(event.data)
-      else terminal.write(new Uint8Array(event.data as ArrayBuffer))
+      socket.onerror = () => {
+        if (socketRef.current !== socket) return
+        setError(new ServerError('terminal_failed'))
+        setStatus('failed')
+        socket.close()
+      }
+      socket.onclose = () => {
+        if (socketRef.current !== socket) return
+        socketRef.current = undefined
+        setStatus((current) => (current === 'failed' ? 'failed' : 'disconnected'))
+      }
     }
-    socket.onerror = () => {
-      setError(new ServerError('terminal_failed'))
+    const disconnect = () => {
+      const socket = socketRef.current
+      socketRef.current = undefined
+      socket?.close()
+      setStatus('disconnected')
     }
+    connectRef.current = connect
+    disconnectRef.current = disconnect
+    if (props.autoConnect === false) setStatus('disconnected')
+    else connect()
+
     return () => {
-      observe.disconnect()
+      observer.disconnect()
       resize.dispose()
       input.dispose()
-      socket.close()
+      const socket = socketRef.current
+      socketRef.current = undefined
+      socket?.close()
       terminal.dispose()
+      terminalRef.current = undefined
+      fitRef.current = undefined
+      observerRef.current = undefined
     }
   }, [props.id])
 
+  useEffect(() => {
+    const host = hostRef.current
+    const terminal = terminalRef.current
+    if (host === null || terminal === undefined) return
+    if (!props.visible) {
+      observerRef.current?.disconnect()
+      terminal.blur()
+      return
+    }
+    observerRef.current?.observe(host)
+    const frame = requestAnimationFrame(() => {
+      if (host.clientWidth === 0 || host.clientHeight === 0) return
+      try {
+        fitRef.current?.fit()
+      } catch {
+        return
+      }
+      terminal.refresh(0, Math.max(0, terminal.rows - 1))
+      const socket = socketRef.current
+      if (socket?.readyState === WebSocket.OPEN)
+        socket.send(JSON.stringify({ type: 'resize', cols: terminal.cols, rows: terminal.rows }))
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+    }
+  }, [props.visible])
+
+  const label =
+    status === 'idle'
+      ? copy.terminalStatusIdle
+      : status === 'connecting'
+        ? copy.terminalStatusConnecting
+        : status === 'connected'
+          ? copy.terminalStatusConnected
+          : status === 'failed'
+            ? copy.terminalStatusFailed
+            : copy.terminalStatusDisconnected
+  const canReconnect = status === 'idle' || status === 'disconnected' || status === 'failed'
   return (
     <Panel
       title={copy.terminal}
@@ -111,6 +191,23 @@ export function ServerTerminal(props: {
         )
       }
     >
+      <div className="smp-terminal-toolbar">
+        <span className={`smp-terminal-status ${status}`}>{label}</span>
+        <button
+          className="link"
+          type="button"
+          onClick={() => {
+            if (canReconnect) connectRef.current()
+            else disconnectRef.current()
+          }}
+        >
+          {canReconnect
+            ? status === 'idle'
+              ? copy.terminalConnect
+              : copy.terminalReconnect
+            : copy.terminalDisconnect}
+        </button>
+      </div>
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       <div className="terminal-page">
         <div ref={hostRef} className="terminal-host" />

@@ -41,6 +41,7 @@ export function ServersPage(props: {
   if (screen === 'detail')
     return (
       <ServerWorkspace
+        key={serverId}
         active={active}
         serverId={serverId}
         pageState={props.pageState}

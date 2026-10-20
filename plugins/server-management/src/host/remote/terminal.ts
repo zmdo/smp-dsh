@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
-import { WebSocketServer, type RawData } from 'ws'
+import { WebSocket, WebSocketServer, type RawData } from 'ws'
 import { ServerError, type ErrorCode } from '../../shared/errors.ts'
 import { errorPayload } from '../../shared/i18n.ts'
 import { type Db } from '../database/connection.ts'
@@ -29,6 +29,8 @@ export function terminalRoute(
 } {
   const wss = new WebSocketServer({ noServer: true })
   const open = new Set<SshSession>()
+  const pending = new Set<Promise<void>>()
+  let closing = false
   return {
     handler: async (request, socket, head) => {
       const header = request.headers.cookie
@@ -47,13 +49,27 @@ export function terminalRoute(
         refuse(socket, 404, 'server_not_found')
         return
       }
+      if (closing) {
+        socket.destroy()
+        return
+      }
       wss.handleUpgrade(request, socket, head, (ws) => {
-        void attach(server, ws).catch(() => {
-          ws.close()
-        })
+        const task = attach(server, ws)
+          .catch(() => {
+            ws.close()
+          })
+          .finally(() => {
+            pending.delete(task)
+          })
+        pending.add(task)
       })
     },
     close: async () => {
+      if (closing) return
+      closing = true
+      for (const client of wss.clients) client.close()
+      await Promise.allSettled([...pending])
+      // Pending attaches close themselves through their socket handler; this is the fallback.
       for (const item of open) item.close()
       open.clear()
       await new Promise<void>((resolve) => {
@@ -64,15 +80,7 @@ export function terminalRoute(
     },
   }
 
-  async function attach(
-    server: NonNullable<Awaited<ReturnType<typeof serverSecret>>>,
-    ws: {
-      send(data: Buffer): void
-      close(): void
-      on(event: 'message', listener: (data: RawData) => void): void
-      on(event: 'close', listener: () => void): void
-    },
-  ): Promise<void> {
+  async function attach(server: NonNullable<Awaited<ReturnType<typeof serverSecret>>>, ws: WebSocket): Promise<void> {
     let secret = ''
     try {
       secret = secrets.decrypt(server.secret_ciphertext)
@@ -81,38 +89,62 @@ export function terminalRoute(
       ws.close()
       return
     }
-    const ssh = await connect({
-      host: server.host,
-      port: server.ssh_port,
-      username: server.ssh_user,
-      authMethod: server.auth_method,
-      secret,
-      expectedFingerprint: server.host_fingerprint,
-    })
-    let shell: ShellChannel
+    let ssh: SshSession | undefined
+    let shell: ShellChannel | undefined
+    let closed = false
+    const shutdown = () => {
+      closed = true
+      // Clear both handles before closing so a shell close callback cannot close them twice.
+      const channel = shell
+      shell = undefined
+      const session = ssh
+      ssh = undefined
+      channel?.close()
+      session?.close()
+      if (session !== undefined) open.delete(session)
+    }
+    // Register before the first await so a client that leaves while SSH is connecting cannot leak it.
+    ws.on('close', shutdown)
     try {
+      if (ws.readyState !== WebSocket.OPEN) return
+      ssh = await connect({
+        host: server.host,
+        port: server.ssh_port,
+        username: server.ssh_user,
+        authMethod: server.auth_method,
+        secret,
+        expectedFingerprint: server.host_fingerprint,
+      })
+      if (closed || ws.readyState !== WebSocket.OPEN) {
+        shutdown()
+        return
+      }
+      open.add(ssh)
       shell = await ssh.shell(80, 24)
+      if (closed || ws.readyState !== WebSocket.OPEN) {
+        shutdown()
+        return
+      }
+      shell.onData((chunk) => {
+        if (ws.readyState !== WebSocket.OPEN) return
+        try {
+          ws.send(chunk)
+        } catch (cause) {
+          void cause
+          shutdown()
+        }
+      })
+      shell.onClose(() => {
+        shutdown()
+        ws.close()
+      })
+      ws.on('message', (data) => {
+        if (!closed && shell !== undefined) onMessage(shell, data)
+      })
     } catch (cause) {
-      ssh.close()
+      shutdown()
       throw cause
     }
-    open.add(ssh)
-    shell.onData((chunk) => {
-      ws.send(chunk)
-    })
-    shell.onClose(() => {
-      open.delete(ssh)
-      ssh.close()
-      ws.close()
-    })
-    ws.on('message', (data) => {
-      onMessage(shell, data)
-    })
-    ws.on('close', () => {
-      shell.close()
-      ssh.close()
-      open.delete(ssh)
-    })
   }
 }
 
