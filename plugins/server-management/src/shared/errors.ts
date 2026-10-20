@@ -4,6 +4,7 @@ export const ERROR_CODES = [
   'invalid_request',
   'server_not_found',
   'group_not_found',
+  'group_not_empty',
   'key_not_found',
   'job_not_found',
   'method_not_allowed',

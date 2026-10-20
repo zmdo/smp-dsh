@@ -43,7 +43,7 @@ export async function deleteGroup(db: Db, id: string): Promise<void> {
     const servers = await groups.lockMembers(client, id)
     for (const server of servers.rows) {
       if (server.type_key !== VACANT_TYPE)
-        throw new HttpError(409, 'type_change_requires_preflight')
+        throw new HttpError(409, 'group_not_empty')
       await notRunning(client, server.id)
       if (
         String(server.config_revision) === String(server.observed_config_revision) &&

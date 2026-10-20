@@ -261,6 +261,7 @@
     "unauthorized": "Please sign in.",
     "invalid_request": "The request could not be read.",
     "server_not_found": "Server not found.",
+    "group_not_empty": "This group still contains servers; move them out or change their type before deleting it.",
     "group_not_found": "Group not found.",
     "key_not_found": "Key not found.",
     "job_not_found": "Task not found.",
