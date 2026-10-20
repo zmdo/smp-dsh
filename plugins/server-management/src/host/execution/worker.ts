@@ -169,6 +169,10 @@ export async function executeJob(
     if (cause instanceof ServerError && cause.code === 'job_lease_lost') return
     const message = scrub(errorDetail(cause, '任务失败。'), secret)
     if (state.mutation) {
+      if (job.state === 'recovering' && job.recovery_attempts >= 2) {
+        await finishJob(db, job, 'failed', message, { error: { code: 'recovery_exhausted' } })
+        return
+      }
       await recovering(db, job, message)
       return
     }

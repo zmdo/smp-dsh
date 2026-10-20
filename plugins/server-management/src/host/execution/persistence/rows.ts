@@ -24,6 +24,7 @@ export interface JobRecord {
   created_at: Date
   started_at: Date | null
   finished_at: Date | null
+  recovery_attempts: number
 }
 
 export type LockServerRevisionRow = { config_revision: string; environment_revision: string }

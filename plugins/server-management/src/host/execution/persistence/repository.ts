@@ -198,7 +198,7 @@ export function setPlanState(db: Db, planId: string, state: string) {
 
 export function recovering(db: Db, { id, message, remoteState }: RecoveringInput) {
   return db.query<never>(
-    `update server_jobs set state='recovering',phase='reconciling',output_excerpt=$2,lease_expires_at=now()+interval '30 seconds',
+    `update server_jobs set state='recovering',phase='reconciling',output_excerpt=$2,recovery_attempts=recovery_attempts+1,lease_expires_at=now()+interval '30 seconds',
         result=coalesce(result,'{}'::jsonb)||jsonb_build_object('remote_state',$3::text,'remote_checked_at',now()) where id=$1`,
     [id, message, remoteState],
   )
