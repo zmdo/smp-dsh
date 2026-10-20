@@ -3,7 +3,7 @@ import { OS_CATALOG } from '../../../shared/operating-systems.ts'
 import { RequiredSoftware } from '../components/RequiredSoftware.tsx'
 import { SoftwarePolicies } from '../components/SoftwarePolicies.tsx'
 import type { ServerFormModel } from './useServerForm.ts'
-export function SystemFields(props: { form: ServerFormModel; editing: boolean }) {
+export function SystemFields(props: { form: ServerFormModel; editing: boolean; showPolicies?: boolean }) {
   const {
     active,
     applicableTypes,
@@ -150,24 +150,28 @@ export function SystemFields(props: { form: ServerFormModel; editing: boolean })
         )}
         {identified && !identified.software_available && <p className="muted">{copy.typeUnavailable}</p>}
         <RequiredSoftware active={active} software={software} status={softwareStatus} />
-        <SoftwarePolicies
-          active={active}
-          software={configuredSoftware}
-          value={policies}
-          onChange={setPolicies}
-          installed={softwareStatus}
-        />
-        <label className="smp-server-auto-install">
-          <input
-            type="checkbox"
-            checked={software.length > 0 && auto}
-            disabled={software.length === 0 || !available}
-            onChange={(event) => {
-              setAuto(event.target.checked)
-            }}
-          />{' '}
-          {copy.autoInstall}
-        </label>
+        {props.showPolicies !== false && (
+          <>
+            <SoftwarePolicies
+              active={active}
+              software={configuredSoftware}
+              value={policies}
+              onChange={setPolicies}
+              installed={softwareStatus}
+            />
+            <label className="smp-server-auto-install">
+              <input
+                type="checkbox"
+                checked={software.length > 0 && auto}
+                disabled={software.length === 0 || !available}
+                onChange={(event) => {
+                  setAuto(event.target.checked)
+                }}
+              />{' '}
+              {copy.autoInstall}
+            </label>
+          </>
+        )}
         <p className="muted">{copy.manualSystemNote}</p>
       </div>
       <footer>

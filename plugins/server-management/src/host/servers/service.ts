@@ -232,7 +232,8 @@ export async function updateServer(deps: ServerDeps, id: string, body: unknown):
       if (lease !== undefined) {
         if (lease.components.length === 0) after.autoInstall = false
         after.selection = JSON.stringify(lease.components.map((item) => item.id))
-        if (after.autoInstall && prior !== undefined && !sameSoftware(prior, lease.type))
+        // Auto install already enabled on an unchanged type must not block an ordinary basic edit.
+        if (after.autoInstall && (osChanged || !row.install_required_software) && prior !== undefined && !sameSoftware(prior, lease.type))
           throw new HttpError(409, 'type_change_requires_preflight')
         assign('type_key', key)
         assign('type_snapshot', JSON.stringify(lease.type))

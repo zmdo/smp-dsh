@@ -7,7 +7,7 @@ import type { DetailPanel, ServerPageState, TaskViewState } from '../../shared/s
 import { ServerStatus } from '../components/ServerStatus.tsx'
 import { ContainerPanel } from './ContainerPanel.tsx'
 import { ServerDetail } from '../detail/ServerDetail.tsx'
-import { ServerForm } from '../form/ServerForm.tsx'
+import { ServerSettings } from '../settings/ServerSettings.tsx'
 import { ServerTerminal } from '../terminal/ServerTerminal.tsx'
 import { TaskHistory } from '../tasks/TaskHistory.tsx'
 import { useServerResource } from './useServerResource.ts'
@@ -27,6 +27,7 @@ export function ServerWorkspace(props: {
   const [queued, setQueued] = useState(false)
   const [actionError, setActionError] = useState<ServerError | null>(null)
   const [terminalOpened, setTerminalOpened] = useState(false)
+  const [settingsOpened, setSettingsOpened] = useState(false)
   const [terminalEpoch, setTerminalEpoch] = useState(0)
   const [terminalAutoConnect, setTerminalAutoConnect] = useState(true)
   const previousIdentity = useRef('')
@@ -58,6 +59,7 @@ export function ServerWorkspace(props: {
 
   useEffect(() => {
     if (panel === 'terminal') setTerminalOpened(true)
+    if (panel === 'config') setSettingsOpened(true)
   }, [panel])
 
   async function act(path: string): Promise<void> {
@@ -72,15 +74,6 @@ export function ServerWorkspace(props: {
     }
   }
 
-  async function remove(): Promise<void> {
-    setActionError(null)
-    try {
-      await api(`/console-api/servers/${serverId}`, { method: 'DELETE' })
-      props.onBack()
-    } catch (cause) {
-      setActionError(requestError(cause))
-    }
-  }
 
   const choices: { key: DetailPanel; label: string; select: () => void }[] = [
     {
@@ -173,7 +166,18 @@ export function ServerWorkspace(props: {
                 />
               </div>
             )}
-            {panel === 'terminal' ? null : panel === 'tasks' ? (
+            {settingsOpened && (
+              <div className="smp-server-settings-layer" hidden={panel !== 'config'}>
+                <ServerSettings
+                  active={active}
+                  serverId={serverId}
+                  server={server}
+                  onSaved={refresh}
+                  onDeleted={props.onBack}
+                />
+              </div>
+            )}
+            {panel === 'terminal' || panel === 'config' ? null : panel === 'tasks' ? (
               <Panel title={copy.taskReport}>
                 <TaskHistory
                   key={serverId}
@@ -185,17 +189,6 @@ export function ServerWorkspace(props: {
               </Panel>
             ) : panel === 'containers' ? (
               <ContainerPanel active={active} server={server} />
-            ) : panel === 'config' ? (
-              <ServerForm
-                active={active}
-                editing
-                embedded
-                serverId={serverId}
-                initialGroupId={server.group_id ?? ''}
-                title={copy.configuration}
-                onDone={(id) => pageState.openServer(id)}
-                onCancel={() => pageState.selectDetailPanel('detail')}
-              />
             ) : (
               <ServerDetail
                 active={active}
@@ -211,10 +204,6 @@ export function ServerWorkspace(props: {
                 onInstall={() => {
                   void act(`/console-api/servers/${serverId}/install-components`)
                 }}
-                onDelete={() => {
-                  void remove()
-                }}
-                onEdit={() => pageState.selectDetailPanel('config')}
                 onTerminal={() => pageState.selectDetailPanel('terminal')}
                 onUpgrades={() => props.onUpgrades(serverId)}
               />

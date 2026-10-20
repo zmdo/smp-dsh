@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Panel } from '@smp/console-kit'
 import type { ServerDto } from '../../../shared/dto/servers.ts'
 import type { ServerError } from '../../../shared/errors.ts'
@@ -14,26 +13,22 @@ import { osLabel } from '../../../shared/operating-systems.ts'
 import { bytes, meter, ratio } from '../../shared/resources.ts'
 import { RequiredSoftware } from '../components/RequiredSoftware.tsx'
 import { SoftwareState } from '../components/ServerStatus.tsx'
-import { MoveServer } from './MoveServer.tsx'
 
 export interface ServerDetailProps {
   active: string
   server: ServerDto
   error: ServerError | null
   queued: boolean
-  onEdit: () => void
   onTerminal: () => void
   onUpgrades: () => void
   onTest: () => void
   onInspect: () => void
   onInstall: () => void
-  onDelete: () => void
 }
 
 export function ServerDetail(props: ServerDetailProps) {
   const { active, server, error, queued } = props
   const copy = serverCopy(active).ui
-  const [moving, setMoving] = useState(false)
   const missing =
     server.type_available && server.required_software.length > 0 && server.software_state !== 'ready'
   const group = server.group_name_i18n
@@ -114,11 +109,7 @@ export function ServerDetail(props: ServerDetailProps) {
             <b className="mono">{server.host_fingerprint || copy.notPinned}</b>
           </div>
         </div>
-        {moving && <MoveServer active={active} server={server} onClose={() => setMoving(false)} />}
         <div className="node-actions">
-          <button className="secondary" type="button" onClick={() => setMoving(true)}>
-            {serverCopy(active).upgrades.moveServer}
-          </button>
           <button className="secondary" type="button" onClick={props.onUpgrades}>
             {serverCopy(active).upgrades.openUpgrades} ({server.upgrade_count})
           </button>
@@ -135,12 +126,6 @@ export function ServerDetail(props: ServerDetailProps) {
           ) : null}
           <button className="secondary" type="button" onClick={props.onTerminal}>
             {copy.terminal}
-          </button>
-          <button className="secondary" type="button" onClick={props.onEdit}>
-            {copy.edit}
-          </button>
-          <button className="link danger" type="button" onClick={props.onDelete}>
-            {copy.delete}
           </button>
         </div>
       </div>

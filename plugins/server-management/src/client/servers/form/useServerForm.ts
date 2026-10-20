@@ -25,6 +25,7 @@ export interface ServerFormProps {
   /** The workspace sidebar already provides the return entry. */
   embedded?: boolean
   onDone: (id: string) => void
+  onSaved?: (server: ServerDto) => void
   onCancel: () => void
 }
 
@@ -63,6 +64,37 @@ export function useServerForm(props: ServerFormProps) {
   const requests = useRef(0)
   const authRevision = useRef({ key: '', revision: 0 })
   const identityRevision = useRef({ key: '', revision: 0 })
+
+  function applyServer(server: ServerDto, options: { basic?: boolean; policies?: boolean } = {}): void {
+    setLoadedServer(server)
+    if (options.policies !== false) {
+      setPolicies(server.software_policies)
+      setAuto(server.install_required_software)
+    }
+    if (options.basic !== false) {
+      setName(server.name)
+      setHost(server.host)
+      setPort(String(server.ssh_port))
+      setUser(server.ssh_user)
+      setMethod(server.auth_method)
+      setKeyId(server.ssh_key_id ?? '')
+      setGroupId(server.group_id ?? '')
+      setRegion(server.region ?? '')
+      setTypeKey(server.type_key)
+      setSavedOs(server.declared_os)
+      setOsFamily(server.declared_os.kind === 'custom' ? 'custom' : server.declared_os.family)
+      setOsRelease(server.declared_os.kind === 'catalog' ? server.declared_os.releaseKey : '')
+      setOsText(server.declared_os.kind === 'custom' ? server.declared_os.text : '')
+      setSavedType({
+        key: server.type_key,
+        name_i18n: server.type_name_i18n,
+        software: server.required_software,
+        supportedOs: server.type_supported_os,
+      })
+      setOriginal({ groupId: server.group_id ?? '', typeKey: server.type_key })
+    }
+    setServerLoaded(true)
+  }
   const authentication = {
     server_id: props.editing ? props.serverId : undefined,
     host: host.trim(),
@@ -143,30 +175,7 @@ export function useServerForm(props: ServerFormProps) {
     void api<ServerDto>(`/console-api/servers/${props.serverId}`)
       .then((server) => {
         if (stopped) return
-        setLoadedServer(server)
-        setPolicies(server.software_policies)
-        setName(server.name)
-        setHost(server.host)
-        setPort(String(server.ssh_port))
-        setUser(server.ssh_user)
-        setMethod(server.auth_method)
-        setKeyId(server.ssh_key_id ?? '')
-        setGroupId(server.group_id ?? '')
-        setRegion(server.region ?? '')
-        setAuto(server.install_required_software)
-        setTypeKey(server.type_key)
-        setSavedOs(server.declared_os)
-        setOsFamily(server.declared_os.kind === 'custom' ? 'custom' : server.declared_os.family)
-        setOsRelease(server.declared_os.kind === 'catalog' ? server.declared_os.releaseKey : '')
-        setOsText(server.declared_os.kind === 'custom' ? server.declared_os.text : '')
-        setSavedType({
-          key: server.type_key,
-          name_i18n: server.type_name_i18n,
-          software: server.required_software,
-          supportedOs: server.type_supported_os,
-        })
-        setOriginal({ groupId: server.group_id ?? '', typeKey: server.type_key })
-        setServerLoaded(true)
+        applyServer(server)
       })
       .catch((cause: unknown) => {
         if (!stopped) setError(requestError(cause))
@@ -236,6 +245,30 @@ export function useServerForm(props: ServerFormProps) {
         !choices?.available &&
         savedOs !== undefined &&
         sameDeclaredOs(declaredOs, savedOs)))
+
+  const basicDirty =
+    loadedServer !== undefined &&
+    (name !== loadedServer.name ||
+      host !== loadedServer.host ||
+      Number(port) !== loadedServer.ssh_port ||
+      user !== loadedServer.ssh_user ||
+      region !== (loadedServer.region ?? '') ||
+      method !== loadedServer.auth_method ||
+      keyId !== (loadedServer.ssh_key_id ?? '') ||
+      secret.trim() !== '' ||
+      declaredOs === undefined ||
+      !sameDeclaredOs(declaredOs, loadedServer.declared_os))
+  const policiesDirty =
+    loadedServer !== undefined &&
+    (auto !== loadedServer.install_required_software ||
+      JSON.stringify(policies) !== JSON.stringify(loadedServer.software_policies))
+  const canSaveBasic = canSave && basicDirty
+  const canSavePolicies = serverLoaded && policiesDirty
+
+  useEffect(() => {
+    // Editing a field invalidates a previous save or connection error.
+    setError(null)
+  }, [name, host, port, user, method, keyId, secret, region, groupId, typeKey, osFamily, osRelease, osText, policies, auto])
 
   useEffect(() => {
     if (!serverLoaded || declaredOs === undefined || typeKey !== '') return
@@ -394,6 +427,71 @@ export function useServerForm(props: ServerFormProps) {
     }
   }
 
+  async function saveBasic(): Promise<void> {
+    if (!canSaveBasic || busy || pending !== null) return
+    setBusy(true)
+    setError(null)
+    try {
+      let nextKey = keyId
+      if (method === 'private_key' && keyId === '' && secret.trim() !== '') {
+        const created = await api<KeyDto>('/console-api/ssh-keys', {
+          method: 'POST',
+          body: JSON.stringify({ name: keyName.trim() || name.trim(), secret }),
+        })
+        nextKey = created.id
+      }
+      const saved = await api<ServerDto>(`/console-api/servers/${props.serverId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: name.trim(),
+          host: host.trim(),
+          ssh_port: Number(port),
+          ssh_user: user.trim(),
+          auth_method: method,
+          declared_os: declaredOs,
+          region,
+          inspect_after_save: identified !== undefined,
+          ssh_key_id: method === 'private_key' ? nextKey : undefined,
+          secret: method === 'password' && secret.trim() !== '' ? secret : undefined,
+        }),
+      })
+      applyServer(saved, { policies: !policiesDirty })
+      props.onSaved?.(saved)
+    } catch (cause) {
+      setError(requestError(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function savePolicies(): Promise<void> {
+    if (!canSavePolicies || busy || pending !== null) return
+    setBusy(true)
+    setError(null)
+    try {
+      const saved = await api<ServerDto>(`/console-api/servers/${props.serverId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          install_required_software: software.length > 0 && auto,
+          software_policies: software.map(
+            (item) =>
+              policies.find((policy) => policy.software_key === item.software_key) ?? {
+                software_key: item.software_key,
+                restriction: { kind: 'any' },
+                detect_updates: false,
+              },
+          ),
+        }),
+      })
+      applyServer(saved, { basic: !basicDirty })
+      props.onSaved?.(saved)
+    } catch (cause) {
+      setError(requestError(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return {
     active,
     applicableTypes,
@@ -402,7 +500,10 @@ export function useServerForm(props: ServerFormProps) {
     available,
     busy,
     cachedIdentification,
+    basicDirty,
     canSave,
+    canSaveBasic,
+    canSavePolicies,
     canTest,
     changeGroup,
     choices,
@@ -433,7 +534,10 @@ export function useServerForm(props: ServerFormProps) {
     preview,
     queueIdentification,
     region,
+    policiesDirty,
     save,
+    saveBasic,
+    savePolicies,
     savedOs,
     secret,
     selected,
