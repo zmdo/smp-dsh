@@ -57,6 +57,13 @@ export async function routeServers(
     if (server === undefined) throw new HttpError(404, 'server_not_found')
     return sendJson(response, 200, { items: deps.extensions.catalogFor(server) })
   }
+  if (parts.length === 2 && parts[1] === 'extension-inspections' && request.method === 'GET') {
+    const server = await serverRead(deps, id)
+    if (server === undefined) throw new HttpError(404, 'server_not_found')
+    return sendJson(response, 200, {
+      items: deps.extensions.catalogFor(server).filter((entry) => entry.kind === 'inspection'),
+    })
+  }
   if (parts.length === 2 && parts[1] === 'extension-data' && request.method === 'GET') {
     const server = await serverRead(deps, id)
     if (server === undefined) throw new HttpError(404, 'server_not_found')

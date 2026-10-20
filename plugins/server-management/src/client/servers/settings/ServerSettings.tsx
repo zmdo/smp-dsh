@@ -3,8 +3,7 @@ import { useEffect, useState } from 'react'
 import type { ServerDto } from '../../../shared/dto/servers.ts'
 import { localized, serverCopy } from '../../../shared/i18n.ts'
 import { useServerForm } from '../form/useServerForm.ts'
-import { ExtensionHost } from '../../extensions/ExtensionHost.tsx'
-import { SETTINGS_SECTION_SLOT } from '../../extensions/slots.ts'
+import { ExtensionSettingsSection } from '../../extensions/ExtensionSettingsSection.tsx'
 import { extensionApi } from '../../extensions/api.ts'
 import type { ExtensionCatalogEntry, RenderSlot, SlotService } from '../../extensions/slots.ts'
 import { BasicSettings } from './BasicSettings.tsx'
@@ -38,6 +37,7 @@ export function ServerSettings(props: {
     if (section.startsWith('extension:') && !extensions.some((entry) => `extension:${entry.key}` === section))
       setSection('basic')
   }, [extensions, section])
+  const extensionEntry = extensions.find((item) => `extension:${item.key}` === section)
   const tabs = [
     { key: 'basic', label: copy.basicConfig },
     { key: 'policies', label: copy.policiesConfig },
@@ -64,15 +64,17 @@ export function ServerSettings(props: {
           <BasicSettings active={active} form={form} server={server} onDeleted={props.onDeleted} />
         ) : section === 'policies' ? (
           <PolicySettings active={active} form={form} />
-        ) : (
-          <ExtensionHost
+        ) : extensionEntry !== undefined ? (
+          <ExtensionSettingsSection
             active={active}
-            slot={SETTINGS_SECTION_SLOT}
-            entry={section.slice('extension:'.length)}
-            owner={{ server, active, refresh: props.onSaved, api: extensionApi }}
-            renderSlot={props.renderSlot as never}
+            server={server}
+            entry={extensionEntry}
+            renderSlot={props.renderSlot}
             slots={props.slots}
+            onSaved={props.onSaved}
           />
+        ) : (
+          <p className="muted">{copy.extensionUnavailable}</p>
         )}
       </div>
     </Panel>

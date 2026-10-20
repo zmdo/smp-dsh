@@ -13,6 +13,14 @@ export interface ExtensionSlotOwner {
   openTasks: () => void
   selectPanel: (key: string) => void
   api: ExtensionApi
+  settings?: {
+    value: unknown
+    revision: string
+    dirty: boolean
+    saving: boolean
+    error: unknown
+    onChange: (value: unknown) => void
+  }
 }
 
 export interface SlotService {
