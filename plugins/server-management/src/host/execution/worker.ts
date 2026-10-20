@@ -124,6 +124,22 @@ export async function executeJob(
       db,
       job,
       session,
+      reconnect: async () => {
+        try {
+          await session?.close()
+        } catch {
+          // The upgrade may already have closed the old session.
+        }
+        session = await connect({
+          host: server!.host,
+          port: server!.ssh_port,
+          username: server!.ssh_user,
+          authMethod: server!.auth_method,
+          secret,
+          expectedFingerprint: server!.host_fingerprint,
+        })
+        return session
+      },
       server,
       lease,
       probe,

@@ -11,7 +11,8 @@ import { loadPlan } from '../plans.ts'
 import { reconcile } from '../recovery.ts'
 
 export async function applyPlanJob(context: WorkerContext): Promise<void> {
-  const { db, job, session, server, lease, probe, secret, guard, state } = context
+  const { db, job, server, lease, probe, secret, guard, state } = context
+  let { session } = context
 
   const saved = await loadPlan(db, job)
   if (
@@ -45,6 +46,7 @@ export async function applyPlanJob(context: WorkerContext): Promise<void> {
     await guard()
     result = await remoteOperation(session, 'recover', job.operation_id, saved.digest)
   }
+  if (context.reconnect) session = await context.reconnect()
   await phase(db, job, 'verifying')
   const actual = await detectSoftware(session, lease.components, probe.os)
   await owned(db, job, (client) =>

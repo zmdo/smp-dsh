@@ -19,7 +19,7 @@
 | 08 | CONT-04 停止容器 | 通过 | [08-CONT-04.md](08-CONT-04.md) |
 | 09 | CONT-05 Compose 容器 | 通过 | [09-CONT-05.md](09-CONT-05.md) |
 | 13 | SW-01 安装缺失软件 | 部分通过 | [13-SW-01.md](13-SW-01.md) |
-| 14 | SW-02 单台 Docker 升级 | 部分通过 | [14-SW-02.md](14-SW-02.md) |
+| 14 | SW-02 单台 Docker 升级 | 回测通过 | [14-SW-02.md](14-SW-02.md) / [16-SW-02-RETEST.md](16-SW-02-RETEST.md) |
 | 15 | SW-04 批量升级 | 阻塞 | [15-SW-04.md](15-SW-04.md) |
 | 10 | CONT-06 权限不足 | 回测通过 | [10-CONT-06.md](10-CONT-06.md) / [12-CONT-06-RETEST.md](12-CONT-06-RETEST.md) |
 

@@ -11,6 +11,7 @@ export interface WorkerContext {
   db: Db
   job: JobRecord
   session: SshSession
+  reconnect?: () => Promise<SshSession>
   server: ServerSecret
   lease: TypeLease | undefined
   probe: OsProbe
