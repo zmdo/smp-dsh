@@ -344,7 +344,7 @@ export async function enqueueExisting(deps: ServerDeps, id: string, action: stri
       const job = await enqueue(client, id, action, {
         configRevision: row.config_revision,
         typeSignature: lease?.signature ?? '',
-      })
+      }, false, 'manual')
       return job
     })
   } finally {

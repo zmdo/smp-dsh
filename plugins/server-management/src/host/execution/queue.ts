@@ -12,9 +12,10 @@ export async function enqueue(
   action: string,
   expected?: { configRevision: string | number; typeSignature: string },
   prepare = false,
+  source: 'manual' | 'scheduled' = 'scheduled',
 ): Promise<JobRecord> {
   return transaction(db, async (client) => {
-    const result = await enqueueOn(client, serverId, action, expected, prepare)
+    const result = await enqueueOn(client, serverId, action, expected, prepare, source)
     return result
   })
 }
@@ -26,10 +27,11 @@ export async function enqueueOn(
   action: string,
   expected?: { configRevision: string | number; typeSignature: string },
   prepare = false,
+  source: 'manual' | 'scheduled' = 'scheduled',
 ): Promise<JobRecord> {
   const server = (await repository.lockServerRevision(db, serverId)).rows[0]
   if (!server) throw new ServerError('server_not_found')
-  const request = { action, prepare: prepare || action === 'install_components' }
+  const request = { action, prepare: prepare || action === 'install_components', source }
   const existing = (
     await repository.matchingInspection(db, {
       serverId,

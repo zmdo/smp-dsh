@@ -23,6 +23,13 @@ export interface TaskResultDto {
   summary?: string
   error?: unknown
   issues?: unknown[]
+  extensions?: {
+    key: string
+    owner: string
+    status: 'succeeded' | 'failed'
+    result?: unknown
+    error?: unknown
+  }[]
   hour_start?: string
   hour_end?: string
   succeeded?: number

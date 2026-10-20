@@ -19,7 +19,7 @@
 
 ## 下一项明确工作
 
-按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)继续步骤 6。步骤 1～5 已完成；扩展巡检已进入核心 inspect 路径，来源、查询过滤和撤回验证待补。
+按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)继续步骤 6。步骤 1～5 已完成；扩展巡检已进入核心 inspect 路径，来源标记和任务展示已补；配置关闭、撤回和租约过期验证待补。
 
 用户已确认公共类型开放范围、同服务器内终端保留、容器清单默认自动采集，以及仅适用类型显示插件入口。无需重复确认这些产品行为；实施期间发现新冲突或缺失约束时再提出具体问题。
 

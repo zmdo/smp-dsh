@@ -12,6 +12,7 @@ export async function taskHistory(db: Db, query: TaskQuery) {
       from server_jobs where server_identity=$1
         and not (purpose='detect_updates' and request_snapshot->>'automatic'='true' and state='succeeded')
         and (not (purpose='inspect' and request_snapshot->>'action'='inspect'
+          and coalesce(request_snapshot->>'source','scheduled')='scheduled'
           and request_snapshot->>'prepare' is distinct from 'true') or state in ('failed','blocked'))
       union all
       select 'inspection:'||server_identity||':'||extract(epoch from hour_start)::bigint,

@@ -41,13 +41,13 @@ test('inspection reports and filtered task pages preserve errors without floodin
     }
     const hour = (await db.query("select date_trunc('hour',now() at time zone 'UTC') at time zone 'UTC'-interval '2 hours' as value")).rows[0].value as Date
     const stamp = (minutes: number) => new Date(hour.getTime() + minutes * 60_000).toISOString()
-    async function seed(action: string, state: string, minutes: number, output = '', serverId = server) {
+    async function seed(action: string, state: string, minutes: number, output = '', serverId = server, source: 'manual' | 'scheduled' = 'scheduled') {
       const id = randomUUID()
       const terminal = ['succeeded', 'failed', 'blocked', 'cancelled'].includes(state)
       await db.query(`insert into server_jobs(id,server_id,server_identity,purpose,state,phase,expected_config_revision,
         expected_environment_revision,definition_revision,idempotency_key,operation_id,request_snapshot,output_excerpt,created_at,finished_at)
         values($1,$2,$2,'inspect',$3,$4,1,0,'test',$1::uuid::text,$5,$6,$7,$8,$9)`,
-        [id, serverId, state, terminal ? 'finished' : 'waiting', randomUUID(), JSON.stringify({ action, prepare: action === 'install_components' }), output, stamp(minutes), terminal ? stamp(minutes) : null])
+        [id, serverId, state, terminal ? 'finished' : 'waiting', randomUUID(), JSON.stringify({ action, prepare: action === 'install_components', source }), output, stamp(minutes), terminal ? stamp(minutes) : null])
       return id
     }
     for (let n = 0; n < 30; n++) await seed('inspect', 'succeeded', n)
@@ -124,5 +124,9 @@ test('inspection reports and filtered task pages preserve errors without floodin
     assert.equal(next?.id, failed.id)
     await finishJob(db, next!, 'failed', 'failed connection')
     assert.equal((await page({ action: 'inspect', status: 'failed' })).total, 2)
+    const manualId = await seed('inspect', 'succeeded', 34, 'manual inspect', server, 'manual')
+    const manualPage = await page({ action: 'inspect', status: 'succeeded' })
+    assert.ok(manualPage.items.some((item: any) => item.id === manualId))
+    assert.equal(manualPage.total, 1)
     assert.equal((await page({ action: 'inspection_report' })).total, 1)
   })

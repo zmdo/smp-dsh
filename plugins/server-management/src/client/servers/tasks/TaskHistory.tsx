@@ -261,6 +261,16 @@ function TaskResult({ active, job }: { active: string; job: TaskRow }) {
           ))}
         </ul>
       ) : null}
+      {result?.extensions?.length ? (
+        <ul>
+          {result.extensions.map((item) => (
+            <li key={item.key}>
+              {item.key}: {enumLabel(copy.jobStatus, item.status)}
+              {item.error !== undefined ? ` — ${displayJobError(active, item.error)}` : ''}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {result?.steps && (
         <ul>
           {result.steps.map((step) => (

@@ -79,7 +79,7 @@ export function startJobs(
     const ids = await dueInspects(db, config.inspectIntervalSeconds)
     for (const id of ids) {
       if (stopped) return
-      await enqueue(db, id, 'inspect')
+      await enqueue(db, id, 'inspect', undefined, false, 'scheduled')
     }
   }
 }

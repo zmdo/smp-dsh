@@ -24,7 +24,8 @@ export async function finishJob(
     if (
       job.purpose === 'inspect' &&
       job.request_snapshot.action === 'inspect' &&
-      !job.request_snapshot.prepare
+      !job.request_snapshot.prepare &&
+      (job.request_snapshot.source === undefined || job.request_snapshot.source === 'scheduled')
     ) {
       await repository.reportInspection(client, job.id)
     }
