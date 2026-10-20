@@ -215,7 +215,6 @@ body[data-ds-dark-theme] .smp-console button.site-icon .mark-dark { display: blo
   display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 20px; flex: none;
 }
 .smp-console .tabs, .smp-chat-bar .tabs { display: flex; height: 100%; gap: 4px; }
-.smp-console .topbar-page-title { margin: 0; font-size: 14px; font-weight: 600; }
 .smp-console .tab, .smp-chat-bar .tab {
   display: flex; align-items: center; height: 100%; padding: 0 14px; border: 0; background: transparent;
   color: var(--dsw-alias-label-secondary); cursor: pointer;
@@ -613,14 +612,14 @@ function ConsolePanel(props: { slots: PageSlots; locale: LocaleFace; section: Se
   const pages = withoutPages(usePages(props.slots, props.locale), hidden)
   const copy = useCopy(props.locale)
   const group = groupOf(pages, current)
-  const tabs = group?.navigation === 'sidebar' ? [] : group?.pages ?? []
+  const tabs = group?.navigation === 'sidebar'
+    ? group.pages.filter(page => page.key === current)
+    : group?.pages ?? []
   const body = props.renderSlot?.('console.page', {openConsole:props.openConsole}, { entryKey: current }) ?? null
-  const navigation = group?.navigation === 'sidebar' ? (
-    <h1 className="topbar-page-title">{group.pages.find(page => page.key === current)?.label}</h1>
-  ) : (
-    <nav className="tabs">
+  const navigation = (
+    <nav className="tabs" aria-label={group?.label}>
       {tabs.map(page => (
-        <button key={page.key} className={`tab${page.key === current ? ' is-on' : ''}`} type="button" onClick={() => props.openConsole(page.key)}>
+        <button key={page.key} className={`tab${page.key === current ? ' is-on' : ''}`} type="button" aria-current={page.key === current ? 'page' : undefined} onClick={() => props.openConsole(page.key)}>
           {page.label}
         </button>
       ))}

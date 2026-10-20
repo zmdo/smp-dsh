@@ -130,7 +130,7 @@ plugins/server-management/
 
 控制台壳声明根级 keyed 槽 `console.page`，页面按唯一 `key` 登记。页面 label 可附带 `group`、`groupLabel` 和 `navigation` 元数据；同组默认在顶部显示页面 Tab，选择 `navigation: 'sidebar'` 时改为侧栏分组下的子入口。
 
-壳同时声明根级 keyed 槽 `console.page-navigation`，渲染在页面最顶部导航栏中，与 `console.page` 使用同一个页面 key。需要专属导航的插件可向该槽登记自己的导航组件，接收 `openConsole` 回调；选中状态由该插件单次 `apply` 创建的状态持有，并与页面内容共用。不登记时使用壳的默认标题或页面 Tab；插件卸载时导航随槽登记一同清理。
+壳同时声明根级 keyed 槽 `console.page-navigation`，渲染在页面最顶部导航栏中，与 `console.page` 使用同一个页面 key。需要专属导航的插件可向该槽登记自己的导航组件，接收 `openConsole` 回调；选中状态由该插件单次 `apply` 创建的状态持有，并与页面内容共用。不登记时使用壳的统一页面 Tab：普通分组展示同组页面，`navigation: 'sidebar'` 分组仅展示当前页面的选中 Tab，其他页面继续通过侧栏切换。插件卸载时导航随槽登记一同清理。
 
 ## 共享库
 
