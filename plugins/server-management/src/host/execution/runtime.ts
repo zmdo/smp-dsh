@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { type Db } from '../database/connection.ts'
 import { DefinitionRegistry } from '../definitions/registry.ts'
+import type { ServerExtensionRegistry } from '../extensions/registry.ts'
 import { connectSsh } from '../remote/ssh.ts'
 import { scheduleChanges } from '../upgrades/scheduler.ts'
 import { dueInspects } from './persistence/inspection-repository.ts'
@@ -15,6 +16,7 @@ export function startJobs(
   config: { inspectIntervalSeconds: number; updateCheckIntervalSeconds: number },
   definitions: DefinitionRegistry,
   connect: typeof connectSsh,
+  extensions?: ServerExtensionRegistry,
 ): () => Promise<void> {
   const workerId = randomUUID()
   let stopped = false
@@ -57,7 +59,7 @@ export function startJobs(
         const job = await claimNext(db, workerId)
         if (job === undefined) return
         active += 1
-        const task = executeJob(db, ctx.secrets, definitions, job, connect, config.updateCheckIntervalSeconds)
+        const task = executeJob(db, ctx.secrets, definitions, job, connect, config.updateCheckIntervalSeconds, extensions)
           .catch((cause: unknown) => {
             ctx.logger.error(cause)
           })

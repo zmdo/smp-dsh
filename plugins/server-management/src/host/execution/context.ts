@@ -5,6 +5,7 @@ import type { OsProbe } from '../remote/os-probe.ts'
 import type { SshSession } from '../remote/ssh.ts'
 import type { ServerSecret } from '../servers/persistence/rows.ts'
 import type { JobRecord } from './persistence/rows.ts'
+import type { ServerExtensionRegistry } from '../extensions/registry.ts'
 
 export interface WorkerContext {
   db: Db
@@ -19,4 +20,5 @@ export interface WorkerContext {
   guard(): Promise<void>
   state: { mutation: boolean }
   updateCheckIntervalSeconds: number
+  extensions?: ServerExtensionRegistry
 }

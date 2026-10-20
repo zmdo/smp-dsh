@@ -4,6 +4,7 @@ import { preparePlan } from '../../recipes/planning.ts'
 import { detectSoftware, inspectContainers } from '../../recipes/software.ts'
 import { scrubValue } from '../../remote/parse.ts'
 import { saveObservation } from '../../servers/persistence/observation-repository.ts'
+import { extensionIssues, runExtensionInspections, scrubExtensionResults } from '../../extensions/inspect.ts'
 import { finishJob } from '../completion.ts'
 import type { WorkerContext } from '../context.ts'
 import { owned } from '../ownership.ts'
@@ -19,6 +20,7 @@ export async function inspectJob(context: WorkerContext): Promise<void> {
     verified === 'matched' && probe.state === 'detected' && probe.os.family !== 'builtin/windows-server'
       ? await inspectContainers(session)
       : { state: 'unavailable' as const, docker: null, compose: null }
+  const extensionResults = context.extensions ? await runExtensionInspections(context, context.extensions) : []
   await owned(db, job, (client) =>
     saveObservation(
       client,
@@ -42,6 +44,7 @@ export async function inspectJob(context: WorkerContext): Promise<void> {
     }
     if (observation.state === 'error')
       issues.push(errorPayload(new ServerError('containers_failed', { detail: observation.detail ?? '' })))
+    issues.push(...extensionIssues(extensionResults))
     if (issues.length) {
       await finishJob(db, job, 'failed', '巡检发现检测异常。', {
         summary: 'inspection_issues',
@@ -60,6 +63,9 @@ export async function inspectJob(context: WorkerContext): Promise<void> {
     job,
     'succeeded',
     job.request_snapshot.prepare ? '检查完成；缺失软件将按独立安装计划处理。' : '只读检查完成。',
-    { summary: job.request_snapshot.prepare ? 'prepared' : 'inspected' },
+    {
+      summary: job.request_snapshot.prepare ? 'prepared' : 'inspected',
+      ...(extensionResults.length ? { extensions: scrubExtensionResults(extensionResults, secret) } : {}),
+    },
   )
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Db } from '../src/host/database/connection.ts'
@@ -38,6 +39,12 @@ const bundle: ServerExtensionBundle = {
       key: 'database-check',
       name: { zh: '数据库检查', en: 'Database check' },
       appliesTo: { types: ['builtin/general'] },
+      script: {
+        path: fileURLToPath(new URL('./fixtures/inspection.sh', import.meta.url)),
+        interpreter: 'posix-sh',
+        timeoutMs: 1000,
+        outputLimitBytes: 4096,
+      },
     },
   ],
 }

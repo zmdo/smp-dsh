@@ -8,6 +8,7 @@ import { type Db } from '../database/connection.ts'
 import { type TypeLease } from '../definitions/model.ts'
 import { restrictLease } from '../definitions/policies.ts'
 import { type DefinitionRegistry } from '../definitions/registry.ts'
+import type { ServerExtensionRegistry } from '../extensions/registry.ts'
 import { probeOs } from '../remote/os-probe.ts'
 import { scrub, scrubValue } from '../remote/parse.ts'
 import { connectSsh, type SshSession } from '../remote/ssh.ts'
@@ -37,6 +38,7 @@ export async function executeJob(
   job: JobRecord,
   connect: typeof connectSsh = connectSsh,
   updateCheckIntervalSeconds = 3600,
+  extensions?: ServerExtensionRegistry,
 ): Promise<void> {
   let session: SshSession | undefined,
     lease: TypeLease | undefined,
@@ -131,6 +133,7 @@ export async function executeJob(
       guard,
       state,
       updateCheckIntervalSeconds,
+      extensions,
     }
     switch (job.purpose) {
       case 'detect_updates':

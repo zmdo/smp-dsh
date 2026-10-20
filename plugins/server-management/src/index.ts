@@ -111,7 +111,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield () => extensions.close()
-    yield startJobs(ctx, db, config, definitions, connect)
+    yield startJobs(ctx, db, config, definitions, connect, extensions)
     yield startMetrics(
       db,
       ctx.secrets,

@@ -1,6 +1,7 @@
 import type { DefinitionBundle, Registration } from '../../../../src/shared/contracts/definitions.ts'
 import type { ServerExtensionBundle } from '../../../../src/shared/contracts/extensions.ts'
 import type { ServerExtensionRuntime } from '../../../../src/host/extensions/runtime.ts'
+import { fileURLToPath } from 'node:url'
 
 const owner = '@smp/console-server-extension-fixture'
 const type = `${owner}/database`
@@ -54,6 +55,12 @@ const extensions: ServerExtensionBundle = {
       key: 'database-check',
       name: { zh: '数据库检查', en: 'Database check' },
       appliesTo: { types: [type] },
+      script: {
+        path: fileURLToPath(new URL('../scripts/inspection.sh', import.meta.url)),
+        interpreter: 'posix-sh',
+        timeoutMs: 1000,
+        outputLimitBytes: 4096,
+      },
     },
   ],
 }
@@ -61,6 +68,9 @@ const extensions: ServerExtensionBundle = {
 const runtime: ServerExtensionRuntime = {
   queries: {
     'database-status': async (server) => ({ online: true, server: server.name }),
+  },
+  inspections: {
+    'database-check': { validate: (raw) => JSON.parse(raw) },
   },
   settings: {
     'database-settings': {

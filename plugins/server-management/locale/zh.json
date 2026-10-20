@@ -359,6 +359,8 @@
     "extension_plan_not_found": "扩展配置计划不存在。",
     "extension_plan_not_pending": "扩展配置计划已处理或已取消。",
     "extension_plan_expired": "扩展配置计划已过期，请重新创建。",
+    "extension_inspection_failed": "扩展检查失败：{detail}",
+    "extension_inspection_unavailable": "扩展检查当前不可用：{key}",
     "extension_plan_invalid": "扩展配置计划摘要无效。",
     "connection_test_required": "请先使用当前认证信息重新测试连接。",
     "task_query_invalid": "任务查询条件无效，请检查分页、时间范围和筛选条件。",

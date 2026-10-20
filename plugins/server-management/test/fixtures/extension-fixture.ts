@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import type { DefinitionBundle } from '../../src/shared/contracts/definitions.ts'
 import type { ServerExtensionBundle } from '../../src/shared/contracts/extensions.ts'
 import type { ServerExtensionRuntime } from '../../src/host/extensions/runtime.ts'
@@ -48,6 +49,12 @@ export const fixtureExtension: ServerExtensionBundle = {
       key: 'database-check',
       name: { zh: '数据库检查', en: 'Database check' },
       appliesTo: { types: [fixtureType] },
+      script: {
+        path: fileURLToPath(new URL('./inspection.sh', import.meta.url)),
+        interpreter: 'posix-sh',
+        timeoutMs: 1000,
+        outputLimitBytes: 4096,
+      },
     },
   ],
 }
@@ -55,6 +62,9 @@ export const fixtureExtension: ServerExtensionBundle = {
 export const fixtureRuntime: ServerExtensionRuntime = {
   queries: {
     'database-status': async () => ({ online: true }),
+  },
+  inspections: {
+    'database-check': { validate: (raw) => JSON.parse(raw) },
   },
   settings: {
     'database-settings': {

@@ -29,6 +29,7 @@ test(
         '0016_server_version_policies.sql',
         '0017_server_extension_settings.sql',
         '0018_server_extension_setting_plans.sql',
+        '0019_server_extension_observations.sql',
       ])
         await pool.query(await readFile(new URL(`../../database/migrations/${name}`, import.meta.url), 'utf8'))
       const serverId = randomUUID()

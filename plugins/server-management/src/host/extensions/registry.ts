@@ -10,6 +10,7 @@ import type { ServerExtensionRuntime } from './runtime.ts'
 import { ServerError } from '../../shared/errors.ts'
 import { validateOsSupport, type DeclaredOs, type DetectedOs, supportsOs } from '../../shared/operating-systems.ts'
 import type { DefinitionRegistry } from '../definitions/registry.ts'
+import { loadScript, type LoadedScript } from '../recipes/script.ts'
 
 const KEY = /^[a-z][a-z0-9-]{0,63}$/
 const PACKAGE = /^(@[a-z0-9-]+\/)?[a-z0-9][a-z0-9._-]*$/
@@ -20,6 +21,7 @@ interface Installed {
   entries: ExtensionCatalogEntry[]
   identity: object
   runtime: ServerExtensionRuntime
+  scripts: Map<string, LoadedScript>
 }
 
 /** Metadata catalog only; component slots and persistence arrive with the panel steps. */
@@ -51,7 +53,7 @@ export class ServerExtensionRegistry {
     let cancelled = false
     const ready = this.tail.then(async () => {
       if (cancelled) return
-      record = this.activate(input, identity, runtime)
+      record = await this.activate(input, identity, runtime)
       if (cancelled || this.closed) {
         this.remove(record)
         record = undefined
@@ -82,6 +84,20 @@ export class ServerExtensionRegistry {
         return true
       })
       .sort((a, b) => a.order - b.order || a.key.localeCompare(b.key))
+  }
+
+  inspection(key: string): { entry: ExtensionCatalogEntry; script: LoadedScript; runtime: NonNullable<ServerExtensionRuntime['inspections']>[string] } | undefined {
+    for (const installed of this.owners.values()) {
+      const entry = installed.entries.find((item) => item.key === key && item.kind === 'inspection')
+      const script = installed.scripts.get(key)
+      const runtime = installed.runtime.inspections?.[key.slice(installed.owner.length + 1)]
+      if (entry !== undefined && script !== undefined && runtime !== undefined) return { entry, script, runtime }
+    }
+    return undefined
+  }
+
+  inspectionsFor(server: Pick<ServerDto, 'type_key' | 'declared_os'>): readonly ExtensionCatalogEntry[] {
+    return this.list(server.type_key, server.declared_os).filter((entry) => entry.kind === 'inspection')
   }
 
   catalogFor(server: Pick<ServerDto, 'type_key' | 'declared_os'>): readonly ExtensionCatalogEntry[] {
@@ -127,7 +143,7 @@ export class ServerExtensionRegistry {
     await Promise.allSettled([this.tail])
   }
 
-  private activate(input: ServerExtensionBundle, identity: object, runtime: ServerExtensionRuntime): Installed {
+  private async activate(input: ServerExtensionBundle, identity: object, runtime: ServerExtensionRuntime): Promise<Installed> {
     if (this.closed) throw new ServerError('definitions_unavailable')
     if (input.contractVersion !== 1 || !PACKAGE.test(input.owner) || input.owner === 'builtin')
       throw new ServerError('extension_definition_invalid')
@@ -135,8 +151,9 @@ export class ServerExtensionRegistry {
       if (!EXTENSION_KEYS.has(key)) throw new ServerError('extension_definition_invalid', { field: key })
     if (this.owners.has(input.owner)) throw new ServerError('extension_registration_exists')
     const entries: ExtensionCatalogEntry[] = []
+    const scripts = new Map<string, LoadedScript>()
     const keys = new Set<string>()
-    const add = (
+    const add = async (
       kind: ExtensionKind,
       items:
         | readonly { key: string; name: LocalizedText; order?: number; appliesTo?: ExtensionScope }[]
@@ -159,6 +176,11 @@ export class ServerExtensionRegistry {
         }
         if (appliesTo.os !== undefined) validateOsSupport(appliesTo.os, false)
         keys.add(key)
+        if (kind === 'inspection') {
+          const inspection = item as { script?: Parameters<typeof loadScript>[0] }
+          if (inspection.script === undefined) throw new ServerError('extension_definition_invalid', { field: 'script' })
+          scripts.set(key, await loadScript(inspection.script))
+        }
         entries.push({
           key,
           owner: input.owner,
@@ -172,11 +194,11 @@ export class ServerExtensionRegistry {
         })
       }
     }
-    add('panel', input.panels)
-    add('settings', input.settings)
-    add('query', input.queries)
-    add('inspection', input.inspections)
-    const record: Installed = { owner: input.owner, entries, identity, runtime }
+    await add('panel', input.panels)
+    await add('settings', input.settings)
+    await add('query', input.queries)
+    await add('inspection', input.inspections)
+    const record: Installed = { owner: input.owner, entries, identity, runtime, scripts }
     this.owners.set(input.owner, record)
     this.revision += 1
     return record

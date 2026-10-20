@@ -1,4 +1,5 @@
 import type { DefinitionKey, LocalizedText } from './common.ts'
+import type { ScriptDefinition } from './definitions.ts'
 import type { OsSupport } from '../operating-system-types.ts'
 
 /** Declarative applicability. Omitted types mean every server; omitted OS means every system. */
@@ -37,6 +38,8 @@ export interface ExtensionInspection {
   readonly name: LocalizedText
   readonly order?: number
   readonly appliesTo?: ExtensionScope
+  /** Read-only script snapshot; the core executor owns SSH and the task fence. */
+  readonly script: ScriptDefinition
 }
 
 /**

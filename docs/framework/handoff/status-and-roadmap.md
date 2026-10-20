@@ -13,13 +13,13 @@
 | 主侧栏悬浮变蓝和收起浮层 | 已有实现 | [客户端](../development/client-ui.md) |
 | 服务器分组、类型、OS、登记识别、版本与升级 | 已有实现 | [服务器管理](../modules/server-management/README.md) |
 | 服务器管理业务／SQL／模型分层重构 | 已完成到当前目录结构 | [模块结构](../modules/server-management/README.md) |
-| 单台服务器详情工作区与终端保留 | 步骤 1～5 已实现：详情工作区、终端保留、配置栏目、公共类型和扩展面板／配置均已落地 | [交接](../modules/server-management/handoff.md) |
+| 单台服务器详情工作区与终端保留 | 步骤 1～5 已实现；步骤 6 的扩展巡检脚本执行、观察存储和失败隔离进行中 | [交接](../modules/server-management/handoff.md) |
 | 类型专属面板、插件配置、巡检扩展和容器插件 | 已确认，待实施 | 同上 |
 | 会话侧服务器目录／远程命令工具 | 仍未实现；旧设计需重审当前规则 | [漂移对照](design-drift.md) |
 
 ## 下一项明确工作
 
-按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)继续步骤 6。步骤 1～5 已完成；下一步是巡检贡献接入核心任务体系。
+按已确认的[八步计划](../../design/server-management/detail-extensions-implementation-plan.md)继续步骤 6。步骤 1～5 已完成；扩展巡检已进入核心 inspect 路径，来源、查询过滤和撤回验证待补。
 
 用户已确认公共类型开放范围、同服务器内终端保留、容器清单默认自动采集，以及仅适用类型显示插件入口。无需重复确认这些产品行为；实施期间发现新冲突或缺失约束时再提出具体问题。
 
