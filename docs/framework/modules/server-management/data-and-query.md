@@ -56,6 +56,6 @@ freshness 默认至少 90 秒，并受巡检周期影响；配置／环境／配
 
 ## 当前与计划表的分界
 
-`server_extension_settings` 已在 `0017_server_extension_settings.sql` 中提供，用于扩展配置的带修订保存；`server_extension_observations` 已在 `0019_server_extension_observations.sql` 中提供，保存扩展巡检当前状态和最后成功结果。扩展配置接口、执行配置计划和巡检观察已落地；来源／查询过滤仍待步骤 6 补齐。见[后续交接](handoff.md)。
+`server_extension_settings` 已在 `0017_server_extension_settings.sql` 中提供，用于扩展配置的带修订保存；`server_extension_observations` 已在 `0019_server_extension_observations.sql` 中提供，保存扩展巡检当前状态和最后成功结果。扩展配置接口、执行配置计划、巡检观察、来源过滤和任务取消已落地。见[后续交接](handoff.md)。
 
 源码：[列表聚合](../../../../plugins/server-management/src/host/servers/list.ts)、[列表 SQL](../../../../plugins/server-management/src/host/servers/persistence/list-repository.ts)、[任务历史 SQL](../../../../plugins/server-management/src/host/tasks/persistence/history-repository.ts)、[迁移](../../../../plugins/database/migrations)。

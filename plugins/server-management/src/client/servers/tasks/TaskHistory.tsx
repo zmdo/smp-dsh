@@ -271,6 +271,17 @@ function TaskResult({ active, job }: { active: string; job: TaskRow }) {
           ))}
         </ul>
       ) : null}
+      {['queued', 'claimed', 'running', 'recovering'].includes(job.status) && (
+        <button
+          className="link"
+          type="button"
+          onClick={() => {
+            void api(`/console-api/server-jobs/${job.id}/cancel`, { method: 'POST' })
+          }}
+        >
+          {copy.cancelTask}
+        </button>
+      )}
       {result?.steps && (
         <ul>
           {result.steps.map((step) => (

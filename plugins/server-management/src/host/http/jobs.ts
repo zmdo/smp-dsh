@@ -3,6 +3,7 @@ import { type Db } from '../database/connection.ts'
 import { HttpError } from '../errors.ts'
 import { UUID } from '../input.ts'
 import { readJob, taskHistory } from '../tasks/queries.ts'
+import { cancelJob } from '../tasks/cancel.ts'
 import { sendJson } from './reply.ts'
 import { parseTaskQuery } from './task-query.ts'
 
@@ -17,6 +18,11 @@ export async function routeJobs(
     return sendJson(response, 200, await taskHistory(db, query))
   }
   const id = rest.slice(1)
+  if (request.method === 'POST' && UUID.test(id)) {
+    await cancelJob(db, id)
+    const result = await readJob(db, id)
+    if (result !== undefined) return sendJson(response, 200, result)
+  }
   if (request.method === 'GET' && UUID.test(id)) {
     const result = await readJob(db, id)
     if (result !== undefined) return sendJson(response, 200, result)

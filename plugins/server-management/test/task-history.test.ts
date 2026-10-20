@@ -8,6 +8,7 @@ import { parseTaskQuery } from '../src/host/http/task-query.ts'
 import { routeJobs } from '../src/host/http/jobs.ts'
 import {claimNext,enqueue} from '../src/host/execution/queue.ts'
 import {finishJob} from '../src/host/execution/completion.ts'
+import {cancelJob} from '../src/host/tasks/cancel.ts'
 import { HttpError } from '../src/host/errors.ts'
 
 test('task queries validate limits, explicit time zones, filters and range ordering', () => {
@@ -129,4 +130,8 @@ test('inspection reports and filtered task pages preserve errors without floodin
     assert.ok(manualPage.items.some((item: any) => item.id === manualId))
     assert.equal(manualPage.total, 1)
     assert.equal((await page({ action: 'inspection_report' })).total, 1)
+    const cancelled = await enqueue(db, server, 'inspect')
+    await cancelJob(db, cancelled.id)
+    assert.equal((await db.query('select state from server_jobs where id=$1', [cancelled.id])).rows[0].state, 'cancelled')
+    await assert.rejects(cancelJob(db, cancelled.id), { code: 'job_not_cancellable' })
   })

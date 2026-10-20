@@ -108,6 +108,7 @@ export const ERROR_CODES = [
   'extension_inspection_setting_changed',
   'connection_test_required',
   'task_query_invalid',
+  'job_not_cancellable',
   'inspection_software_failed',
   'server_query_invalid',
   'policy_invalid',
