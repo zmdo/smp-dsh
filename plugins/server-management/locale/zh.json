@@ -85,7 +85,6 @@
     "status": "状态",
     "ports": "端口",
     "jobs": "任务",
-    "terminalHint": "点击这里，然后输入。",
     "keysTitle": "服务器密钥",
     "searchKeys": "搜索名称或指纹",
     "addKey": "添加密钥",

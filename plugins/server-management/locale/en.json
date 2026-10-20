@@ -85,7 +85,6 @@
     "status": "Status",
     "ports": "Ports",
     "jobs": "Tasks",
-    "terminalHint": "Click here, then type.",
     "keysTitle": "Server keys",
     "searchKeys": "Search name or fingerprint",
     "addKey": "Add key",

@@ -22,7 +22,6 @@ export function ServerTerminal(props: {
   const { active } = props
   const copy = serverCopy(active).ui
   const [error, setError] = useState<ServerError | null>(null)
-  const [started, setStarted] = useState(false)
   const hostRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,7 +38,6 @@ export function ServerTerminal(props: {
     const host = hostRef.current
     if (host === null) return
     setError(null)
-    setStarted(false)
     const terminal = new Terminal({
       cursorBlink: true,
       fontFamily: 'Consolas, "Cascadia Mono", monospace',
@@ -86,7 +84,6 @@ export function ServerTerminal(props: {
       sendResize()
     })
     socket.onmessage = (event) => {
-      setStarted(true)
       if (typeof event.data === 'string') terminal.write(event.data)
       else terminal.write(new Uint8Array(event.data as ArrayBuffer))
     }
@@ -117,7 +114,6 @@ export function ServerTerminal(props: {
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       <div className="terminal-page">
         <div ref={hostRef} className="terminal-host" />
-        {!started && <span className="terminal-hint">{copy.terminalHint}</span>}
       </div>
     </Panel>
   )
