@@ -72,6 +72,6 @@ function ContainerSettings(props: OwnerProps) {
 export const inject = ['slots']
 
 export function apply(ctx: SlotCtx): void {
-  ctx.slots.inject(PANEL, () => ctx.slots.register({ name: PANEL, key: `${owner}/container-list` }, ContainersPanel))
+  ctx.slots.inject(PANEL, () => ctx.slots.register({ name: PANEL, key: `${owner}/containers` }, ContainersPanel))
   ctx.slots.inject(SETTINGS, () => ctx.slots.register({ name: SETTINGS, key: `${owner}/container-settings` }, ContainerSettings))
 }
