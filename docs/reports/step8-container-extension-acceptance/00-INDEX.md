@@ -18,6 +18,7 @@
 | 07 | CONT-03 运行容器 | 通过 | [07-CONT-03.md](07-CONT-03.md) |
 | 08 | CONT-04 停止容器 | 通过 | [08-CONT-04.md](08-CONT-04.md) |
 | 09 | CONT-05 Compose 容器 | 通过 | [09-CONT-05.md](09-CONT-05.md) |
+| 13 | SW-01 安装缺失软件 | 部分通过 | [13-SW-01.md](13-SW-01.md) |
 | 10 | CONT-06 权限不足 | 回测通过 | [10-CONT-06.md](10-CONT-06.md) / [12-CONT-06-RETEST.md](12-CONT-06-RETEST.md) |
 
 ## 本轮发现并修复
