@@ -212,8 +212,14 @@
   flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
 }
 .smp-console .smp-server-terminal-panel .terminal-host {
-  flex: 1; min-height: 0; height: auto; overflow-x: hidden; overflow-y: auto;
+  flex: 1; min-height: 0; height: auto; overflow: hidden;
   overscroll-behavior: contain; box-sizing: border-box;
+}
+.smp-console .smp-server-terminal-panel .xterm-viewport {
+  scrollbar-width: none;
+}
+.smp-console .smp-server-terminal-panel .xterm-viewport::-webkit-scrollbar {
+  display: none;
 }
 .smp-console .smp-server-terminal-panel .terminal-page { position: relative; }
 .smp-console .smp-server-terminal-panel .terminal-hint {
