@@ -12,6 +12,8 @@ import { createMenuStore, type MenuStore } from './menu-store.ts'
 import { DEFAULT_LANDING, DEFAULT_SIDEBAR } from './landing.ts'
 import { createLandingStore, type LandingStore } from './landing-store.ts'
 import { MenuView } from './menu-view.tsx'
+import { RailChoice } from './rail-choice.tsx'
+import sidebarFlyoutCss from './sidebar-flyout.css'
 
 interface Layout {
   selectPanel(id: string | null): void
@@ -77,7 +79,7 @@ const AGENT_CHAT = 'agent-chat'
 const ARCHIVE_PAGE = 'archive'
 
 const SHELL_STYLE = `
-.smp-shell, .smp-console {
+.smp-shell, .smp-console, .smp-sidebar-flyout {
   --smp-text: var(--dsw-alias-label-primary); --smp-muted: var(--dsw-alias-label-tertiary); --smp-line: var(--dsw-alias-border-l2);
   --smp-primary: var(--dsw-alias-state-business-primary); --smp-primary-soft: var(--dsw-specific-sidebar-nav-item-active);
   color: var(--smp-text);
@@ -112,7 +114,7 @@ html[data-smp-sidebar] div[data-rightbar-instant]:has(> div > div > .smp-shell) 
   color: var(--smp-muted); display: grid; place-items: center; padding: 0; flex: none; cursor: pointer;
 }
 .smp-shell .fold .nav-glyph, .smp-shell .rail-expand .nav-glyph { width: 20px; height: 20px; }
-.smp-shell .fold:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--smp-text); }
+.smp-shell .fold:hover { color: var(--smp-primary); }
 .smp-shell .nav-glyph { width: 18px; height: 18px; flex: none; display: block; }
 .smp-shell .rail { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; width: 100%; min-height: 0; padding: 8px 0 12px; }
 .smp-shell .rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -121,6 +123,7 @@ html[data-smp-sidebar] div[data-rightbar-instant]:has(> div > div > .smp-shell) 
   display: grid; place-items: center; padding: 0; cursor: pointer;
 }
 .smp-shell .rail-item.is-on { background: var(--smp-primary-soft); color: var(--smp-primary); }
+.smp-shell .rail-item:hover { color: var(--smp-primary); }
 .smp-shell .logo-mark, .smp-shell .rail-mark {
   width: 20px; height: 20px; border-radius: 6px; background: var(--smp-primary); color: #fff;
   display: grid; place-items: center; font-size: 14px; font-weight: 700; border: 0; padding: 0;
@@ -129,7 +132,7 @@ html[data-smp-sidebar] div[data-rightbar-instant]:has(> div > div > .smp-shell) 
 .smp-shell .rail-mark { cursor: pointer; }
 .smp-shell .logo-mark img, .smp-shell .rail-mark img { width: 20px; height: 20px; display: block; object-fit: contain; }
 .smp-shell .rail-expand { display: none; }
-.smp-shell .rail-mark:hover, .smp-shell .rail-mark:focus-visible { background: var(--dsw-specific-sidebar-nav-item-hover); }
+.smp-shell .rail-mark:hover, .smp-shell .rail-mark:focus-visible { color: var(--smp-primary); }
 .smp-shell .rail-mark:hover .rail-logo, .smp-shell .rail-mark:focus-visible .rail-logo { display: none; }
 .smp-shell .rail-mark:hover .rail-expand, .smp-shell .rail-mark:focus-visible .rail-expand { display: grid; }
 .smp-shell .mark-dark { display: none; }
@@ -161,7 +164,7 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
   text-align: left; color: var(--smp-text); border-radius: 4px; position: relative;
 }
 .smp-shell .nav-item { height: 44px; padding: 0 12px; font-size: 14px; }
-.smp-shell .nav-item:hover, .smp-shell .nav-sub-item:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
+.smp-shell .nav-item:hover, .smp-shell .nav-sub-item:hover { color: var(--smp-primary); }
 .smp-shell .nav-item.is-on { background: var(--smp-primary-soft); color: var(--smp-primary); font-weight: 600; }
 .smp-shell .nav-item.is-on::before {
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--smp-primary);
@@ -177,7 +180,7 @@ body[data-ds-dark-theme] .smp-shell .mark-dark { display: block; }
   content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
   transform: rotate(-45deg); margin-left: -2px;
 }
-.smp-shell .nav-caret:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--smp-text); }
+.smp-shell .nav-caret:hover { color: var(--smp-primary); }
 .smp-shell .nav-group.is-open .nav-caret { transform: rotate(90deg); }
 .smp-shell .nav-sub { display: flex; flex-direction: column; gap: 2px; padding: 0 0 4px 26px; }
 .smp-shell .nav-sub-item { height: 34px; padding: 0 12px; font-size: 14px; }
@@ -386,6 +389,9 @@ function ShellSidebar(props: {
   const wide = useRef(props.width >= 200 ? props.width : 280)
   if (!props.collapsed && props.width >= 200) wide.current = props.width
   const rail = useRail(props.collapsed)
+  const [flyout, setFlyout] = useState<string | null>(null)
+  const pageKeys = pages.map(page => page.key).join('\0')
+  useEffect(() => { setFlyout(null) }, [rail, current, pageKeys])
   useEffect(() => {
     const mode = chrome.loaded ? chrome.sidebar : DEFAULT_SIDEBAR
     if (seenSidebar.current === mode) return
@@ -431,6 +437,29 @@ function ShellSidebar(props: {
     if (item.id === CONVERSATION_ID) return harnessOn
     return !onConversation && (byId.get(item.id)?.pages.some(page => page.key === current) ?? false)
   }
+  const railChoice = (item: PlacedOption): ReactNode => {
+    const group = item.id === CONVERSATION_ID
+      ? groups.nav.find(group => group.id === AGENT_GROUP)
+      : byId.get(item.id)
+    const hasChildren = group !== undefined && (
+      group.pages.length > 1 || group.id !== group.pages[0]?.key
+    )
+    return (
+      <RailChoice
+        key={item.id}
+        label={item.label}
+        icon={<NavGlyph name={item.icon === '' ? 'box' : item.icon} />}
+        active={itemOn(item)}
+        pages={hasChildren ? group.pages : []}
+        current={onConversation ? AGENT_CHAT : current}
+        expanded={flyout === item.id}
+        onShow={() => setFlyout(item.id)}
+        onHide={() => setFlyout(value => value === item.id ? null : value)}
+        onOpen={() => openItem(item)}
+        onSelect={props.openConsole}
+      />
+    )
+  }
 
   const column = rail ? (
       <div className="smp-shell is-collapsed">
@@ -439,13 +468,9 @@ function ShellSidebar(props: {
           <span className="rail-expand"><FoldIcon /></span>
         </button>
         <div className="rail">
-          {blocks.map(block => block.items.map(item => (
-            <RailChoice key={item.id} item={item} on={itemOn(item)} onOpen={() => openItem(item)} />
-          )))}
+          {blocks.map(block => block.items.map(railChoice))}
           <div className="rail-foot">
-            {groups.footer.map(group => (
-              <RailChoice key={group.id} item={{ id: group.id, label: group.label, placement: 'nav', order: group.order, icon: group.icon, section: '' }} on={!onConversation && group.pages.some(page => page.key === current)} onOpen={() => { const first = group.pages[0]; if (first !== undefined) props.openConsole(first.key) }} />
-            ))}
+            {groups.footer.map(group => railChoice({ id: group.id, label: group.label, placement: 'nav', order: group.order, icon: group.icon, section: '' }))}
           </div>
         </div>
       </div>
@@ -496,20 +521,6 @@ function OptionButton(props: { item: PlacedOption; on: boolean; onOpen: () => vo
     <button className={`nav-item${props.on ? ' is-on' : ''}`} type="button" onClick={props.onOpen}>
       <NavGlyph name={props.item.icon === '' ? 'box' : props.item.icon} />
       <span>{props.item.label}</span>
-    </button>
-  )
-}
-
-function RailChoice(props: { item: PlacedOption; on: boolean; onOpen: () => void }) {
-  return (
-    <button
-      className={`rail-item${props.on ? ' is-on' : ''}`}
-      type="button"
-      aria-label={props.item.label}
-      title={props.item.label}
-      onClick={props.onOpen}
-    >
-      <NavGlyph name={props.item.icon === '' ? 'box' : props.item.icon} />
     </button>
   )
 }
@@ -591,7 +602,7 @@ export function apply(ctx: ShellCtx): void {
   ctx.effect(() => {
     const tag = document.createElement('style')
     tag.dataset.plugin = '@smp/console-frame'
-    tag.textContent = SHELL_STYLE + consoleCss
+    tag.textContent = SHELL_STYLE + sidebarFlyoutCss + consoleCss
     document.head.appendChild(tag)
     void auth.refresh()
     void site.refresh().catch((cause: unknown) => { void cause })
