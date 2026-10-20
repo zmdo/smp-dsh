@@ -77,7 +77,7 @@ export async function runExtensionInspections(
       })
       if (item.status === 'succeeded') {
         const inspection = extensions.inspection(item.key)
-        await inspection?.runtime.commit?.(client, context.server as never, item.result ?? null)
+        await inspection?.runtime.commit?.(client, context.server, item.result ?? null)
       }
     }
   })

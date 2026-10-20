@@ -32,6 +32,7 @@ export function ExtensionSettingsSection(props: {
     setLoading(true)
     setError(null)
     setConflict(false)
+    setPlanned(undefined)
     try {
       const current = await extensionApi.settings(server.id, entry.key)
       setValue(current.value)

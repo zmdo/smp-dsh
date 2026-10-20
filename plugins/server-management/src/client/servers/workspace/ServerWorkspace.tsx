@@ -92,6 +92,7 @@ export function ServerWorkspace(props: {
     }
     let stopped = false
     const controller = new AbortController()
+    setExtensions([])
     setExtensionsLoaded(false)
     void api<{ items: ExtensionCatalogEntry[] }>(`/console-api/servers/${serverId}/extensions`, {
       signal: controller.signal,

@@ -30,7 +30,19 @@ test('the formal fixture contributes one database panel, setting, query and insp
   const definitionsRegistration = definitions.registerDefinitions(fixtureDefinitions)
   await definitionsRegistration.ready
   const extensions = new ServerExtensionRegistry(definitions)
-  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, fixtureRuntime)
+  let committed: unknown
+  const runtime = {
+    ...fixtureRuntime,
+    inspections: {
+      'database-check': {
+        ...fixtureRuntime.inspections!['database-check']!,
+        async commit(_db: unknown, server: unknown, result: unknown) {
+          committed = { server, result }
+        },
+      },
+    },
+  }
+  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, runtime)
   await registration.ready
   assert.deepEqual(
     extensions.catalogFor(server('builtin/general')).map((entry) => entry.key),
@@ -107,7 +119,19 @@ test('the core inspect path executes a fixture script and stores an extension ob
   const definitionsRegistration = definitions.registerDefinitions(fixtureDefinitions)
   await definitionsRegistration.ready
   const extensions = new ServerExtensionRegistry(definitions)
-  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, fixtureRuntime)
+  let committed: unknown
+  const runtime = {
+    ...fixtureRuntime,
+    inspections: {
+      'database-check': {
+        ...fixtureRuntime.inspections!['database-check']!,
+        async commit(_db: unknown, server: unknown, result: unknown) {
+          committed = { server, result }
+        },
+      },
+    },
+  }
+  const registration = extensions.registerExtensions(fixtureExtension, fixtureExtension, runtime)
   await registration.ready
   const context = {
     db,
@@ -138,6 +162,9 @@ test('the core inspect path executes a fixture script and stores an extension ob
   assert.deepEqual(results[0]?.result, { ok: true })
   assert.equal(captured.length, 1)
   assert.equal(captured[0]?.[3], 'succeeded')
+  assert.deepEqual((committed as { server: { id: string; type_key: string }; result: unknown }).result, { ok: true })
+  assert.equal((committed as { server: { id: string; type_key: string } }).server.id, 'server-1')
+  assert.equal((committed as { server: { type_key: string } }).server.type_key, fixtureType)
   await registration.dispose()
   await definitionsRegistration.dispose()
   extensions.close()
