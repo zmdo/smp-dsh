@@ -1,21 +1,18 @@
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
-import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { builtinCatalog } from './catalog.ts'
 import { type Db } from './host/db.ts'
+import { builtinCatalog } from './host/definitions/catalog.ts'
+import { DefinitionRegistry } from './host/definitions/registry.ts'
+import { ServerManagement } from './host/definitions/service.ts'
+import { startJobs } from './host/execution/runtime.ts'
 import { registerRoutes } from './host/http/routes.ts'
+import { connectSsh } from './host/remote/ssh.ts'
+import { terminalRoute } from './host/remote/terminal.ts'
 import { Enrollment } from './host/servers/enrollment.ts'
-import { claimNext, enqueue } from './job-store.ts'
-import { startMetrics } from './metrics.ts'
-import { DefinitionRegistry } from './registry.ts'
-import { executeJob } from './runner.ts'
-import { ServerManagement } from './service.ts'
-import { connectSsh } from './ssh.ts'
-import { dueInspects } from './store.ts'
-import { terminalRoute } from './terminal.ts'
-import { scheduleChanges } from './upgrades.ts'
-export { ServerManagement } from './service.ts'
+import { startMetrics } from './host/servers/metrics.ts'
+
+export { ServerManagement } from './host/definitions/service.ts'
 export type {
   DefinitionBundle,
   LocalizedText,
@@ -80,8 +77,6 @@ export const Config: Schema<Config> = Schema.object({
 
 export const inject = ['webServer', 'database', 'secrets', 'consoleSession']
 
-const WORKERS = 4
-
 /** Routes, the job loop, inspection, and metric sampling live in this process. */
 export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() => void | Promise<void>> {
   const catalog = builtinCatalog()
@@ -118,77 +113,4 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     yield () => terminal.close()
     yield ctx.provide('serverManagement', new ServerManagement(ctx, definitions))
   })
-}
-
-function startJobs(
-  ctx: HostCtx,
-  db: Db,
-  config: Config,
-  definitions: DefinitionRegistry,
-  connect: typeof connectSsh,
-): () => Promise<void> {
-  const workerId = randomUUID()
-  let stopped = false
-  let pumping = false
-  let active = 0
-  const tasks = new Set<Promise<void>>()
-  const loops = new Set<Promise<void>>()
-  const launch = (run: () => Promise<void>) => {
-    const task = run()
-      .catch((cause: unknown) => {
-        ctx.logger.error(cause)
-      })
-      .finally(() => {
-        loops.delete(task)
-      })
-    loops.add(task)
-  }
-  const claim = setInterval(() => {
-    launch(pump)
-  }, 400)
-  const inspect = setInterval(() => {
-    launch(queueInspects)
-    launch(() => scheduleChanges(db, config.updateCheckIntervalSeconds))
-  }, 5000)
-  launch(pump)
-  launch(() => scheduleChanges(db, config.updateCheckIntervalSeconds))
-  return async () => {
-    stopped = true
-    clearInterval(claim)
-    clearInterval(inspect)
-    await Promise.all(loops)
-    await Promise.all(tasks)
-  }
-
-  async function pump(): Promise<void> {
-    if (pumping || stopped) return
-    pumping = true
-    try {
-      while (!stopped && active < WORKERS) {
-        const job = await claimNext(db, workerId)
-        if (job === undefined) return
-        active += 1
-        const task = executeJob(db, ctx.secrets, definitions, job, connect, config.updateCheckIntervalSeconds)
-          .catch((cause: unknown) => {
-            ctx.logger.error(cause)
-          })
-          .finally(() => {
-            active -= 1
-            tasks.delete(task)
-          })
-        tasks.add(task)
-      }
-    } finally {
-      pumping = false
-    }
-  }
-
-  async function queueInspects(): Promise<void> {
-    if (stopped) return
-    const ids = await dueInspects(db, config.inspectIntervalSeconds)
-    for (const id of ids) {
-      if (stopped) return
-      await enqueue(db, id, 'inspect')
-    }
-  }
 }

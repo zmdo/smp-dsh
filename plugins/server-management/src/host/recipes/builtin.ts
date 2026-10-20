@@ -1,5 +1,4 @@
-import type { LoadedScript } from './recipe.ts'
-import { quote } from './recipe.ts'
+import { quote, type LoadedScript } from './script.ts'
 
 /** Uses only already configured apt sources. Repository setup is a separate, explicitly authorized change. */
 export const APT_RECIPE = String.raw`

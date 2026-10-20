@@ -1,7 +1,9 @@
+import { startJobs } from '../src/host/execution/runtime.ts'
 import { createServer as registerServer, updateServer } from '../src/host/servers/service.ts'
 import { routeChanges } from '../src/host/http/changes.ts'
 import { createChangePlan, readChangePlan, confirmChangePlan, controlPlan } from '../src/host/changes/service.ts'
-import { queueDetection, scheduleChanges } from '../src/upgrades.ts'
+import {queueDetection} from '../src/host/upgrades/detection.ts'
+import {scheduleChanges} from '../src/host/upgrades/scheduler.ts'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -18,17 +20,20 @@ import { ServerError } from '../src/shared/errors.ts'
 import { routeGroups } from '../src/host/http/groups.ts'
 import { routeServers } from '../src/host/http/servers.ts'
 import { routeTypes } from '../src/host/http/catalog.ts'
-import { DefinitionRegistry } from '../src/registry.ts'
+import {DefinitionRegistry} from '../src/host/definitions/registry.ts'
 import { Enrollment } from '../src/host/servers/enrollment.ts'
-import { executeJob } from '../src/runner.ts'
-import { ServerManagement } from '../src/service.ts'
+import {executeJob} from '../src/host/execution/worker.ts'
+import {ServerManagement} from '../src/host/definitions/service.ts'
 import { HttpError } from '../src/host/errors.ts'
 import { type Db } from '../src/host/db.ts'
-import { claimNext, enqueue, finishJob, phase, type JobRecord } from '../src/job-store.ts'
-import type { SshSession } from '../src/ssh.ts'
+import {claimNext,enqueue} from '../src/host/execution/queue.ts'
+import {finishJob} from '../src/host/execution/completion.ts'
+import {phase} from '../src/host/execution/ownership.ts'
+import {type JobRecord} from '../src/host/execution/model.ts'
+import {type SshSession} from '../src/host/remote/ssh.ts'
 import { APT_SOFTWARE_OS } from '../src/shared/operating-systems.ts'
-import { LINUX_PROBE, WINDOWS_PROBE } from '../src/os-probe.ts'
-import { builtinCatalog } from '../src/catalog.ts'
+import {LINUX_PROBE,WINDOWS_PROBE} from '../src/host/remote/os-probe.ts'
+import {builtinCatalog} from '../src/host/definitions/catalog.ts'
 
 test(
   'atomic definitions, configuration, plans and fenced jobs against PostgreSQL',
@@ -352,6 +357,39 @@ test(
       return job
     }
     const getJob = async (id: string) => (await pool.query('select * from server_jobs where id=$1', [id])).rows[0]
+    await t.test('stopping the background runtime waits for accepted SSH work and its final write', async () => {
+      const created = (await api('POST', '/servers', input())).body
+      const queued = await enqueue(db, created.id, 'inspect')
+      const target = remote(), errors: unknown[] = []
+      let connected!: () => void, allowConnection!: () => void, closed = false, stopped = false
+      const opening = new Promise<void>(resolve => { connected = resolve })
+      const gate = new Promise<void>(resolve => { allowConnection = resolve })
+      const connect = async () => {
+        connected()
+        await gate
+        const session = await target.connect()
+        session.close = () => { closed = true }
+        return session
+      }
+      const stop = startJobs({ logger: { error(cause) { errors.push(cause) } }, secrets }, db,
+        { inspectIntervalSeconds: 3600, updateCheckIntervalSeconds: 3600 }, definitions, connect)
+      try {
+        await opening
+        const stopping = stop().then(() => { stopped = true })
+        await new Promise<void>(resolve => setImmediate(resolve))
+        assert.equal(stopped, false)
+        assert.equal(closed, false)
+        allowConnection()
+        await stopping
+        assert.equal(closed, true)
+        assert.equal((await getJob(queued.id)).state, 'succeeded')
+        assert.deepEqual(errors, [])
+        assert.equal((await api('DELETE', '/servers/' + created.id)).status, 204)
+      } finally {
+        allowConnection()
+        await stop()
+      }
+    })
     await t.test('container inspection errors remain visible and do not mark SSH offline', async () => {
       const created = (await api('POST', '/servers', input())).body
       const target = remote(), connect = target.connect

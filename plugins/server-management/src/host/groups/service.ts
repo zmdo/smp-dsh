@@ -1,13 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { DefinitionRegistry } from '../../registry.ts'
 import { GENERAL_TYPE, VACANT_TYPE } from '../../shared/definitions.ts'
 import { osVerification } from '../../shared/operating-systems.ts'
 import { isUnique, lockCatalog, transaction, type Db } from '../db.ts'
+import { DefinitionRegistry } from '../definitions/registry.ts'
 import { HttpError } from '../errors.ts'
 import * as groups from '../groups/repository.ts'
-import { field, text, UUID } from '../input.ts'
+import { field, required, text, UUID } from '../input.ts'
 import { notRunning } from '../servers/guards.ts'
-import { required } from '../input.ts'
 
 export async function listGroups(db: Db, definitions: DefinitionRegistry): Promise<unknown[]> {
   const result = await groups.listGroups(db)

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parsePolicies, restrictLease, detectionEligibility } from '../src/policies.ts'
+import {parsePolicies,restrictLease,detectionEligibility} from '../src/host/definitions/policies.ts'
 import { componentFixture } from './fixtures.ts'
-import type { TypeLease } from '../src/registry.ts'
-import { preparePlan } from '../src/plans.ts'
-import { detectUpdates } from '../src/upgrades.ts'
-import type { SshSession } from '../src/ssh.ts'
+import {type TypeLease} from '../src/host/definitions/model.ts'
+import {preparePlan} from '../src/host/recipes/planning.ts'
+import {detectUpdates} from '../src/host/upgrades/detect.ts'
+import {type SshSession} from '../src/host/remote/ssh.ts'
 const os = { family: 'builtin/ubuntu', version: '24.04', architecture: 'x86_64' }
 function lease(): TypeLease {
   const c = componentFixture('tool')

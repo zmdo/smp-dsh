@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { keyInUse } from '../../jobs.ts'
-import { keyFingerprint, SshError } from '../../ssh.ts'
 import { isUnique, type Db } from '../db.ts'
 import { type Deps } from '../dependencies.ts'
 import { HttpError } from '../errors.ts'
-import { field, text } from '../input.ts'
+import { field, required, text } from '../input.ts'
 import * as keys from '../keys/repository.ts'
-import { required } from '../input.ts'
+import { keyFingerprint, SshError } from '../remote/ssh.ts'
+import { keyInUse } from '../servers/rules.ts'
 
 export async function listKeys(db: Db): Promise<unknown[]> {
   return (await keys.listKeys(db)).rows

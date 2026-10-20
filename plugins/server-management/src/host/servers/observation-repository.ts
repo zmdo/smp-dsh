@@ -1,40 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import type { Component } from './catalog.ts'
-import type { Db } from './host/db.ts'
-import type { OsProbe } from './os-probe.ts'
-import type { MetricSample } from './parse.ts'
-import type { DeclaredOs, DetectedOs } from './shared/operating-systems.ts'
-import type { ContainerObservation, SoftwareStatus } from './software.ts'
-
-export interface ServerSecret {
-  id: string
-  host: string
-  ssh_port: number
-  ssh_user: string
-  auth_method: string
-  secret_ciphertext: string
-  host_fingerprint: string | null
-  install_required_software: boolean
-  declared_os: DeclaredOs
-  detected_os: DetectedOs | null
-  os_probe_state: string
-  observed_config_revision: string | number
-  environment_revision: string | number
-  group_id: string | null
-  type_key: string
-  config_revision: string | number
-}
-
-export async function serverSecret(db: Db, id: string): Promise<ServerSecret | undefined> {
-  const result = await db.query<ServerSecret>(
-    `select s.id, s.host, s.ssh_port, s.ssh_user, s.auth_method,
-            case when s.auth_method = 'private_key' then k.secret_ciphertext else s.secret_ciphertext end as secret_ciphertext,
-            s.host_fingerprint, s.install_required_software, s.declared_os, r.detected_os, r.os_probe_state, r.observed_config_revision, r.environment_revision, s.group_id, s.type_key, s.config_revision
-     from servers s join server_runtime r on r.server_id=s.id left join ssh_keys k on k.id = s.ssh_key_id where s.id = $1`,
-    [id],
-  )
-  return result.rows[0]
-}
+import type { Db } from '../db.ts'
+import { type Component } from '../definitions/catalog.ts'
+import { type ContainerObservation, type SoftwareStatus } from '../recipes/software.ts'
+import { type OsProbe } from '../remote/os-probe.ts'
 
 export async function markConnected(db: Db, serverId: string, fingerprint: string): Promise<void> {
   await db.query('update servers set host_fingerprint = $2 where id = $1 and host_fingerprint is null', [
@@ -59,7 +27,13 @@ export async function saveOsProbe(
     os_error=$5, environment_revision=environment_revision+case when $3::jsonb is not null and detected_os is distinct from $3::jsonb then 1 else 0 end,
     detected_os=coalesce($3::jsonb,detected_os), os_last_success_at=case when $3::jsonb is not null then now() else os_last_success_at end
     where server_id=$1`,
-    [serverId, probe.state, os, configRevision, probe.state === 'failed' ? JSON.stringify({ code: probe.code }) : null],
+    [
+      serverId,
+      probe.state,
+      os,
+      configRevision,
+      probe.state === 'failed' ? JSON.stringify({ code: probe.code }) : null,
+    ],
   )
 }
 
@@ -156,50 +130,10 @@ export async function saveObservation(
   await client.query(
     `insert into server_container_scans(server_id,state,checked_at,last_success_at,error) values($1,$2,now(),case when $2='ready' then now() else null end,$3)
       on conflict(server_id) do update set state=excluded.state,checked_at=excluded.checked_at,last_success_at=coalesce(excluded.last_success_at,server_container_scans.last_success_at),error=excluded.error`,
-    [serverId, observation.state === 'error' ? 'failed' : observation.state, observation.detail ? JSON.stringify({ detail: observation.detail }) : null],
-  )
-}
-
-export async function saveMetrics(
-  db: Db,
-  serverId: string,
-  sample: MetricSample,
-  configRevision: string | number,
-): Promise<void> {
-  await db.query(
-    `update server_runtime r set cpu_cores=$2,cpu_percent=$3,memory_total_bytes=$4,memory_used_bytes=$5,disk_total_bytes=$6,disk_used_bytes=$7,metrics_sampled_at=now(),metrics_error=null
-    from servers s where r.server_id=s.id and s.id=$1 and s.config_revision=$8`,
     [
       serverId,
-      sample.cpuCores,
-      sample.cpuPercent,
-      sample.memTotalBytes,
-      sample.memUsedBytes,
-      sample.diskTotalBytes,
-      sample.diskUsedBytes,
-      configRevision,
+      observation.state === 'error' ? 'failed' : observation.state,
+      observation.detail ? JSON.stringify({ detail: observation.detail }) : null,
     ],
   )
-}
-
-export async function dueInspects(db: Db, intervalSeconds: number): Promise<string[]> {
-  const result = await db.query<{ id: string }>(
-    `select s.id from servers s join server_runtime r on r.server_id=s.id
-    where r.connection_state='online' and (r.connection_checked_at is null or r.connection_checked_at < now()-make_interval(secs=>$1))
-    and not exists(select 1 from server_jobs j where j.server_id=s.id and j.purpose='inspect' and j.state in ('queued','claimed','running','recovering'))`,
-    [intervalSeconds],
-  )
-  return result.rows.map((row) => row.id)
-}
-
-export async function serverIds(db: Db): Promise<string[]> {
-  const result = await db.query<{ id: string }>(`select s.id from servers s join server_runtime r on r.server_id=s.id
-    where r.os_probe_state='detected' and r.detected_os->>'family' <> 'builtin/windows-server' and r.observed_config_revision=s.config_revision`)
-  return result.rows.map((row) => row.id)
-}
-
-export function componentView(
-  catalog: readonly Component[],
-): { id: string; name: string; summary: string; requires: string[] }[] {
-  return catalog.map((item) => ({ id: item.id, name: item.name, summary: item.summary, requires: item.requires }))
 }

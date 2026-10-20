@@ -1,6 +1,6 @@
-import { type Component } from '../catalog.ts'
-import type { DefinitionRegistry } from '../registry.ts'
 import { type Db } from './db.ts'
+import { type Component } from './definitions/catalog.ts'
+import { type DefinitionRegistry } from './definitions/registry.ts'
 import { type Enrollment } from './servers/enrollment.ts'
 
 interface Secrets {

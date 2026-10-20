@@ -75,7 +75,8 @@ test('HTTP, workflows and repositories preserve their host boundaries and transa
     const repository = /(?:^|[/\\])(?:[^/\\]+-)?repository\.ts$/.test(name)
     const http = name.startsWith('http/')
     const workflow = /(?:service|list|queries|enrollment)\.ts$/.test(name)
-    if (http || workflow) assert.doesNotMatch(source, /\.query\s*(?:<|\()/, `${name} must delegate SQL`)
+    if (!repository && name !== 'db.ts')
+      assert.doesNotMatch(source, /\.query\s*(?:<|\()/, `${name} must delegate SQL`)
     if (repository) {
       assert.doesNotMatch(source, /\.connect\s*\(/, `${name} must use the caller's connection`)
       assert.doesNotMatch(
@@ -98,6 +99,28 @@ test('HTTP, workflows and repositories preserve their host boundaries and transa
           /(?:service|queries|routes)\.ts$/,
           `${name} must not depend on workflows`,
         )
+    }
+  }
+})
+
+test('recipe evaluation and definition resolution remain independent of storage and task execution', async () => {
+  const files = (await readdir(path.join(sourceRoot, 'host/recipes')))
+    .filter((name) => name.endsWith('.ts'))
+    .map((name) => 'host/recipes/' + name)
+  files.push('host/definitions/resolver.ts', 'host/definitions/validation.ts', 'host/definitions/views.ts')
+  for (const name of files) {
+    const file = path.join(sourceRoot, name),
+      source = await readFile(file, 'utf8')
+    for (const match of source.matchAll(/(?:from\s+|import\s*\()(['"])([^'"]+)\1/g)) {
+      const specifier = match[2]!
+      if (!specifier.startsWith('.')) continue
+      const target = path.relative(sourceRoot, path.resolve(path.dirname(file), specifier))
+      assert.doesNotMatch(
+        target,
+        /repository\.ts$|host\/(?:execution|http|servers)\//,
+        `${name}: ${specifier}`,
+      )
+      assert.notEqual(target, 'host/db.ts', `${name} must not depend on database infrastructure`)
     }
   }
 })

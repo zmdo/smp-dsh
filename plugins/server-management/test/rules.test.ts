@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { keyInUse, retestAfterEdit, shouldRetest, type RetestSnap } from '../src/jobs.ts'
+import {keyInUse,retestAfterEdit,shouldRetest,type RetestSnap} from '../src/host/servers/rules.ts'
 import { omitSecrets } from '../src/host/servers/service.ts'
-import { parsePs, parseSample } from '../src/parse.ts'
-import { chosenRegion, privatePlace } from '../src/region.ts'
+import {parsePs,parseSample} from '../src/host/remote/parse.ts'
+import {chosenRegion,privatePlace} from '../src/host/servers/region.ts'
 
 test('a metric sample clamps cpu and disk', () => {
   const sample = parseSample('2 100 80 200 100 1024 512 1000 1200')

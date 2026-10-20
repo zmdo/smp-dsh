@@ -1,5 +1,3 @@
-import { policySignature } from '../../policies.ts'
-import { DefinitionRegistry } from '../../registry.ts'
 import { type LocalizedText } from '../../shared/contracts.ts'
 import { typeSupportsOs, type GroupRecord } from '../../shared/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
@@ -13,6 +11,8 @@ import {
   type StatusReason,
 } from '../../shared/server-list-contract.ts'
 import { readTransaction, type Db } from '../db.ts'
+import { policySignature } from '../definitions/policies.ts'
+import { DefinitionRegistry } from '../definitions/registry.ts'
 import * as groupRepository from '../groups/repository.ts'
 import * as list from './list-repository.ts'
 import { type ActiveOperation, type ServerFact, type SoftwareFact } from './model.ts'

@@ -94,3 +94,22 @@ export interface ServerPatch {
   secret_ciphertext?: string | null
   config_revision?: string | number
 }
+
+export interface ServerSecret {
+  id: string
+  host: string
+  ssh_port: number
+  ssh_user: string
+  auth_method: string
+  secret_ciphertext: string
+  host_fingerprint: string | null
+  install_required_software: boolean
+  declared_os: DeclaredOs
+  detected_os: DetectedOs | null
+  os_probe_state: string
+  observed_config_revision: string | number
+  environment_revision: string | number
+  group_id: string | null
+  type_key: string
+  config_revision: string | number
+}

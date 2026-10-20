@@ -115,14 +115,21 @@ export interface MetricSample {
 export function parseSample(text: string): MetricSample {
   const parts = text.trim().split(/\s+/)
   if (parts.length !== 9) throw new ParseError('采集结果无法解析')
-  const [cores, aTotal, aIdle, bTotal, bIdle, memTotalKb, memAvailKb, diskTotal, diskUsed] = parts.map(part => Number(part))
-  if ([cores, aTotal, aIdle, bTotal, bIdle, memTotalKb, memAvailKb, diskTotal, diskUsed].some(item => !Number.isFinite(item))) {
+  const [cores, aTotal, aIdle, bTotal, bIdle, memTotalKb, memAvailKb, diskTotal, diskUsed] = parts.map(
+    (part) => Number(part),
+  )
+  if (
+    [cores, aTotal, aIdle, bTotal, bIdle, memTotalKb, memAvailKb, diskTotal, diskUsed].some(
+      (item) => !Number.isFinite(item),
+    )
+  ) {
     throw new ParseError('采集结果无法解析')
   }
-  if ((cores ?? 0) < 1 || (memTotalKb ?? 0) < 1 || (diskTotal ?? 0) < 1) throw new ParseError('采集结果无法解析')
+  if ((cores ?? 0) < 1 || (memTotalKb ?? 0) < 1 || (diskTotal ?? 0) < 1)
+    throw new ParseError('采集结果无法解析')
   const delta = (bTotal ?? 0) - (aTotal ?? 0)
   const idle = (bIdle ?? 0) - (aIdle ?? 0)
-  const cpu = delta <= 0 ? 0 : Math.round(100 * (delta - idle) / delta)
+  const cpu = delta <= 0 ? 0 : Math.round((100 * (delta - idle)) / delta)
   const memTotal = (memTotalKb ?? 0) * 1024
   const memUsed = Math.max(0, ((memTotalKb ?? 0) - (memAvailKb ?? 0)) * 1024)
   return {
@@ -144,7 +151,10 @@ function nestedVersion(value: unknown): string {
 function containerFrom(payload: Record<string, unknown>): ParsedContainer {
   const containerId = String(payload.ID ?? '').trim()
   if (containerId === '') throw new ParseError('容器记录缺少 ID')
-  const rawName = String(payload.Names ?? '').split(',')[0]?.trim() ?? ''
+  const rawName =
+    String(payload.Names ?? '')
+      .split(',')[0]
+      ?.trim() ?? ''
   const name = rawName.replace(/^\//, '') || containerId.slice(0, 12)
   const labels = parseLabels(String(payload.Labels ?? ''))
   const managedValue = (labels['smp.managed'] ?? '').toLowerCase()
@@ -161,9 +171,13 @@ function containerFrom(payload: Record<string, unknown>): ParsedContainer {
 
 /** Sanitize string leaves before JSON encoding so quoted or multiline secrets are also removed. */
 export function scrubValue<T>(value: T, secret: string): T {
-  const visit = (item: unknown): unknown => typeof item === 'string' ? scrub(item, secret)
-    : Array.isArray(item) ? item.map(visit)
-    : item !== null && typeof item === 'object' ? Object.fromEntries(Object.entries(item).map(([key, child]) => [key, visit(child)]))
-    : item
+  const visit = (item: unknown): unknown =>
+    typeof item === 'string'
+      ? scrub(item, secret)
+      : Array.isArray(item)
+        ? item.map(visit)
+        : item !== null && typeof item === 'object'
+          ? Object.fromEntries(Object.entries(item).map(([key, child]) => [key, visit(child)]))
+          : item
   return visit(value) as T
 }

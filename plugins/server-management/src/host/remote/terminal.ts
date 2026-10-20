@@ -1,11 +1,11 @@
 import type { IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData } from 'ws'
-import { type Db } from './host/db.ts'
-import { ServerError, type ErrorCode } from './shared/errors.ts'
-import { errorPayload } from './shared/i18n.ts'
+import { ServerError, type ErrorCode } from '../../shared/errors.ts'
+import { errorPayload } from '../../shared/i18n.ts'
+import { type Db } from '../db.ts'
+import { serverSecret } from '../servers/credential-repository.ts'
 import { connectSsh, type ShellChannel, type SshSession } from './ssh.ts'
-import { serverSecret } from './store.ts'
 
 interface Secrets {
   decrypt(ciphertext: string): string
@@ -18,7 +18,12 @@ interface SessionService {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Exact upgrade path. The server id is the `id` query. Closing the socket closes SSH. */
-export function terminalRoute(db: Db, secrets: Secrets, session: SessionService, connect: typeof connectSsh = connectSsh): {
+export function terminalRoute(
+  db: Db,
+  secrets: Secrets,
+  session: SessionService,
+  connect: typeof connectSsh = connectSsh,
+): {
   handler: (request: IncomingMessage, socket: Duplex, head: Buffer) => Promise<void>
   close: () => Promise<void>
 } {
@@ -27,8 +32,8 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService,
   return {
     handler: async (request, socket, head) => {
       const header = request.headers.cookie
-      const cookie = Array.isArray(header) ? header.join('; ') : header ?? ''
-      if (await session.read(cookie) === undefined) {
+      const cookie = Array.isArray(header) ? header.join('; ') : (header ?? '')
+      if ((await session.read(cookie)) === undefined) {
         refuse(socket, 401, 'unauthorized')
         return
       }
@@ -43,17 +48,31 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService,
         return
       }
       wss.handleUpgrade(request, socket, head, (ws) => {
-        void attach(server, ws).catch(() => { ws.close() })
+        void attach(server, ws).catch(() => {
+          ws.close()
+        })
       })
     },
     close: async () => {
       for (const item of open) item.close()
       open.clear()
-      await new Promise<void>((resolve) => { wss.close(() => { resolve() }) })
+      await new Promise<void>((resolve) => {
+        wss.close(() => {
+          resolve()
+        })
+      })
     },
   }
 
-  async function attach(server: NonNullable<Awaited<ReturnType<typeof serverSecret>>>, ws: { send(data: Buffer): void; close(): void; on(event: 'message', listener: (data: RawData) => void): void; on(event: 'close', listener: () => void): void }): Promise<void> {
+  async function attach(
+    server: NonNullable<Awaited<ReturnType<typeof serverSecret>>>,
+    ws: {
+      send(data: Buffer): void
+      close(): void
+      on(event: 'message', listener: (data: RawData) => void): void
+      on(event: 'close', listener: () => void): void
+    },
+  ): Promise<void> {
     let secret = ''
     try {
       secret = secrets.decrypt(server.secret_ciphertext)
@@ -78,13 +97,17 @@ export function terminalRoute(db: Db, secrets: Secrets, session: SessionService,
       throw cause
     }
     open.add(ssh)
-    shell.onData((chunk) => { ws.send(chunk) })
+    shell.onData((chunk) => {
+      ws.send(chunk)
+    })
     shell.onClose(() => {
       open.delete(ssh)
       ssh.close()
       ws.close()
     })
-    ws.on('message', (data) => { onMessage(shell, data) })
+    ws.on('message', (data) => {
+      onMessage(shell, data)
+    })
     ws.on('close', () => {
       shell.close()
       ssh.close()
@@ -126,6 +149,8 @@ function readResize(text: string): { cols: number; rows: number } | 'ignore' | u
 function refuse(socket: Duplex, status: number, code: ErrorCode): void {
   const body = JSON.stringify(errorPayload(new ServerError(code)))
   const reason = status === 401 ? 'Unauthorized' : 'Not Found'
-  socket.write(`HTTP/1.1 ${status} ${reason}\r\ncontent-type: application/json; charset=utf-8\r\ncontent-length: ${Buffer.byteLength(body)}\r\nconnection: close\r\n\r\n${body}`)
+  socket.write(
+    `HTTP/1.1 ${status} ${reason}\r\ncontent-type: application/json; charset=utf-8\r\ncontent-length: ${Buffer.byteLength(body)}\r\nconnection: close\r\n\r\n${body}`,
+  )
   socket.destroy()
 }

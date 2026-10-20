@@ -1,10 +1,16 @@
-import { componentRevision, type Component } from './catalog.ts'
-import { excerpt, parseComposeVersion, parseDockerVersion, parsePs, type ParsedContainer } from './parse.ts'
-import { observe } from './plans.ts'
-import type { PackageIdentity } from './shared/contracts.ts'
-import { errorDetail } from './shared/i18n.ts'
-import type { DetectedOs } from './shared/operating-systems.ts'
-import type { CommandResult, SshSession } from './ssh.ts'
+import type { PackageIdentity } from '../../shared/contracts.ts'
+import { errorDetail } from '../../shared/i18n.ts'
+import type { DetectedOs } from '../../shared/operating-systems.ts'
+import { componentRevision, type Component } from '../definitions/catalog.ts'
+import {
+  excerpt,
+  parseComposeVersion,
+  parseDockerVersion,
+  parsePs,
+  type ParsedContainer,
+} from '../remote/parse.ts'
+import { type CommandResult, type SshSession } from '../remote/ssh.ts'
+import { observe } from './planning.ts'
 
 export interface SoftwareProbe {
   state: 'installed' | 'missing' | 'unknown'
@@ -43,7 +49,8 @@ export function parseSoftwareProbe(result: CommandResult): SoftwareProbe {
   }
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return probe('unknown')
   const record = value as { state?: unknown; detail?: unknown; version?: unknown }
-  if (record.state !== 'installed' && record.state !== 'missing' && record.state !== 'unknown') return probe('unknown')
+  if (record.state !== 'installed' && record.state !== 'missing' && record.state !== 'unknown')
+    return probe('unknown')
   if (record.state === 'installed' && (typeof record.version !== 'string' || record.version.trim() === ''))
     return probe('unknown', 'Installed software did not report a version.')
   return probe(
@@ -80,11 +87,7 @@ async function probeCompose(session: SshSession, prefix: '' | 'sudo -n '): Promi
     return probe('unknown', detail)
   }
   try {
-    return probe(
-      'installed',
-      '',
-      parseComposeVersion(result.stdout),
-    )
+    return probe('installed', '', parseComposeVersion(result.stdout))
   } catch (cause) {
     return probe('unknown', errorDetail(cause, ''))
   }
@@ -103,25 +106,43 @@ export async function inspectContainers(session: SshSession): Promise<ContainerO
   try {
     const exists = await session.exec('command -v docker >/dev/null 2>&1', 15_000)
     if (exists.code === 1 || exists.code === 127) return { state: 'unavailable', docker: null, compose: null }
-    if (exists.code !== 0) return { state: 'error', docker: null, compose: null, detail: excerpt(exists.stderr || exists.stdout) }
+    if (exists.code !== 0)
+      return { state: 'error', docker: null, compose: null, detail: excerpt(exists.stderr || exists.stdout) }
     let prefix: '' | 'sudo -n ' = ''
     let version = await session.exec(DOCKER_VERSION, 15_000)
     if (version.code !== 0) {
       const ordinary = excerpt(version.stderr || version.stdout, 700)
       prefix = 'sudo -n '
-      try { version = await session.exec(prefix + DOCKER_VERSION, 15_000) }
-      catch (cause) {
-        return { state: 'error', docker: null, compose: null, detail: `${ordinary}\nsudo -n: ${excerpt(errorDetail(cause, ''), 700)}` }
+      try {
+        version = await session.exec(prefix + DOCKER_VERSION, 15_000)
+      } catch (cause) {
+        return {
+          state: 'error',
+          docker: null,
+          compose: null,
+          detail: `${ordinary}\nsudo -n: ${excerpt(errorDetail(cause, ''), 700)}`,
+        }
       }
       if (version.code !== 0)
-        return { state: 'error', docker: null, compose: null, detail: `${ordinary}\nsudo -n: ${excerpt(version.stderr || version.stdout, 700)}` }
+        return {
+          state: 'error',
+          docker: null,
+          compose: null,
+          detail: `${ordinary}\nsudo -n: ${excerpt(version.stderr || version.stdout, 700)}`,
+        }
     }
     // Keep one identity for the whole observation, rather than mixing users' Docker contexts.
     const docker = parseDockerVersion(version.stdout)
     const compose = await probeCompose(session, prefix)
     if (compose.state === 'unknown') return { state: 'error', docker, compose: null, detail: compose.detail }
     const listed = await session.exec(prefix + DOCKER_PS, 15_000)
-    if (listed.code !== 0) return { state: 'error', docker, compose: compose.version ?? null, detail: excerpt(listed.stderr || listed.stdout) }
+    if (listed.code !== 0)
+      return {
+        state: 'error',
+        docker,
+        compose: compose.version ?? null,
+        detail: excerpt(listed.stderr || listed.stdout),
+      }
     return {
       state: 'ready',
       docker,

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import test from 'node:test'
-import { builtinCatalog } from '../src/catalog.ts'
+import {builtinCatalog} from '../src/host/definitions/catalog.ts'
 import type { Db } from '../src/host/db.ts'
 import { registerRoutes, type HttpHost } from '../src/host/http/routes.ts'
 import { Enrollment } from '../src/host/servers/enrollment.ts'
-import { DefinitionRegistry } from '../src/registry.ts'
+import {DefinitionRegistry} from '../src/host/definitions/registry.ts'
 
 test('registered HTTP adapters retain authentication, error responses and route cleanup', async (t) => {
   let queries = 0

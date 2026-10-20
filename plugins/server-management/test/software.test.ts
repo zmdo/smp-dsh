@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { inspectContainers } from '../src/software.ts'
-import { parseRecipeResponse } from '../src/recipe.ts'
-import { preparePlan, checkPlan } from '../src/plans.ts'
-import type { TypeLease } from '../src/registry.ts'
-import type { SshSession } from '../src/ssh.ts'
+import {inspectContainers} from '../src/host/recipes/software.ts'
+import {parseRecipeResponse} from '../src/host/recipes/protocol.ts'
+import {preparePlan,checkPlan} from '../src/host/recipes/planning.ts'
+import {type TypeLease} from '../src/host/definitions/model.ts'
+import {type SshSession} from '../src/host/remote/ssh.ts'
 import { componentFixture } from './fixtures.ts'
 const os = { family: 'builtin/ubuntu', version: '24.04', architecture: 'x86_64' }
 const candidate = {

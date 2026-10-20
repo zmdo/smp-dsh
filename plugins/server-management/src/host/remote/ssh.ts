@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import type { Client, ClientErrorExtensions, ConnectConfig } from 'ssh2'
-import { ServerError, type ErrorCode, type MessageParams } from './shared/errors.ts'
+import { ServerError, type ErrorCode, type MessageParams } from '../../shared/errors.ts'
 
 const { Client: SshClient, utils } = createRequire(import.meta.url)('ssh2') as typeof import('ssh2')
 
@@ -150,7 +150,14 @@ export function connectSsh(input: {
     try {
       client.connect(config)
     } catch (cause) {
-      fail(mapConnectError(cause instanceof Error ? cause : new Error(String(cause)), seen, phase, readyTimeoutMs))
+      fail(
+        mapConnectError(
+          cause instanceof Error ? cause : new Error(String(cause)),
+          seen,
+          phase,
+          readyTimeoutMs,
+        ),
+      )
     }
   })
 }
@@ -194,7 +201,9 @@ function execCommand(
           return
         }
         if (cause) {
-          finish(() => reject(new SshError('command_failed', undefined, { detail: cause.message }, { cause })))
+          finish(() =>
+            reject(new SshError('command_failed', undefined, { detail: cause.message }, { cause })),
+          )
           return
         }
         channel = stream
@@ -297,8 +306,12 @@ function mapConnectError(
     return new SshError('ssh_auth_failed', fingerprint || undefined, {}, { cause })
   }
   if (cause.level === 'client-timeout' || cause.code === 'ETIMEDOUT') {
-    const code = phase === 'connect' ? 'ssh_connect_timeout'
-      : phase === 'handshake' ? 'ssh_handshake_timeout' : 'ssh_auth_timeout'
+    const code =
+      phase === 'connect'
+        ? 'ssh_connect_timeout'
+        : phase === 'handshake'
+          ? 'ssh_handshake_timeout'
+          : 'ssh_auth_timeout'
     return new SshError(code, fingerprint || undefined, { seconds: readyTimeoutMs / 1000 }, { cause })
   }
   if (cause.code === 'ECONNREFUSED') {

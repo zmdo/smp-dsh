@@ -1,12 +1,12 @@
-import { restrictLease } from '../../policies.ts'
 import { ServerError } from '../../shared/errors.ts'
-import { queueDetection } from '../../upgrades.ts'
 import { transaction } from '../db.ts'
+import { restrictLease } from '../definitions/policies.ts'
 import { type Deps } from '../dependencies.ts'
 import { HttpError } from '../errors.ts'
 import { object } from '../input.ts'
 import { readPolicies } from '../servers/policy-repository.ts'
 import * as upgrades from '../upgrades/repository.ts'
+import { queueDetection } from './detection.ts'
 import { type SuggestionQuery } from './query.ts'
 
 type UpgradeDeps = Pick<Deps, 'db' | 'definitions' | 'updateCheckIntervalSeconds'>

@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { DefinitionRegistry } from '../../registry.ts'
 import { type Db } from '../db.ts'
+import { DefinitionRegistry } from '../definitions/registry.ts'
 import { HttpError } from '../errors.ts'
 import { createGroup, deleteGroup, listGroups } from '../groups/service.ts'
 import { UUID } from '../input.ts'

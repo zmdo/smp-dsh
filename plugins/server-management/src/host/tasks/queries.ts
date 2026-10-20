@@ -1,8 +1,8 @@
-import { type JobRecord } from '../../job-store.ts'
 import { type Db } from '../db.ts'
-import * as tasks from './repository.ts'
-import type { TaskQuery } from './query.ts'
+import { type JobRecord } from '../execution/model.ts'
 import * as history from './history-repository.ts'
+import type { TaskQuery } from './query.ts'
+import * as tasks from './repository.ts'
 
 export function jobView(row: JobRecord | Record<string, unknown>) {
   return {

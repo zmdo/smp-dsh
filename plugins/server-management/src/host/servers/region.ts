@@ -1,6 +1,6 @@
 import { lookup } from 'node:dns/promises'
 import { isIP } from 'node:net'
-import { ServerError } from './shared/errors.ts'
+import { ServerError } from '../../shared/errors.ts'
 
 export function formatPlace(country: string, region: string, city: string): string {
   const parts: string[] = []
@@ -13,7 +13,11 @@ export function formatPlace(country: string, region: string, city: string): stri
   return parts.join(' ').slice(0, 80)
 }
 
-export function chosenRegion(host: string, written: string | null | undefined, lookedUp: string | null): string | null {
+export function chosenRegion(
+  host: string,
+  written: string | null | undefined,
+  lookedUp: string | null,
+): string | null {
   const text = (written ?? '').trim()
   if (text !== '') {
     if (text.length > 80) throw new ServerError('region_invalid')
@@ -26,8 +30,15 @@ export function chosenRegion(host: string, written: string | null | undefined, l
 export function privatePlace(address: string): '内网' | undefined {
   const value = address.trim()
   if (!isIP(value)) return undefined
-  if (value === '::1' || value.startsWith('127.') || value.startsWith('10.') || value.startsWith('192.168.') || value.startsWith('169.254.')) return '内网'
-  const octets = value.split('.').map(part => Number(part))
+  if (
+    value === '::1' ||
+    value.startsWith('127.') ||
+    value.startsWith('10.') ||
+    value.startsWith('192.168.') ||
+    value.startsWith('169.254.')
+  )
+    return '内网'
+  const octets = value.split('.').map((part) => Number(part))
   const second = octets[1]
   if (octets[0] === 172 && second !== undefined && second >= 16 && second <= 31) return '内网'
   if (value.startsWith('fc') || value.startsWith('fd') || value.startsWith('fe80')) return '内网'
@@ -41,10 +52,21 @@ export async function lookupRegion(host: string): Promise<string | null> {
   const local = privatePlace(address)
   if (local !== undefined) return local
   try {
-    const response = await fetch(`https://ipwho.is/${address}?lang=zh-CN`, { signal: AbortSignal.timeout(6000) })
-    const payload = await response.json() as { success?: unknown; country?: unknown; region?: unknown; city?: unknown }
+    const response = await fetch(`https://ipwho.is/${address}?lang=zh-CN`, {
+      signal: AbortSignal.timeout(6000),
+    })
+    const payload = (await response.json()) as {
+      success?: unknown
+      country?: unknown
+      region?: unknown
+      city?: unknown
+    }
     if (payload.success !== true) return null
-    const place = formatPlace(String(payload.country ?? ''), String(payload.region ?? ''), String(payload.city ?? ''))
+    const place = formatPlace(
+      String(payload.country ?? ''),
+      String(payload.region ?? ''),
+      String(payload.city ?? ''),
+    )
     return place === '' ? null : place
   } catch (cause) {
     void cause

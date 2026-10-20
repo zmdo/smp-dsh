@@ -1,7 +1,8 @@
-import { digest } from './recipe.ts'
-import { type TypeLease } from './registry.ts'
-import { ServerError } from './shared/errors.ts'
-import { type SoftwarePolicy } from './shared/policies.ts'
+import { ServerError } from '../../shared/errors.ts'
+import { type SoftwarePolicy } from '../../shared/policies.ts'
+import { digest } from '../recipes/canonical.ts'
+import { type TypeLease } from './model.ts'
+
 export function parsePolicies(value: unknown): SoftwarePolicy[] {
   if (value === undefined) return []
   if (!Array.isArray(value) || value.length > 128) throw new ServerError('policy_invalid')

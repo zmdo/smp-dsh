@@ -1,12 +1,13 @@
-import type { Component } from './catalog.ts'
-import { canonical, invokeRecipe } from './recipe.ts'
-import type { TypeLease } from './registry.ts'
-import type { PreparedPlan } from './shared/changes.ts'
-import type { Candidate, ResolvedSoftwareChange, SoftwareObservation } from './shared/contracts.ts'
-import { ServerError } from './shared/errors.ts'
-import { errorDetail } from './shared/i18n.ts'
-import type { DetectedOs } from './shared/operating-systems.ts'
-import type { SshSession } from './ssh.ts'
+import type { PreparedPlan } from '../../shared/changes.ts'
+import type { Candidate, ResolvedSoftwareChange, SoftwareObservation } from '../../shared/contracts.ts'
+import { ServerError } from '../../shared/errors.ts'
+import { errorDetail } from '../../shared/i18n.ts'
+import type { DetectedOs } from '../../shared/operating-systems.ts'
+import { type Component } from '../definitions/catalog.ts'
+import { type TypeLease } from '../definitions/model.ts'
+import { type SshSession } from '../remote/ssh.ts'
+import { canonical } from './canonical.ts'
+import { invokeRecipe } from './protocol.ts'
 
 export function environment(component: Component, os: DetectedOs) {
   return {

@@ -33,3 +33,17 @@ export function lockCatalog(db: Db) {
 export function isUnique(cause: unknown): boolean {
   return typeof cause === 'object' && cause !== null && (cause as { code?: string }).code === '23505'
 }
+
+/** Roll back a failed nested binding without losing the task's known remote result. */
+export async function savepoint<T>(db: Db, name: 'binding_commit', run: () => Promise<T>): Promise<T> {
+  await db.query(`savepoint ${name}`)
+  try {
+    const value = await run()
+    await db.query(`release savepoint ${name}`)
+    return value
+  } catch (cause) {
+    await db.query(`rollback to savepoint ${name}`)
+    await db.query(`release savepoint ${name}`)
+    throw cause
+  }
+}

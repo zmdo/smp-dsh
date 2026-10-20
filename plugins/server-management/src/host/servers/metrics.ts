@@ -1,8 +1,9 @@
-import { type Db } from './host/db.ts'
-import { parseSample } from './parse.ts'
-import { osVerification } from './shared/operating-systems.ts'
-import { connectSsh, type SshSession } from './ssh.ts'
-import { saveMetrics, serverIds, serverSecret } from './store.ts'
+import { osVerification } from '../../shared/operating-systems.ts'
+import { type Db } from '../db.ts'
+import { parseSample } from '../remote/parse.ts'
+import { connectSsh, type SshSession } from '../remote/ssh.ts'
+import { serverSecret } from './credential-repository.ts'
+import { saveMetrics, serverIds } from './metrics-repository.ts'
 
 const SAMPLE = `cores=$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo)
 read_cpu() { awk '/^cpu /{idle=$5+$6; t=0; for(i=2;i<=NF;i++) t+=$i; print t, idle}' /proc/stat; }
@@ -23,19 +24,32 @@ interface Secrets {
 }
 
 /** One SSH per server. A dropped connection waits a few seconds and does not mark the server offline. */
-export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, onError: (cause: unknown) => void, connect: typeof connectSsh = connectSsh): () => Promise<void> {
+export function startMetrics(
+  db: Db,
+  secrets: Secrets,
+  intervalSeconds: number,
+  onError: (cause: unknown) => void,
+  connect: typeof connectSsh = connectSsh,
+): () => Promise<void> {
   const sessions = new Map<string, SshSession>()
   const revisions = new Map<string, string>()
   const retryAt = new Map<string, number>()
   const busy = new Set<string>()
   const tasks = new Set<Promise<void>>()
   let stopped = false
-  const timer = setInterval(() => {
-    const task = sampleAll()
-      .catch((cause: unknown) => { onError(cause) })
-      .finally(() => { tasks.delete(task) })
-    tasks.add(task)
-  }, Math.max(1, intervalSeconds) * 1000)
+  const timer = setInterval(
+    () => {
+      const task = sampleAll()
+        .catch((cause: unknown) => {
+          onError(cause)
+        })
+        .finally(() => {
+          tasks.delete(task)
+        })
+      tasks.add(task)
+    },
+    Math.max(1, intervalSeconds) * 1000,
+  )
 
   return async () => {
     stopped = true
@@ -57,7 +71,7 @@ export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, 
       revisions.delete(id)
       retryAt.delete(id)
     }
-    await Promise.all(ids.map(id => sampleOne(id)))
+    await Promise.all(ids.map((id) => sampleOne(id)))
   }
 
   async function sampleOne(id: string): Promise<void> {
@@ -65,24 +79,45 @@ export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, 
     busy.add(id)
     let session = sessions.get(id)
     try {
-      const server = await serverSecret(db,id)
+      const server = await serverSecret(db, id)
       if (stopped) return
-      if (!server || server.detected_os?.family==='builtin/windows-server' || String(server.observed_config_revision)!==String(server.config_revision)
-        || osVerification(server.declared_os,server.detected_os,server.os_probe_state)!=='matched') {
-        session?.close(); sessions.delete(id); revisions.delete(id); return
+      if (
+        !server ||
+        server.detected_os?.family === 'builtin/windows-server' ||
+        String(server.observed_config_revision) !== String(server.config_revision) ||
+        osVerification(server.declared_os, server.detected_os, server.os_probe_state) !== 'matched'
+      ) {
+        session?.close()
+        sessions.delete(id)
+        revisions.delete(id)
+        return
       }
       const revision = `${server.config_revision}/${server.environment_revision}`
-      if (session !== undefined && revisions.get(id)!==revision) { session.close(); sessions.delete(id); session=undefined }
+      if (session !== undefined && revisions.get(id) !== revision) {
+        session.close()
+        sessions.delete(id)
+        session = undefined
+      }
       if (session === undefined) {
-        session = await connect({host:server.host,port:server.ssh_port,username:server.ssh_user,authMethod:server.auth_method,secret:secrets.decrypt(server.secret_ciphertext),expectedFingerprint:server.host_fingerprint})
-        if (stopped) { session.close(); return }
+        session = await connect({
+          host: server.host,
+          port: server.ssh_port,
+          username: server.ssh_user,
+          authMethod: server.auth_method,
+          secret: secrets.decrypt(server.secret_ciphertext),
+          expectedFingerprint: server.host_fingerprint,
+        })
+        if (stopped) {
+          session.close()
+          return
+        }
         sessions.set(id, session)
-        revisions.set(id,revision)
+        revisions.set(id, revision)
       }
       const result = await session.exec(SAMPLE, 8000)
       if (stopped) return
       if (result.code !== 0) throw new Error(result.stderr || result.stdout || '采集失败')
-      await saveMetrics(db, id, parseSample(result.stdout),server.config_revision)
+      await saveMetrics(db, id, parseSample(result.stdout), server.config_revision)
     } catch (cause) {
       void cause
       session?.close()
@@ -92,5 +127,4 @@ export function startMetrics(db: Db, secrets: Secrets, intervalSeconds: number, 
       busy.delete(id)
     }
   }
-
 }

@@ -21,7 +21,7 @@ import { routeKeys } from '../src/host/http/keys.ts'
 import { routeServers } from '../src/host/http/servers.ts'
 import { HttpError } from '../src/host/errors.ts'
 import { type Db } from '../src/host/db.ts'
-import { DefinitionRegistry } from '../src/registry.ts'
+import {DefinitionRegistry} from '../src/host/definitions/registry.ts'
 import { Enrollment } from '../src/host/servers/enrollment.ts'
 import { builtinCatalog } from './fixtures.ts'
 

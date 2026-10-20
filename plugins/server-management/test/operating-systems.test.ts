@@ -7,7 +7,7 @@ import {
   supportsOs,
   type OsSupport,
 } from '../src/shared/operating-systems.ts'
-import { parseLinuxOs, parseWindowsOs } from '../src/os-probe.ts'
+import {parseLinuxOs,parseWindowsOs} from '../src/host/remote/os-probe.ts'
 
 test('catalog identities ignore forged version values, while custom names never imply support', () => {
   const ubuntu=parseDeclaredOs({kind:'catalog',family:'builtin/ubuntu',releaseKey:'24.04',version:'99.99'})

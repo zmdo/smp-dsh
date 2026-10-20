@@ -1,61 +1,8 @@
-import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
-import { isAbsolute } from 'node:path'
-import type {
-  Candidate,
-  RecipeRequest,
-  RecipeResponse,
-  ScriptDefinition,
-  SoftwareObservation,
-} from './shared/contracts.ts'
-import { ServerError } from './shared/errors.ts'
-import type { SshSession } from './ssh.ts'
+import type { Candidate, RecipeRequest, RecipeResponse, SoftwareObservation } from '../../shared/contracts.ts'
+import { ServerError } from '../../shared/errors.ts'
+import { type SshSession } from '../remote/ssh.ts'
+import { scriptCommand, type LoadedScript } from './script.ts'
 
-export interface LoadedScript {
-  interpreter: ScriptDefinition['interpreter']
-  timeoutMs: number
-  outputLimitBytes: number
-  body: string
-}
-export function digest(value: unknown): string {
-  return createHash('sha256').update(canonical(value)).digest('hex')
-}
-export function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
-  if (value !== null && typeof value === 'object')
-    return `{${Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
-      .join(',')}}`
-  return JSON.stringify(value)
-}
-export async function loadScript(script: ScriptDefinition): Promise<LoadedScript> {
-  if (
-    !isAbsolute(script.path) ||
-    script.timeoutMs < 100 ||
-    script.timeoutMs > 3_600_000 ||
-    script.outputLimitBytes < 256 ||
-    script.outputLimitBytes > 1_048_576
-  )
-    throw new ServerError('component_script_path')
-  const body = await readFile(script.path, 'utf8')
-  if (Buffer.byteLength(body) > 1_048_576 || body.includes('\0')) throw new ServerError('component_script_path')
-  return Object.freeze({
-    interpreter: script.interpreter,
-    timeoutMs: script.timeoutMs,
-    outputLimitBytes: script.outputLimitBytes,
-    body,
-  })
-}
-export function quote(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`
-}
-export function scriptCommand(script: LoadedScript): string {
-  return script.interpreter === 'posix-sh'
-    ? `sh -c ${quote(script.body)}`
-    : `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script.body, 'utf16le').toString('base64')}`
-}
 export async function invokeRecipe(
   session: SshSession,
   script: LoadedScript,
@@ -68,9 +15,13 @@ export async function invokeRecipe(
   if (response.code !== 0) throw new ServerError('recipe_protocol', { detail: response.stderr.slice(-500) })
   return parseRecipeResponse(response.stdout, request.operation)
 }
+
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
-const text = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 4096
+
+const text = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0 && value.length <= 4096
+
 function packages(value: unknown): boolean {
   return (
     Array.isArray(value) &&
@@ -83,6 +34,7 @@ function packages(value: unknown): boolean {
     )
   )
 }
+
 export function validObservation(value: unknown): value is SoftwareObservation {
   if (!record(value)) return false
   switch (value.state) {
@@ -101,6 +53,7 @@ export function validObservation(value: unknown): value is SoftwareObservation {
       return false
   }
 }
+
 export function validCandidate(value: unknown): value is Candidate {
   return (
     record(value) &&
@@ -110,6 +63,7 @@ export function validCandidate(value: unknown): value is Candidate {
     (value.channel === 'stable' || value.channel === 'prerelease')
   )
 }
+
 /** Process output is untrusted even when the script was contributed by a trusted plugin. */
 export function parseRecipeResponse(raw: string, operation: RecipeRequest['operation']): RecipeResponse {
   let value: unknown
@@ -126,7 +80,9 @@ export function parseRecipeResponse(raw: string, operation: RecipeRequest['opera
       break
     case 'list-candidates':
       valid =
-        Array.isArray(value.candidates) && value.candidates.length <= 1024 && value.candidates.every(validCandidate)
+        Array.isArray(value.candidates) &&
+        value.candidates.length <= 1024 &&
+        value.candidates.every(validCandidate)
       break
     case 'resolve': {
       const change = value.change
