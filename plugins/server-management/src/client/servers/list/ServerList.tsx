@@ -308,11 +308,14 @@ export function ServerList(props: ServerListProps) {
       </div>
       {removing !== null && (
         <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={copy.removeServer}>
-          <div className="smp-upgrade-dialog">
+          <div className="smp-upgrade-dialog smp-confirm-dialog">
             <h2>{copy.removeServer}</h2>
             <p>{format(copy.removeServerHint, { name: removing.name })}</p>
             {actionError !== null && <p className="banner error" role="alert">{displayError(active, actionError)}</p>}
-            <div className="row">
+            <div className="row smp-upgrade-footer">
+              <button className="secondary" type="button" disabled={removingBusy} onClick={() => setRemoving(null)}>
+                {copy.cancel}
+              </button>
               <button
                 className="danger-button"
                 type="button"
@@ -326,9 +329,6 @@ export function ServerList(props: ServerListProps) {
                 }}
               >
                 {copy.remove}
-              </button>
-              <button className="secondary" type="button" disabled={removingBusy} onClick={() => setRemoving(null)}>
-                {copy.cancel}
               </button>
             </div>
           </div>

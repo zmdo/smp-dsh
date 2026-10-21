@@ -332,3 +332,5 @@
 .smp-console .smp-server-group-icon-button:disabled { opacity: 0.45; cursor: default; }
 
 .smp-upgrade-footer { justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--line); }
+
+.smp-console .smp-upgrade-dialog.smp-confirm-dialog { width: min(420px, 100%); }

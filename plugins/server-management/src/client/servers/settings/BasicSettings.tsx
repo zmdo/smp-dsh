@@ -99,16 +99,16 @@ export function BasicSettings(props: {
       {moving && <MoveServer active={active} server={props.server} onClose={() => setMoving(false)} />}
       {confirmingRemove && (
         <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={copy.removeServer}>
-          <div className="smp-upgrade-dialog">
+          <div className="smp-upgrade-dialog smp-confirm-dialog">
             <h2>{copy.removeServer}</h2>
             <p>{format(copy.removeServerHint, { name: props.server.name })}</p>
             {deleteError !== null && <p className="banner error" role="alert">{displayError(active, deleteError)}</p>}
             <div className="row smp-upgrade-footer">
-              <button className="danger-button" type="button" disabled={deleting} onClick={() => { void remove() }}>
-                {copy.remove}
-              </button>
               <button className="secondary" type="button" disabled={deleting} onClick={() => setConfirmingRemove(false)}>
                 {copy.cancel}
+              </button>
+              <button className="danger-button" type="button" disabled={deleting} onClick={() => { void remove() }}>
+                {copy.remove}
               </button>
             </div>
           </div>
