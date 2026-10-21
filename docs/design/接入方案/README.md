@@ -12,7 +12,8 @@
 1. 查看本平台管理的服务器列表
 2. 查看单台服务器状态
 3. 通过 SSH 在服务器上执行命令
-4. 后续接入巡检、变更计划等操作
+4. 在“服务器运维”组内管理服务器资产
+5. 后续接入巡检、变更计划等操作
 
 原则：
 
@@ -75,7 +76,27 @@ ServerManagementHarness 适配层
 - 受权限模式控制
 - 全程审计
 
-### 3.3 后续工具
+### 3.3 服务器资产工具（仅服务器运维组）
+
+| 工具 | 作用 |
+| --- | --- |
+| `platform_server_add` | 登记服务器 |
+| `platform_server_remove` | 移除服务器 |
+| `platform_server_group_create` | 创建服务器分组 |
+| `platform_server_group_move` | 移动服务器分组 |
+| `platform_server_type_change` | 变更服务器类型 |
+| `platform_server_upgrade` | 创建升级计划 |
+
+这些工具只管理“服务器资产”，不是普通会话使用服务器的方式。
+
+约束：
+
+- 只在当前会话属于 `server-ops` 组时可用
+- 需要在服务层再次检查 `server:write` 能力
+- 删除、变更类型、升级需要预检和确认
+- 不能绕过现有的变更计划、租约和审计
+
+### 3.4 后续工具
 
 | 工具 | 作用 |
 | --- | --- |
@@ -264,11 +285,38 @@ full   完全权限，自动批准执行
 
 ### 7.2 工具行为
 
+服务器使用能力对所有对话开放：
+
 | 模式 | list/get | exec |
 | --- | --- | --- |
 | read | 允许 | 拒绝 |
 | exec | 允许 | 逐次审批 |
 | full | 允许 | 自动允许 |
+
+服务器资产工具只在“服务器运维”组开放：
+
+| 工具 | 其他对话 | 服务器运维组 |
+| --- | --- | --- |
+| `platform_server_list` | 允许 | 允许 |
+| `platform_server_get` | 允许 | 允许 |
+| `platform_server_exec` | 允许，受模式控制 | 允许，受模式控制 |
+| `platform_server_add` | 拒绝 | 允许 |
+| `platform_server_remove` | 拒绝 | 允许 |
+| `platform_server_group_create` | 拒绝 | 允许 |
+| `platform_server_group_move` | 拒绝 | 允许 |
+| `platform_server_type_change` | 拒绝 | 允许 |
+| `platform_server_upgrade` | 拒绝 | 允许 |
+
+执行时同时检查：
+
+```text
+1. 当前会话组是否为 server-ops（仅资产工具）
+2. 调用者是否具备对应能力
+3. 服务器是否在调用者范围内
+4. 是否需要审批
+```
+
+组检查是产品边界，能力检查是安全边界，两者都不能省略。
 
 ### 7.3 完全权限
 
@@ -397,7 +445,8 @@ For commands on a managed server, use platform_server_exec.
 platform_* 工具 = 能力
 ```
 
-工具是全局注册，因此所有对话都能看到；服务器归属仍由解析和权限控制。
+使用服务器的工具对所有对话注册；管理服务器资产的工具只在 `server-ops` 组注册或执行。
+组只是产品边界，真正的授权仍在服务层检查。
 
 ## 13. 代码结构
 
@@ -469,6 +518,19 @@ platform_server_plan_status
 
 接入巡检和变更计划。
 
+### 第四阶段
+
+```text
+platform_server_add
+platform_server_remove
+platform_server_group_create
+platform_server_group_move
+platform_server_type_change
+platform_server_upgrade
+```
+
+只对“服务器运维”组开放，并复用现有预检、确认、租约和审计。
+
 ## 16. 验收标准
 
 - Harness 能列出平台服务器
@@ -479,3 +541,5 @@ platform_server_plan_status
 - 完全权限自动批准，但仍受边界和审计约束
 - 命令输出不含 secret
 - 所有执行都有审计记录
+- 非运维组不能调用服务器资产工具
+- 运维组内的资产工具仍受能力和确认约束
