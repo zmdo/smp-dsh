@@ -14,13 +14,18 @@
 .smp-server-group { position: relative; display: flex; align-items: center; min-width: 0; min-height: 36px; margin-bottom: 4px; border-radius: 4px; }
 .smp-server-group:hover, .smp-server-group:focus-within { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-server-group.is-on { background: var(--primary-soft); color: var(--primary); }
-.smp-server-group-choice { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 34px 0 10px; border: 0; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.smp-server-group-choice { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.smp-server-group:has(.smp-server-group-delete) .smp-server-group-choice { padding-right: 34px; }
+.smp-server-group:has(.smp-server-group-rename-button) .smp-server-group-choice { padding-right: 62px; }
 .smp-server-group-choice > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .smp-server-group.is-on .smp-server-group-choice { font-weight: 600; }
 .smp-server-group-count { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .smp-server-group-delete { position: absolute; right: 4px; display: grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; }
 .smp-server-group:hover .smp-server-group-delete, .smp-server-group:focus-within .smp-server-group-delete { opacity: 1; }
 .smp-server-group-delete:hover { color: var(--red); background: var(--red-bg); }
+.smp-server-group-rename-button { position: absolute; right: 32px; display: grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; }
+.smp-server-group:hover .smp-server-group-rename-button, .smp-server-group:focus-within .smp-server-group-rename-button { opacity: 1; }
+.smp-server-group-rename-button:hover { color: var(--primary); background: var(--primary-soft); }
 .smp-server-main { flex-direction:column; gap:12px; flex: 1; min-width: 0; min-height: 0; display: flex; padding: 20px 24px 24px; }
 .smp-console .smp-server-main > .panel { flex: 1; min-width: 0; min-height: 0; margin: 0; display: flex; flex-direction: column; overflow: hidden; }
 .smp-console .smp-server-main .panel-head { flex: none; flex-wrap: wrap; min-height: 56px; padding: 12px 16px; box-sizing: border-box; }
@@ -310,4 +315,3 @@
 .smp-console .danger-button:hover:not(:disabled) { filter: brightness(0.92); }
 .smp-server-group-rename { display: flex; align-items: center; gap: 6px; padding: 6px; }
 .smp-server-group-rename input { min-width: 0; flex: 1; }
-.smp-server-group-rename-button { flex: none; }
