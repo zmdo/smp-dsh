@@ -330,3 +330,5 @@
   background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--primary);
 }
 .smp-console .smp-server-group-icon-button:disabled { opacity: 0.45; cursor: default; }
+
+.smp-upgrade-footer { justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--line); }
