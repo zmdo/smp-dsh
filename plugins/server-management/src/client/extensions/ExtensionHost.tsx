@@ -44,6 +44,15 @@ export function ExtensionHost(props: {
 }) {
   const copy = serverCopy(props.active).ui
   const entries = useSlotEntries(props.slots, props.slot, props.entry)
+  const [slotVersion, setSlotVersion] = useState(0)
+  useEffect(() => {
+    if (props.slots === undefined) return
+    return props.slots.subscribe(props.slot, () => setSlotVersion((value) => value + 1))
+  }, [props.slots, props.slot])
+  const conflicts = useMemo(() => {
+    void slotVersion
+    return (props.slots?.entries?.(props.slot) ?? []).filter((entry) => entry.options.key === props.entry).length
+  }, [props.slots, props.slot, props.entry, slotVersion])
   const hadEntry = useRef(false)
   const lastEntry = useRef(props.entry)
   if (lastEntry.current !== props.entry) {
@@ -53,7 +62,7 @@ export function ExtensionHost(props: {
   useEffect(() => {
     if (entries.length > 0) hadEntry.current = true
   }, [entries.length])
-  if (entries.length > 1) return <p className="banner error">{copy.extensionConflict}</p>
+  if (conflicts > 1) return <p className="banner error">{copy.extensionConflict}</p>
   if (entries.length === 0)
     return <p className="banner error">{hadEntry.current ? copy.extensionLoadFailed : copy.extensionUnavailable}</p>
   return (

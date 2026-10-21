@@ -27,6 +27,7 @@ export interface SlotService {
   inject(name: string, register: () => () => void): void
   register(options: object, component: unknown): () => void
   entriesOfSlot(name: string): readonly { options: { key?: string; priority?: number } }[]
+  entries?(name: string): readonly { options: { key?: string; priority?: number } }[]
   subscribe(name: string, listener: () => void): () => void
 }
 
