@@ -179,6 +179,8 @@ export function ExtensionSettingsSection(props: {
 
   return (
     <>
+    <div className="smp-extension-settings-pane">
+    <div className="smp-extension-settings-body">
     <section className="smp-extension-settings smp-card" aria-label={localized(entry.name, active)}>
       <div className="row smp-extension-settings-head">
         <h3>{localized(entry.name, active)}</h3>
@@ -227,7 +229,9 @@ export function ExtensionSettingsSection(props: {
       )}
       {entry.affectsExecution === true && <p className="muted">{copy.extensionRequiresPlan}</p>}
     </section>
+    </div>
     <div data-extension-actions={entry.key}>{actions}</div>
+    </div>
     </>
   )
 }

@@ -68,7 +68,7 @@ export function ServerSettings(props: {
           <PolicySettings active={active} form={form} />
         ) : null}
         {extensions.filter((entry) => visited.has(`extension:${entry.key}`)).map((entry) => (
-          <div key={`${serverId}:${entry.key}`} hidden={section !== `extension:${entry.key}`}>
+          <div className="smp-settings-pane" key={`${serverId}:${entry.key}`} hidden={section !== `extension:${entry.key}`}>
             <ExtensionSettingsSection
               active={active}
               server={server}

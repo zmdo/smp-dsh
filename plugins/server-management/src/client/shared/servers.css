@@ -554,3 +554,29 @@
   display: contents;
 }
 .smp-console .smp-settings-content [data-extension-actions] { display: contents; }
+
+/* Settings use a structural footer: content scrolls above, actions are a fixed-height sibling. */
+.smp-console .smp-settings-content {
+  display: flex; flex-direction: column; overflow: hidden; padding: 0;
+}
+.smp-console .smp-settings-content .smp-settings-form {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0; max-width: none;
+}
+.smp-console .smp-settings-form-body {
+  flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 24px;
+  display: grid; gap: 14px;
+}
+.smp-console .smp-settings-content .smp-settings-actions {
+  position: static; bottom: auto; flex: none;
+  box-sizing: border-box; height: 56px; min-height: 56px; max-height: 56px;
+  margin: 0; padding: 0 24px; align-items: center;
+  background: var(--dsw-alias-bg-layer-1); border-top: 1px solid var(--line);
+  overflow-x: auto; overflow-y: hidden;
+}
+.smp-console .smp-settings-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.smp-console .smp-settings-pane[hidden] { display: none; }
+.smp-console .smp-extension-settings-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.smp-console .smp-extension-settings-body {
+  flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 24px;
+}
+.smp-console .smp-settings-content [data-extension-actions] { display: block; flex: none; }

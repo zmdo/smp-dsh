@@ -13,6 +13,7 @@ export function PolicySettings(props: { active: string; form: ServerFormModel })
         void form.savePolicies()
       }}
     >
+      <div className="smp-settings-form-body">
       <SoftwarePolicies
         active={active}
         software={form.configuredSoftware}
@@ -32,6 +33,7 @@ export function PolicySettings(props: { active: string; form: ServerFormModel })
         {copy.autoInstall}
       </label>
       {form.error !== null && <p className="banner error">{displayError(active, form.error)}</p>}
+      </div>
       <div className="row smp-settings-actions">
         <button className="primary" type="submit" disabled={form.busy || !form.canSavePolicies}>
           {form.busy ? copy.saving : copy.save}

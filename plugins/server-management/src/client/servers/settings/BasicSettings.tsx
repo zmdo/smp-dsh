@@ -46,6 +46,7 @@ export function BasicSettings(props: {
         void form.saveBasic()
       }}
     >
+      <div className="smp-settings-form-body">
       {error !== null && (
         <p className="banner error" role="alert">
           {displayError(active, error)}
@@ -87,6 +88,7 @@ export function BasicSettings(props: {
       <AuthenticationFields form={form} />
       <SystemFields form={form} editing showPolicies={false} showRequiredSoftware={false} />
       <RequiredSoftware active={active} software={form.software} status={form.softwareStatus} />
+      </div>
       <div className="row smp-settings-actions">
         <button className="primary" type="submit" disabled={form.busy || form.pending !== null || !form.canSaveBasic}>
           {form.busy ? copy.saving : copy.save}
