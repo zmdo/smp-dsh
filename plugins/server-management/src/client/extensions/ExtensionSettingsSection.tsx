@@ -126,7 +126,59 @@ export function ExtensionSettingsSection(props: {
     }
   }
 
+  const actions = (
+    <>
+      {entry.affectsExecution === true ? (
+        <>
+          {planned !== undefined && (
+            <p className="banner">
+              {copy.extensionPlanReady} <code>{planned.digest.slice(0, 12)}</code>
+            </p>
+          )}
+          <div className="row smp-settings-actions">
+            {planned === undefined ? (
+              <button
+                className="primary"
+                type="button"
+                disabled={!dirty || saving || loading}
+                onClick={() => { void plan() }}
+              >
+                {saving ? copy.saving : copy.extensionPlanCreate}
+              </button>
+            ) : (
+              <>
+                <button className="primary" type="button" disabled={saving} onClick={() => { void applyPlan() }}>
+                  {saving ? copy.saving : copy.extensionPlanApply}
+                </button>
+                <button className="secondary" type="button" disabled={saving} onClick={() => setPlanned(undefined)}>
+                  {copy.extensionPlanCancel}
+                </button>
+              </>
+            )}
+            {dirty && <span className="muted">{copy.unsavedChanges}</span>}
+          </div>
+        </>
+      ) : (
+        <div className="row smp-settings-actions">
+          <button
+            className="primary"
+            type="button"
+            disabled={!dirty || saving || loading}
+            onClick={() => { void save() }}
+          >
+            {saving ? copy.saving : copy.save}
+          </button>
+          <button className="secondary" type="button" disabled={!dirty || saving} onClick={() => setDraft(value)}>
+            {copy.reset}
+          </button>
+          {dirty && <span className="muted">{copy.unsavedChanges}</span>}
+        </div>
+      )}
+    </>
+  )
+
   return (
+    <>
     <section className="smp-extension-settings smp-card" aria-label={localized(entry.name, active)}>
       <div className="row smp-extension-settings-head">
         <h3>{localized(entry.name, active)}</h3>
@@ -174,52 +226,8 @@ export function ExtensionSettingsSection(props: {
         </p>
       )}
       {entry.affectsExecution === true && <p className="muted">{copy.extensionRequiresPlan}</p>}
-      {entry.affectsExecution === true ? (
-        <>
-          {planned !== undefined && (
-            <p className="banner">
-              {copy.extensionPlanReady} <code>{planned.digest.slice(0, 12)}</code>
-            </p>
-          )}
-          <div className="row smp-settings-actions">
-            {planned === undefined ? (
-              <button
-                className="primary"
-                type="button"
-                disabled={!dirty || saving || loading}
-                onClick={() => { void plan() }}
-              >
-                {saving ? copy.saving : copy.extensionPlanCreate}
-              </button>
-            ) : (
-              <>
-                <button className="primary" type="button" disabled={saving} onClick={() => { void applyPlan() }}>
-                  {saving ? copy.saving : copy.extensionPlanApply}
-                </button>
-                <button className="secondary" type="button" disabled={saving} onClick={() => setPlanned(undefined)}>
-                  {copy.extensionPlanCancel}
-                </button>
-              </>
-            )}
-            {dirty && <span className="muted">{copy.unsavedChanges}</span>}
-          </div>
-        </>
-      ) : (
-        <div className="row smp-settings-actions">
-          <button
-            className="primary"
-            type="button"
-            disabled={!dirty || saving || loading}
-            onClick={() => { void save() }}
-          >
-            {saving ? copy.saving : copy.save}
-          </button>
-          <button className="secondary" type="button" disabled={!dirty || saving} onClick={() => setDraft(value)}>
-            {copy.reset}
-          </button>
-          {dirty && <span className="muted">{copy.unsavedChanges}</span>}
-        </div>
-      )}
     </section>
+    {actions}
+    </>
   )
 }
