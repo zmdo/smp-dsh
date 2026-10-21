@@ -1,12 +1,18 @@
+import { useState } from 'react'
 import { Panel } from '@smp/console-kit'
 import { displayError, format, groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
 import { SERVER_STATES } from '../../../shared/server-status.ts'
 import type { ServerListView as ListView } from '../../shared/server-page-state.ts'
 import { ServerLine } from './ServerLine.tsx'
+import type { ServerListItem } from '../../../shared/dto/servers.ts'
 import type { ServerListProps } from './useServerList.ts'
 import { useServerList } from './useServerList.ts'
 export function ServerList(props: ServerListProps) {
   const model = useServerList(props)
+  const [removing, setRemoving] = useState<ServerListItem | null>(null)
+  const [removingBusy, setRemovingBusy] = useState(false)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const {
     actionError,
     active,
@@ -26,6 +32,8 @@ export function ServerList(props: ServerListProps) {
     page,
     pages,
     removeGroup,
+    removeServer,
+    renameGroup,
     rows,
     selectGroup,
     setAddingGroup,
@@ -115,6 +123,12 @@ export function ServerList(props: ServerListProps) {
               count={group.server_count}
               selected={groupId === group.id}
               onSelect={() => selectGroup(group.id)}
+              renaming={renamingId === group.id}
+              renameValue={renameValue}
+              onRenameStart={group.kind === 'user' ? () => { setRenamingId(group.id); setRenameValue(localizedGroupName(active, group)) } : undefined}
+              onRenameChange={group.kind === 'user' ? setRenameValue : undefined}
+              onRenameCancel={group.kind === 'user' ? () => setRenamingId(null) : undefined}
+              onRenameSave={group.kind === 'user' ? () => { void renameGroup(group.id, renameValue).then((ok) => { if (ok) setRenamingId(null) }) } : undefined}
               onDelete={
                 group.kind === 'user'
                   ? () => {
@@ -212,11 +226,19 @@ export function ServerList(props: ServerListProps) {
                   <th>{copy.installRequiredSoftware}</th>
                   <th>{copy.resourceOverview}</th>
                   <th>{copy.lastCheck}</th>
+                  <th>{copy.actions}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((server) => (
-                  <ServerLine active={active} key={server.id} server={server} onOpen={props.onOpen} />
+                  <ServerLine
+                    active={active}
+                    key={server.id}
+                    server={server}
+                    onOpen={props.onOpen}
+                    onTerminal={props.onTerminal}
+                    onRemove={setRemoving}
+                  />
                 ))}
               </tbody>
             </table>
@@ -284,6 +306,34 @@ export function ServerList(props: ServerListProps) {
           </footer>
         </Panel>
       </div>
+      {removing !== null && (
+        <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={copy.removeServer}>
+          <div className="smp-upgrade-dialog">
+            <h2>{copy.removeServer}</h2>
+            <p>{format(copy.removeServerHint, { name: removing.name })}</p>
+            {actionError !== null && <p className="banner error" role="alert">{displayError(active, actionError)}</p>}
+            <div className="row">
+              <button
+                className="danger-button"
+                type="button"
+                disabled={removingBusy}
+                onClick={() => {
+                  setRemovingBusy(true)
+                  void removeServer(removing.id).then((ok) => {
+                    setRemovingBusy(false)
+                    if (ok) setRemoving(null)
+                  })
+                }}
+              >
+                {copy.remove}
+              </button>
+              <button className="secondary" type="button" disabled={removingBusy} onClick={() => setRemoving(null)}>
+                {copy.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -297,8 +347,38 @@ function GroupChoice(props: {
   source?: string
   onSelect: () => void
   onDelete?: () => void
+  renaming?: boolean
+  renameValue?: string
+  onRenameStart?: () => void
+  onRenameChange?: (value: string) => void
+  onRenameCancel?: () => void
+  onRenameSave?: () => void
 }) {
   const copy = serverCopy(props.active).ui
+  if (props.renaming)
+    return (
+      <form
+        className="smp-server-group smp-server-group-rename"
+        onSubmit={(event) => {
+          event.preventDefault()
+          props.onRenameSave?.()
+        }}
+      >
+        <input
+          aria-label={copy.groupName}
+          value={props.renameValue ?? ''}
+          maxLength={80}
+          autoFocus
+          onChange={(event) => props.onRenameChange?.(event.target.value)}
+        />
+        <button className="primary" type="submit" disabled={(props.renameValue ?? '').trim() === ''}>
+          {copy.save}
+        </button>
+        <button className="secondary" type="button" onClick={props.onRenameCancel}>
+          {copy.cancel}
+        </button>
+      </form>
+    )
   return (
     <div className={`smp-server-group${props.selected ? ' is-on' : ''}`}>
       <button
@@ -318,6 +398,19 @@ function GroupChoice(props: {
         </span>
         <span className="smp-server-group-count">{props.count}</span>
       </button>
+      {props.onRenameStart && (
+        <button
+          className="smp-server-group-rename-button"
+          type="button"
+          aria-label={format(copy.renameGroupNamed, { name: props.label })}
+          title={copy.renameGroup}
+          onClick={props.onRenameStart}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path d="M10.5 2.8 13.2 5.5 6 12.7l-3.2.7.7-3.2z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
       {props.onDelete && (
         <button
           className="smp-server-group-delete"

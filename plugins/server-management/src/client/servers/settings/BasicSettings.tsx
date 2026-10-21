@@ -90,8 +90,8 @@ export function BasicSettings(props: {
         <button className="secondary" type="button" onClick={() => setMoving(true)}>
           {serverCopy(active).upgrades.moveServer}
         </button>
-        <button className="link danger" type="button" disabled={deleting || form.busy} onClick={() => { void remove() }}>
-          {copy.delete}
+        <button className="danger-button" type="button" disabled={deleting || form.busy} onClick={() => { void remove() }}>
+          {copy.removeServer}
         </button>
       </div>
       {moving && <MoveServer active={active} server={props.server} onClose={() => setMoving(false)} />}

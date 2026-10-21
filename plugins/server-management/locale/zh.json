@@ -196,7 +196,14 @@
     "resourceSampledAt": "资源采样：{time}",
     "resourcesUnknown": "尚未取得资源信息",
     "resourcesStale": "资源数据已过期",
-    "connectionStatus": "SSH 连接"
+    "connectionStatus": "SSH 连接",
+    "actions": "操作",
+    "details": "详情",
+    "remove": "移除",
+    "removeServer": "移除服务器",
+    "removeServerHint": "将从平台移除「{name}」。未开始的任务和计划会被取消，不会卸载服务器上的软件。",
+    "renameGroup": "重命名分组",
+    "renameGroupNamed": "重命名分组「{name}」"
   },
   "reach": {
     "online": "在线",
@@ -306,7 +313,7 @@
     "server_busy": "该服务器有正在执行的任务，请完成后再试",
     "no_required_software": "此类型没有需要安装的必要软件",
     "group_source_readonly": "系统分组与类型定义只能由宿主插件注册",
-    "system_group_protected": "系统分组不可删除",
+    "system_group_protected": "系统分组不可修改",
     "os_required": "请选择操作系统及版本。",
     "os_invalid": "操作系统选项无效，请重新选择或填写其他系统。",
     "os_definition_invalid": "类型或软件的操作系统范围无效。",

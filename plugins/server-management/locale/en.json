@@ -196,7 +196,14 @@
     "resourceSampledAt": "Resources sampled: {time}",
     "resourcesUnknown": "No resource information yet",
     "resourcesStale": "Resource data expired",
-    "connectionStatus": "SSH connection"
+    "connectionStatus": "SSH connection",
+    "actions": "Actions",
+    "details": "Details",
+    "remove": "Remove",
+    "removeServer": "Remove server",
+    "removeServerHint": "Remove \"{name}\" from the platform. Starting tasks and plans are cancelled; software on the server is not uninstalled.",
+    "renameGroup": "Rename group",
+    "renameGroupNamed": "Rename group \"{name}\""
   },
   "reach": {
     "online": "Online",
@@ -306,7 +313,7 @@
     "server_busy": "This server has a task running. Try again after it finishes.",
     "no_required_software": "This type has no required software to install.",
     "group_source_readonly": "Only host plugins can register system groups and type definitions.",
-    "system_group_protected": "System groups cannot be deleted.",
+    "system_group_protected": "System groups cannot be modified.",
     "os_required": "Select an operating system and version.",
     "os_invalid": "Invalid operating system. Select a release or enter a custom system.",
     "os_definition_invalid": "Invalid operating system support definition.",

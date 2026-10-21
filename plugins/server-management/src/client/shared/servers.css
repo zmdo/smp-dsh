@@ -302,3 +302,12 @@
   .smp-server-workspace-identity h2 { max-width: 24ch; }
   .smp-server-workspace-panel { padding: 12px; }
 }
+
+.smp-server-actions { white-space: nowrap; }
+.smp-server-actions .link { margin-right: 10px; }
+.smp-server-actions .link:last-child { margin-right: 0; }
+.smp-console .danger-button { background: var(--red); border-color: var(--red); color: #fff; }
+.smp-console .danger-button:hover:not(:disabled) { filter: brightness(0.92); }
+.smp-server-group-rename { display: flex; align-items: center; gap: 6px; padding: 6px; }
+.smp-server-group-rename input { min-width: 0; flex: 1; }
+.smp-server-group-rename-button { flex: none; }

@@ -34,6 +34,24 @@ export async function createGroup(db: Db, definitions: DefinitionRegistry, body:
   }
 }
 
+export async function renameGroup(db: Db, definitions: DefinitionRegistry, id: string, body: unknown): Promise<unknown> {
+  const name = required(text(field(body, 'name')), 'group_name_required')
+  if (['未分组', '全部服务器', 'ungrouped', 'all servers'].includes(name.toLowerCase()))
+    throw new HttpError(422, 'group_name_reserved')
+  try {
+    const result = await transaction(db, async (client) => {
+      const row = (await groups.lockGroup(client, id)).rows[0]
+      if (row === undefined) throw new HttpError(404, 'group_not_found')
+      if (row.kind === 'system') throw new HttpError(403, 'system_group_protected')
+      return (await groups.renameGroup(client, id, name)).rows[0]
+    })
+    return definitions.view(result!)
+  } catch (cause) {
+    if (isUnique(cause)) throw new HttpError(409, 'group_exists')
+    throw cause
+  }
+}
+
 export async function deleteGroup(db: Db, id: string): Promise<void> {
   await transaction(db, async (client) => {
     await lockCatalog(client)

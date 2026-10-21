@@ -2,7 +2,13 @@ import { format, formatDate, localized, serverCopy } from '../../../shared/i18n.
 import { type ServerListItem } from '../../../shared/dto/servers.ts'
 import { bytes, meter, ratio } from '../../shared/resources.ts'
 import { ServerStatus } from '../components/ServerStatus.tsx'
-export function ServerLine(props: { active: string; server: ServerListItem; onOpen: (id: string) => void }) {
+export function ServerLine(props: {
+  active: string
+  server: ServerListItem
+  onOpen: (id: string) => void
+  onTerminal: (id: string) => void
+  onRemove: (server: ServerListItem) => void
+}) {
   const { server, active } = props
   const copy = serverCopy(active).ui
   const resources = server.resources
@@ -72,6 +78,17 @@ export function ServerLine(props: { active: string; server: ServerListItem; onOp
         {resources.sampledAt && !resources.fresh && <small className="muted">{copy.resourcesStale}</small>}
       </td>
       <td>{formatDate(server.lastCheckedAt, active)}</td>
+      <td className="smp-server-actions">
+        <button className="link" type="button" onClick={(event) => { event.stopPropagation(); props.onOpen(server.id) }}>
+          {copy.details}
+        </button>
+        <button className="link" type="button" onClick={(event) => { event.stopPropagation(); props.onTerminal(server.id) }}>
+          {copy.terminal}
+        </button>
+        <button className="link danger" type="button" onClick={(event) => { event.stopPropagation(); props.onRemove(server) }}>
+          {copy.remove}
+        </button>
+      </td>
     </tr>
   )
 }

@@ -10,6 +10,7 @@ export interface ServerListProps {
   view: ListView
   onView: (view: ListView) => void
   onOpen: (id: string) => void
+  onTerminal: (id: string) => void
   onCreate: () => void
   onUpgrades: () => void
 }
@@ -127,6 +128,36 @@ export function useServerList(props: ServerListProps) {
     }
   }
 
+  async function renameGroup(id: string, name: string): Promise<boolean> {
+    setActionError(null)
+    try {
+      const group = await api<GroupDto>(`/console-api/server-groups/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      })
+      dataVersion.current += 1
+      setRefresh((value) => value + 1)
+      setGroups((current) => current.map((item) => (item.id === id ? { ...item, ...group } : item)))
+      return true
+    } catch (cause) {
+      setActionError(requestError(cause))
+      return false
+    }
+  }
+
+  async function removeServer(id: string): Promise<boolean> {
+    setActionError(null)
+    try {
+      await api(`/console-api/servers/${id}`, { method: 'DELETE' })
+      dataVersion.current += 1
+      setRefresh((value) => value + 1)
+      return true
+    } catch (cause) {
+      setActionError(requestError(cause))
+      return false
+    }
+  }
+
   async function removeGroup(id: string): Promise<void> {
     setActionError(null)
     try {
@@ -160,6 +191,8 @@ export function useServerList(props: ServerListProps) {
     page,
     pages,
     removeGroup,
+    removeServer,
+    renameGroup,
     rows,
     selectGroup,
     setAddingGroup,
