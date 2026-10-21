@@ -545,3 +545,8 @@
 }
 .smp-console .smp-list-scroll { flex: 1; min-height: 0; overflow: auto; margin: 0; }
 .smp-console .smp-list-pager { flex: none; padding: 12px 16px; border-top: 1px solid var(--line); }
+
+/* List-template headers stay visible while the rows scroll. */
+.smp-console .smp-list-scroll table thead th {
+  position: sticky; top: 0; z-index: 2; background: #fafafa;
+}
