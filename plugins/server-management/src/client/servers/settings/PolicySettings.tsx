@@ -13,7 +13,7 @@ export function PolicySettings(props: { active: string; form: ServerFormModel })
         void form.savePolicies()
       }}
     >
-      <div className="smp-settings-form-body">
+      <div className="smp-settings-form-body smp-settings-scroll">
       <SoftwarePolicies
         active={active}
         software={form.configuredSoftware}

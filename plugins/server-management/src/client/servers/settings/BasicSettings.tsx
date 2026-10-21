@@ -46,7 +46,7 @@ export function BasicSettings(props: {
         void form.saveBasic()
       }}
     >
-      <div className="smp-settings-form-body">
+      <div className="smp-settings-form-body smp-settings-scroll">
       {error !== null && (
         <p className="banner error" role="alert">
           {displayError(active, error)}

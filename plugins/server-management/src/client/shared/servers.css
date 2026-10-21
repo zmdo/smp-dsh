@@ -564,8 +564,9 @@
 }
 .smp-console .smp-settings-form-body {
   flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 24px;
-  display: grid; gap: 14px;
+  display: flex; flex-direction: column; gap: 14px;
 }
+.smp-console .smp-settings-form-body > * { flex: none; }
 .smp-console .smp-settings-content .smp-settings-actions {
   position: static; bottom: auto; flex: none;
   box-sizing: border-box; height: 56px; min-height: 56px; max-height: 56px;
@@ -580,3 +581,6 @@
   flex: 1; min-height: 0; overflow: auto; padding: 16px 24px 24px;
 }
 .smp-console .smp-settings-content [data-extension-actions] { display: block; flex: none; }
+
+/* The scrolling panel owns the viewport; its cards keep their natural height. */
+.smp-console .smp-settings-scroll { overscroll-behavior: contain; }
