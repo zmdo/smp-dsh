@@ -51,7 +51,7 @@ export function Dialog(props: DialogProps) {
         {props.footer !== undefined && <div className="smp-dialog-footer">{props.footer}</div>}
       </div>
     </div>,
-    document.body,
+    document.querySelector('.smp-console') ?? document.body,
   )
 }
 
