@@ -13,7 +13,7 @@ export function DetectionResults(props: {
     .map((check) => ({ check, ...detectionResult(props.active, check) }))
     .filter((row) => !props.failuresOnly || row.state === 'failed')
   return (
-    <section className="smp-detection-results" aria-label={copy.checks} aria-busy={props.loading}>
+    <section className="smp-detection-results smp-table-card" aria-label={copy.checks} aria-busy={props.loading}>
       <header className="smp-detection-head">
         <h2>{copy.checks}</h2>
         <span>{format(copy.checkCount, { count: rows.length })}</span>

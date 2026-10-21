@@ -26,7 +26,7 @@ export function SoftwarePolicies(props: {
   }
   return (
     <>
-    <section className="smp-version-policies smp-card">
+    <section className="smp-version-policies smp-card smp-table-card">
       <h3>{c.policies}</h3>
       <div className="smp-upgrade-scroll">
         <table className="smp-table">

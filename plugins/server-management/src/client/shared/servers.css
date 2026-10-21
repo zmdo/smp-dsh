@@ -485,3 +485,22 @@
 .smp-console .smp-dialog .smp-change-plan > .smp-plan-target {
   margin-top: 8px;
 }
+
+/* Table modules (detection, required software, policies) share one header and table rhythm. */
+.smp-console .smp-table-card > header,
+.smp-console .smp-table-card > h3 {
+  margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--line);
+  background: var(--dsw-alias-bg-layer-2); font-size: 14px; font-weight: 600;
+}
+.smp-console .smp-table-card table.smp-table th,
+.smp-console .smp-table-card table.smp-table td { padding: 11px 16px; }
+.smp-console .smp-table-card table.smp-table th {
+  background: #fafafa; color: #909399; font-size: 13px; font-weight: 500;
+}
+
+.smp-console .smp-server-settings-layer .smp-table-card > h3,
+.smp-console .smp-server-settings-layer .smp-table-card > header,
+.smp-console .smp-dialog .smp-table-card > h3,
+.smp-console .smp-dialog .smp-table-card > header {
+  padding: 14px 16px;
+}
