@@ -313,12 +313,15 @@
 .smp-server-actions .link:last-child { margin-right: 0; }
 .smp-console .danger-button { background: var(--red); border-color: var(--red); color: #fff; }
 .smp-console .danger-button:hover:not(:disabled) { filter: brightness(0.92); }
-.smp-server-group-rename { display: flex; align-items: center; gap: 6px; padding: 6px; }
-.smp-server-group-rename input { min-width: 0; flex: 1; }
+.smp-server-group-rename { position: relative; display: flex; align-items: center; padding: 4px 66px 4px 6px; }
+.smp-server-group-rename input { min-width: 0; flex: 1; height: 28px; box-sizing: border-box; }
+.smp-server-group-rename .smp-server-group-icon-button { position: absolute; top: 4px; }
+.smp-server-group-rename .smp-server-group-icon-button:first-of-type { right: 32px; }
+.smp-server-group-rename .smp-server-group-icon-button:last-of-type { right: 4px; }
 
 .smp-console .smp-server-group-icon-button {
   flex: none; display: grid; place-items: center; box-sizing: border-box;
-  width: 28px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 4px;
+  width: 26px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 4px;
   background: transparent; color: var(--muted); cursor: pointer;
 }
 .smp-console .smp-server-group-icon-button:hover:not(:disabled) {
