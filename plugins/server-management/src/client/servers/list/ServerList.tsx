@@ -371,11 +371,27 @@ function GroupChoice(props: {
           autoFocus
           onChange={(event) => props.onRenameChange?.(event.target.value)}
         />
-        <button className="primary" type="submit" disabled={(props.renameValue ?? '').trim() === ''}>
-          {copy.save}
+        <button
+          className="smp-server-group-icon-button primary"
+          type="submit"
+          aria-label={copy.save}
+          title={copy.save}
+          disabled={(props.renameValue ?? '').trim() === ''}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="m3.2 8.2 3.1 3.1 6.5-6.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
-        <button className="secondary" type="button" onClick={props.onRenameCancel}>
-          {copy.cancel}
+        <button
+          className="smp-server-group-icon-button secondary"
+          type="button"
+          aria-label={copy.cancel}
+          title={copy.cancel}
+          onClick={props.onRenameCancel}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="m4 4 8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
         </button>
       </form>
     )

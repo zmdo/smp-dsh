@@ -315,3 +315,8 @@
 .smp-console .danger-button:hover:not(:disabled) { filter: brightness(0.92); }
 .smp-server-group-rename { display: flex; align-items: center; gap: 6px; padding: 6px; }
 .smp-server-group-rename input { min-width: 0; flex: 1; }
+
+.smp-console .smp-server-group-icon-button {
+  flex: none; display: grid; place-items: center; box-sizing: border-box;
+  width: 28px; height: 28px; min-height: 28px; padding: 0; border-radius: 4px;
+}
