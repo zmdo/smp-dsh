@@ -626,3 +626,13 @@
 }
 .smp-console .smp-server-fingerprint > span { flex: none; color: var(--muted); font-size: 12px; }
 .smp-console .smp-server-fingerprint > b { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+
+/* Detail resource rows share the list wording and add a threshold-colored bar. */
+.smp-server-usage { display: grid; gap: 5px; min-width: 0; }
+.smp-server-usage > span { color: var(--muted); font-size: 12px; }
+.smp-server-usage > b { font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.smp-server-usage-bar { height: 6px; border-radius: 99px; background: var(--dsw-alias-bg-layer-2); overflow: hidden; }
+.smp-server-usage-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.smp-server-usage-bar > i.warn { background: var(--warn); }
+.smp-server-usage-bar > i.hot { background: var(--red); }
+.smp-server-usage-bar > i.unknown { background: var(--muted); }

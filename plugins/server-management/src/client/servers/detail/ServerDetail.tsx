@@ -10,7 +10,7 @@ import {
   statusReason,
 } from '../../../shared/i18n.ts'
 import { osLabel } from '../../../shared/operating-systems.ts'
-import { bytes, meter, ratio } from '../../shared/resources.ts'
+import { bytes, ratio } from '../../shared/resources.ts'
 import { RequiredSoftware } from '../components/RequiredSoftware.tsx'
 import { SoftwareState } from '../components/ServerStatus.tsx'
 
@@ -92,18 +92,21 @@ export function ServerDetail(props: ServerDetailProps) {
             <span>{copy.lastCheck}</span>
             {formatDate(server.last_checked_at, active)}
           </div>
-          <div>
-            <span>CPU</span>
-            {meter(server.cpu_percent, '%')}
-          </div>
-          <div>
-            <span>{copy.memory}</span>
-            {meter(ratio(server.mem_used_bytes, server.mem_total_bytes), bytes(server.mem_used_bytes))}
-          </div>
-          <div>
-            <span>{copy.disk}</span>
-            {meter(ratio(server.disk_used_bytes, server.disk_total_bytes), bytes(server.disk_used_bytes))}
-          </div>
+          <Usage
+            label="CPU"
+            text={`${server.cpu_model ?? 'CPU'}${server.cpu_cores === null ? '' : `*${server.cpu_cores}`} (${server.cpu_percent === null ? '—' : Math.round(Number(server.cpu_percent))}%)`}
+            percent={server.cpu_percent === null ? null : Number(server.cpu_percent)}
+          />
+          <Usage
+            label={copy.memory}
+            text={usageText(server.mem_used_bytes, server.mem_total_bytes)}
+            percent={ratio(server.mem_used_bytes, server.mem_total_bytes)}
+          />
+          <Usage
+            label={copy.disk}
+            text={usageText(server.disk_used_bytes, server.disk_total_bytes)}
+            percent={ratio(server.disk_used_bytes, server.disk_total_bytes)}
+          />
         </div>
         <div className="smp-server-fingerprint">
           <span>{copy.hostFingerprint}</span>
@@ -131,5 +134,24 @@ export function ServerDetail(props: ServerDetailProps) {
       </div>
       <RequiredSoftware active={active} software={server.required_software} status={server.software_status} />
     </Panel>
+  )
+}
+
+function usageText(used: string | null, total: string | null): string {
+  const percent = ratio(used, total)
+  return `${bytes(used)}/${bytes(total)} (${percent === null ? '—' : Math.round(percent)}%)`
+}
+
+function Usage(props: { label: string; text: string; percent: number | null }) {
+  const value = props.percent === null ? 0 : Math.max(0, Math.min(100, props.percent))
+  const level = props.percent === null ? 'unknown' : value >= 85 ? 'hot' : value >= 60 ? 'warn' : 'ok'
+  return (
+    <div className="smp-server-usage">
+      <span>{props.label}</span>
+      <b>{props.text}</b>
+      <div className="smp-server-usage-bar">
+        <i className={level} style={{ width: `${value}%` }} />
+      </div>
+    </div>
   )
 }

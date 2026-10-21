@@ -41,7 +41,10 @@ export interface ServerDto {
   host_fingerprint: string | null
   reachability: string
   status: DisplayStatus
+  cpu_model: string | null
+  cpu_cores: number | null
   cpu_percent: number | string | null
+  resources_fresh: boolean
   mem_total_bytes: number | string | null
   mem_used_bytes: number | string | null
   disk_total_bytes: number | string | null
