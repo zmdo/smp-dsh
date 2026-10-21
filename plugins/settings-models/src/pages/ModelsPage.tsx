@@ -63,9 +63,8 @@ const PAGE_STYLE = `
 .smp-console .smp-model-picker thead th { background: #fafafa; }
 .smp-console .smp-model-picker th.check, .smp-console .smp-model-picker td.check, .smp-console .smp-model-picker col.check { width: 44px; }
 .smp-model-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 8px; }
-.smp-models-table th.toggle, .smp-models-table td.toggle { width: 40px; padding-right: 0; }
-.smp-console button.smp-model-toggle { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--dsw-alias-label-secondary); display: grid; place-items: center; cursor: pointer; }
-.smp-console button.smp-model-toggle:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--text); }
+.smp-console table.smp-models-table tbody tr.smp-models-row { cursor: pointer; }
+.smp-console table.smp-models-table tbody tr.smp-models-row:hover td, .smp-console table.smp-models-table tbody tr.smp-models-row.is-open td { background: #f7f9fc; }
 .smp-model-add input { width: 100%; min-width: 0; box-sizing: border-box; }
 `
 
@@ -75,14 +74,6 @@ export function installModelsStyle(): () => void {
   tag.textContent = PAGE_STYLE
   document.head.appendChild(tag)
   return () => { tag.remove() }
-}
-
-function Chevron(props: { expanded: boolean }) {
-  return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path d={props.expanded ? 'M3.2 6.2 8 11l4.8-4.8' : 'M6.2 3.2 11 8l-4.8 4.8'} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
 }
 
 function namedModels(models: readonly { id: string; name?: string }[]): ModelName[] {
@@ -222,7 +213,6 @@ export function ModelsPage(props: {
           <table className="smp-models-table smp-table">
             <thead>
               <tr>
-                <th className="toggle" />
                 <th>{copy.provider}</th>
                 <th>{copy.baseUrl}</th>
                 <th>{copy.protocol}</th>
@@ -335,12 +325,23 @@ function ModelLine(props: {
 
   return (
     <>
-      <tr>
-        <td className="toggle">
-          <button className="smp-model-toggle" type="button" aria-expanded={props.expanded} aria-label={props.expanded ? copy.collapse : copy.expand} onClick={props.onToggle}>
-            <Chevron expanded={props.expanded} />
-          </button>
-        </td>
+      <tr
+        className={props.expanded ? 'smp-models-row is-open' : 'smp-models-row'}
+        role="button"
+        aria-label={row.displayName}
+        aria-expanded={props.expanded}
+        tabIndex={0}
+        onClick={event => {
+          if ((event.target as HTMLElement).closest('input, select, textarea, button, label, a')) return
+          props.onToggle()
+        }}
+        onKeyDown={event => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          if ((event.target as HTMLElement).closest('input, select, textarea, button, label, a')) return
+          event.preventDefault()
+          props.onToggle()
+        }}
+      >
         <td>{row.displayName}</td>
         <td>
           <input
@@ -408,7 +409,6 @@ function ModelLine(props: {
       </tr>
       {props.expanded && (
         <tr>
-          <td />
           <td className="detail" colSpan={5}>
             <div>{copy.available}</div>
             {pending && choices.length === 0 ? <p className="muted">{copy.loading}</p>
