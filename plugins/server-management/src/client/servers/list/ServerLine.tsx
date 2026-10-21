@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { format, formatDate, localized, serverCopy } from '../../../shared/i18n.ts'
 import { type ServerListItem } from '../../../shared/dto/servers.ts'
-import { bytes, meter, ratio } from '../../shared/resources.ts'
+import { bytes, ratio } from '../../shared/resources.ts'
 import { ServerStatus } from '../components/ServerStatus.tsx'
 export function ServerLine(props: {
   active: string
@@ -47,19 +47,13 @@ export function ServerLine(props: {
             : copy.resourcesUnknown
         }
       >
-        <span>CPU {resources.fresh ? meter(resources.cpuPercent, '%') : '—'}</span>
         <span>
-          {copy.memory}{' '}
           {resources.fresh
-            ? meter(ratio(resources.memoryUsed, resources.memoryTotal), bytes(resources.memoryUsed))
+            ? `${resources.cpuModel ?? 'CPU'}${resources.cpuCores === null ? '' : `*${resources.cpuCores}`} (${resources.cpuPercent === null ? '—' : Math.round(resources.cpuPercent)}%)`
             : '—'}
         </span>
-        <span>
-          {copy.disk}{' '}
-          {resources.fresh
-            ? meter(ratio(resources.diskUsed, resources.diskTotal), bytes(resources.diskUsed))
-            : '—'}
-        </span>
+        <span>{resourceLine(copy.memory, resources.memoryUsed, resources.memoryTotal, resources.fresh)}</span>
+        <span>{resourceLine(copy.disk, resources.diskUsed, resources.diskTotal, resources.fresh)}</span>
         {resources.sampledAt && !resources.fresh && <small className="muted">{copy.resourcesStale}</small>}
       </td>
       <td>{formatDate(server.lastCheckedAt, active)}</td>
@@ -142,4 +136,10 @@ function AddressLine(props: { active: string; label: string; value: string | nul
       )}
     </span>
   )
+}
+
+function resourceLine(label: string, used: string | null, total: string | null, fresh: boolean): string {
+  if (!fresh || used === null || total === null) return `${label} —`
+  const ratioValue = ratio(used, total)
+  return `${label} ${bytes(used)}/${bytes(total)} (${ratioValue === null ? '—' : Math.round(ratioValue)}%)`
 }

@@ -14,7 +14,9 @@ mem_total=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
 mem_avail=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
 disk_total=$(df -B1 -P / | awk 'NR==2 {print $2}')
 disk_used=$(df -B1 -P / | awk 'NR==2 {print $3}')
+cpu_model=$(awk -F': ' '/^model name/{print $2; exit}' /proc/cpuinfo 2>/dev/null || true)
 printf '%s %s %s %s %s %s %s\\n' "$cores" "$a" "$b" "$mem_total" "$mem_avail" "$disk_total" "$disk_used"
+printf '%s\\n' "$cpu_model"
 `
 
 const RETRY_MS = 3000

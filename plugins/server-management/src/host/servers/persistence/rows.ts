@@ -46,6 +46,7 @@ export interface ServerFact {
   environment_revision: string
   os_checked_at: Date | null
   os_error: unknown
+  cpu_model: string | null
   cpu_cores: number | null
   cpu_percent: number | string | null
   mem_total_bytes: string | null

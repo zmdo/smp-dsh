@@ -64,6 +64,8 @@ export interface ServerListItem {
     applicability: 'applicable' | 'not-applicable' | 'unavailable'
   }
   resources: {
+    cpuModel: string | null
+    cpuCores: number | null
     cpuPercent: number | null
     memoryUsed: string | null
     memoryTotal: string | null

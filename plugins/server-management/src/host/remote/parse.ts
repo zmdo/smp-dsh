@@ -17,6 +17,7 @@ export function scrub(text: string, secret: string): string {
 }
 
 export interface MetricSample {
+  cpuModel: string | null
   cpuCores: number
   cpuPercent: number
   memTotalBytes: number
@@ -26,7 +27,8 @@ export interface MetricSample {
 }
 
 export function parseSample(text: string): MetricSample {
-  const parts = text.trim().split(/\s+/)
+  const lines = text.trim().split(/\r?\n/)
+  const parts = (lines[0] ?? '').trim().split(/\s+/)
   if (parts.length !== 9) throw new ParseError('采集结果无法解析')
   const [cores, aTotal, aIdle, bTotal, bIdle, memTotalKb, memAvailKb, diskTotal, diskUsed] = parts.map(
     (part) => Number(part),
@@ -46,6 +48,7 @@ export function parseSample(text: string): MetricSample {
   const memTotal = (memTotalKb ?? 0) * 1024
   const memUsed = Math.max(0, ((memTotalKb ?? 0) - (memAvailKb ?? 0)) * 1024)
   return {
+    cpuModel: lines[1]?.trim() || null,
     cpuCores: cores ?? 0,
     cpuPercent: Math.max(0, Math.min(100, cpu)),
     memTotalBytes: memTotal,
