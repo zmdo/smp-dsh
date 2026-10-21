@@ -79,14 +79,48 @@ export function ServerLine(props: {
       </td>
       <td>{formatDate(server.lastCheckedAt, active)}</td>
       <td className="smp-server-actions">
-        <button className="link" type="button" onClick={(event) => { event.stopPropagation(); props.onOpen(server.id) }}>
-          {copy.details}
+        <button
+          className="smp-server-action-icon"
+          type="button"
+          aria-label={copy.details}
+          title={copy.details}
+          onClick={(event) => {
+            event.stopPropagation()
+            props.onOpen(server.id)
+          }}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="M1.8 8s2.3-4 6.2-4 6.2 4 6.2 4-2.3 4-6.2 4S1.8 8 1.8 8Z" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <circle cx="8" cy="8" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          </svg>
         </button>
-        <button className="link" type="button" onClick={(event) => { event.stopPropagation(); props.onTerminal(server.id) }}>
-          {copy.terminal}
+        <button
+          className="smp-server-action-icon"
+          type="button"
+          aria-label={copy.terminal}
+          title={copy.terminal}
+          onClick={(event) => {
+            event.stopPropagation()
+            props.onTerminal(server.id)
+          }}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="m3 5 3 3-3 3M8.5 11H13" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
-        <button className="link danger" type="button" onClick={(event) => { event.stopPropagation(); props.onRemove(server) }}>
-          {copy.remove}
+        <button
+          className="smp-server-action-icon danger"
+          type="button"
+          aria-label={copy.remove}
+          title={copy.remove}
+          onClick={(event) => {
+            event.stopPropagation()
+            props.onRemove(server)
+          }}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="M3 4.5h10M6 4.5V2.8h4v1.7M4.5 4.5l.6 9h5.8l.6-9M6.5 7v4M9.5 7v4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </td>
     </tr>
