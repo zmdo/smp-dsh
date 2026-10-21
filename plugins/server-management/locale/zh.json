@@ -208,7 +208,11 @@
     "internalAddress": "内网",
     "copyAddress": "复制地址",
     "copied": "已复制",
-    "basicInfo": "基础信息"
+    "basicInfo": "基础信息",
+    "keysPagination": "密钥分页",
+    "keysRange": "共 {count} 把，第 {from}–{to} 把",
+    "keysTotal": "共 {count} 把",
+    "keysPageSize": "每页密钥数量"
   },
   "reach": {
     "online": "在线",

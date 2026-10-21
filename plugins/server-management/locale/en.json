@@ -208,7 +208,11 @@
     "internalAddress": "Private",
     "copyAddress": "Copy address",
     "copied": "Copied",
-    "basicInfo": "Basic information"
+    "basicInfo": "Basic information",
+    "keysPagination": "Key pagination",
+    "keysRange": "{count} keys, showing {from}–{to}",
+    "keysTotal": "{count} keys",
+    "keysPageSize": "Keys per page"
   },
   "reach": {
     "online": "Online",

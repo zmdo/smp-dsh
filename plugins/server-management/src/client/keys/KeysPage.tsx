@@ -2,7 +2,7 @@ import type { KeyListDto } from '../../shared/dto/keys.ts'
 import { Panel } from '@smp/console-kit'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ServerError } from '../../shared/errors.ts'
-import { displayError, formatDate, serverCopy, type LocaleFace } from '../../shared/i18n.ts'
+import { displayError, format, formatDate, serverCopy, type LocaleFace } from '../../shared/i18n.ts'
 import { api, requestError } from '../shared/api.ts'
 import { useActiveLocale } from '../shared/locale.ts'
 
@@ -16,6 +16,8 @@ export function KeysPage(props: { locale: LocaleFace }) {
   const [error, setError] = useState<ServerError | null>(null)
   const [revision, setRevision] = useState(0)
   const [adding, setAdding] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   useEffect(() => {
     let stopped = false
@@ -38,6 +40,10 @@ export function KeysPage(props: { locale: LocaleFace }) {
       (key) => key.name.toLowerCase().includes(needle) || key.fingerprint.toLowerCase().includes(needle),
     )
   }, [keys, query])
+
+  const pages = Math.max(1, Math.ceil(shown.length / pageSize))
+  const current = Math.min(page, pages)
+  const rows = shown.slice((current - 1) * pageSize, current * pageSize)
 
   async function create(event: FormEvent): Promise<void> {
     event.preventDefault()
@@ -65,6 +71,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
 
   return (
     <Panel
+      className="smp-keys-panel"
       title={copy.keysTitle}
       extra={
         <div className="row">
@@ -75,6 +82,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
             aria-label={copy.searchKeys}
             onChange={(event) => {
               setQuery(event.target.value)
+              setPage(1)
             }}
           />
           <button
@@ -136,7 +144,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
           </div>
         </form>
       ) : null}
-      <div className="table-wrap">
+      <div className="table-wrap smp-keys-table-wrap">
         <table className="smp-table">
           <thead>
             <tr>
@@ -155,7 +163,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
                 </td>
               </tr>
             ) : (
-              shown.map((key) => (
+              rows.map((key) => (
                 <tr key={key.id}>
                   <td>{key.name}</td>
                   <td className="mono">{key.fingerprint}</td>
@@ -180,6 +188,41 @@ export function KeysPage(props: { locale: LocaleFace }) {
           </tbody>
         </table>
       </div>
+      <footer className="smp-server-pager smp-keys-pager" aria-label={copy.keysPagination}>
+        <span>
+          {format(shown.length ? copy.keysRange : copy.keysTotal, {
+            count: shown.length,
+            from: (current - 1) * pageSize + 1,
+            to: Math.min(current * pageSize, shown.length),
+          })}
+        </span>
+        <div className="row">
+          <label>
+            {copy.perPage}
+            <select
+              aria-label={copy.keysPageSize}
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value))
+                setPage(1)
+              }}
+            >
+              {[10, 20, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="secondary" type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>
+            {copy.previous}
+          </button>
+          <span aria-live="polite">{format(copy.page, { page: current, pages })}</span>
+          <button className="secondary" type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>
+            {copy.next}
+          </button>
+        </div>
+      </footer>
     </Panel>
   )
 }
