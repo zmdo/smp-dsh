@@ -477,3 +477,11 @@
 .smp-plan-state.is-running { background: var(--primary-soft); color: var(--primary); }
 .smp-plan-state.is-success { background: var(--green-bg); color: var(--green); }
 .smp-plan-state.is-failed { background: var(--red-bg); color: var(--red); }
+
+/* Removing the batch hint must also remove its surrounding paragraph spacing. */
+.smp-console .smp-dialog .smp-change-plan > p {
+  margin-top: 0; margin-bottom: 8px;
+}
+.smp-console .smp-dialog .smp-change-plan > .smp-plan-target {
+  margin-top: 8px;
+}
