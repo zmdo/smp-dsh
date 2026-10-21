@@ -607,3 +607,14 @@
 .smp-console .smp-keys-panel > .panel-body { padding-top: 0; }
 
 .smp-console .smp-keys-table-wrap th { white-space: nowrap; }
+
+/* Keys page fills the viewport; the table scrolls and the pager remains at the bottom. */
+.smp-console .content:has(.smp-keys-panel) { display: flex; flex-direction: column; overflow: hidden; }
+.smp-console .smp-keys-panel {
+  flex: 1; min-height: 0; margin-bottom: 0; display: flex; flex-direction: column;
+}
+.smp-console .smp-keys-panel > .panel-body {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.smp-console .smp-keys-table-wrap { flex: 1; min-height: 0; overflow: auto; }
+.smp-console .smp-keys-pager { flex: none; }
