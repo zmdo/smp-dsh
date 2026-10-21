@@ -1,3 +1,4 @@
+import { TableCard } from '@smp/console-kit'
 import type { ServerDto } from '../../../shared/dto/servers.ts'
 import { type SoftwareView } from '../../../shared/definitions.ts'
 import { componentText, format, serverCopy, versionRequirement } from '../../../shared/i18n.ts'
@@ -8,8 +9,8 @@ export function RequiredSoftware(props: {
 }) {
   const copy = serverCopy(props.active).ui
   return (
-    <section className="smp-required-software smp-card smp-table-card" aria-label={copy.requiredSoftware}>
-      <h3>{copy.requiredSoftware}</h3>
+    <TableCard title={copy.requiredSoftware} ariaLabel={copy.requiredSoftware}>
+
       {props.software.length === 0 ? (
         <p className="muted">{copy.noRequiredSoftware}</p>
       ) : (
@@ -62,6 +63,6 @@ export function RequiredSoftware(props: {
           </table>
         </div>
       )}
-    </section>
+    </TableCard>
   )
 }

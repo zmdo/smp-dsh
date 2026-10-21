@@ -513,3 +513,23 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+/* Shared table card: a titled frame for any list module. */
+.smp-console .smp-table-card {
+  margin: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; flex: none;
+}
+.smp-console .smp-table-card > header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--dsw-alias-bg-layer-2);
+}
+.smp-console .smp-table-card > header h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.smp-console .smp-table-card > header > span { flex: none; color: var(--muted); font-size: 12px; }
+.smp-console .smp-table-card table.smp-table th,
+.smp-console .smp-table-card table.smp-table td { padding: 11px 16px; }
+.smp-console .smp-table-card table.smp-table th {
+  background: #fafafa; color: #909399; font-size: 13px; font-weight: 500;
+}
+.smp-console .smp-table-card .smp-upgrade-scroll,
+.smp-console .smp-table-card .table-wrap,
+.smp-console .smp-table-card .smp-detection-scroll { margin: 0; }
+.smp-console .smp-table-card > p { margin: 0; padding: 12px 16px; }

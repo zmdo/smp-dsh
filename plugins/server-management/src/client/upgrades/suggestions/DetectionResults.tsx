@@ -1,6 +1,7 @@
 import { detectionResult } from '../../../shared/detection-result.ts'
 import { type DetectionResult } from '../../../shared/dto/upgrades.ts'
 import { format, formatDate, serverCopy } from '../../../shared/i18n.ts'
+import { TableCard } from '@smp/console-kit'
 export function DetectionResults(props: {
   active: string
   checks: readonly DetectionResult[]
@@ -13,12 +14,8 @@ export function DetectionResults(props: {
     .map((check) => ({ check, ...detectionResult(props.active, check) }))
     .filter((row) => !props.failuresOnly || row.state === 'failed')
   return (
-    <section className="smp-detection-results smp-table-card" aria-label={copy.checks} aria-busy={props.loading}>
-      <header className="smp-detection-head">
-        <h2>{copy.checks}</h2>
-        <span>{format(copy.checkCount, { count: rows.length })}</span>
-      </header>
-      <div className="smp-detection-scroll">
+    <TableCard title={copy.checks} extra={format(copy.checkCount, { count: rows.length })} ariaLabel={copy.checks}>
+      <div className="smp-detection-scroll" aria-busy={props.loading}>
         <table className="smp-detection-table smp-table">
           <thead>
             <tr>
@@ -64,6 +61,6 @@ export function DetectionResults(props: {
           </tbody>
         </table>
       </div>
-    </section>
+    </TableCard>
   )
 }
