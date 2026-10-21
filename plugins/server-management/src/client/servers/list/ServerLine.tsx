@@ -12,13 +12,6 @@ export function ServerLine(props: {
   const { server, active } = props
   const copy = serverCopy(active).ui
   const resources = server.resources
-  const installation = server.installRequiredSoftware
-  const installationLabel =
-    installation.applicability === 'not-applicable'
-      ? copy.notApplicable
-      : installation.enabled
-        ? copy.yes
-        : copy.no
   return (
     <tr onClick={() => props.onOpen(server.id)}>
       <td>
@@ -47,12 +40,6 @@ export function ServerLine(props: {
       </td>
       <td>
         <ServerStatus active={active} status={server.status} />
-      </td>
-      <td>
-        {installationLabel}
-        {installation.applicability === 'unavailable' && (
-          <small className="muted">{copy.installationUnavailable}</small>
-        )}
       </td>
       <td
         className="smp-server-resources"

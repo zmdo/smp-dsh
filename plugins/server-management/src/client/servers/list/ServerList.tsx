@@ -224,7 +224,6 @@ export function ServerList(props: ServerListProps) {
                   <th>{copy.operatingSystem}</th>
                   <th>{copy.serverType}</th>
                   <th>{copy.status}</th>
-                  <th>{copy.installRequiredSoftware}</th>
                   <th>{copy.resourceOverview}</th>
                   <th>{copy.lastCheck}</th>
                   <th>{copy.actions}</th>
