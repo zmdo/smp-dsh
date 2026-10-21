@@ -252,18 +252,20 @@ export function ChangePlan(props: {
                   </label>
                 </div>
               )}
-              <div className="smp-upgrade-fields">
-                <label className="field">
-                  {c.concurrency}
-                  <input
-                    type="number"
-                    min="1"
-                    max="4"
-                    value={concurrency}
-                    onChange={(e) => setConcurrency(Number(e.target.value))}
-                  />
-                </label>
-              </div>
+              {plan.targets.length > 1 && (
+                <div className="smp-upgrade-fields">
+                  <label className="field">
+                    {c.concurrency}
+                    <input
+                      type="number"
+                      min="1"
+                      max="4"
+                      value={concurrency}
+                      onChange={(e) => setConcurrency(Number(e.target.value))}
+                    />
+                  </label>
+                </div>
+              )}
               {needsReplacement && (
                 <label className="smp-upgrade-ack">
                   <input
