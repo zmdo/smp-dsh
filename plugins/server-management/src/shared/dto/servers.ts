@@ -54,6 +54,7 @@ export interface ServerListItem {
   name: string
   upgradeCount: number
   address: { host: string; port: number }
+  region: string
   operatingSystem: { declared: DeclaredOs; label: string; verification: string }
   type: { key: string; name: LocalizedText; available: boolean }
   status: DisplayStatus

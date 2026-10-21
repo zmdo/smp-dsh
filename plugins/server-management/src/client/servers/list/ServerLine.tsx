@@ -34,6 +34,7 @@ export function ServerLine(props: {
       <td className="mono">
         {server.address.host}:{server.address.port}
       </td>
+      <td>{server.region || '—'}</td>
       <td>{server.operatingSystem.label}</td>
       <td title={server.type.available ? undefined : copy.typeUnavailable}>
         {localized(server.type.name, active)}

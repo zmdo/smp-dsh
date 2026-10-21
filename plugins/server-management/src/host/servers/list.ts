@@ -313,6 +313,7 @@ function listItem(row: ReturnType<typeof enrich>): ServerListItem {
     name: row.name,
     upgradeCount: row.upgrade_count,
     address: { host: row.host, port: row.ssh_port },
+    region: row.region,
     operatingSystem: {
       declared: row.declared_os,
       label: osLabel(row.declared_os),

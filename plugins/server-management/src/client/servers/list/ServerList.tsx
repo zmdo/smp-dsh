@@ -221,6 +221,7 @@ export function ServerList(props: ServerListProps) {
                 <tr>
                   <th>{copy.name}</th>
                   <th>{copy.address}</th>
+                  <th>{copy.region}</th>
                   <th>{copy.operatingSystem}</th>
                   <th>{copy.serverType}</th>
                   <th>{copy.status}</th>

@@ -28,7 +28,7 @@
     "registerServer": "登记服务器",
     "name": "名称",
     "address": "地址",
-    "region": "区域",
+    "region": "地区",
     "reachability": "可达状态",
     "memory": "内存",
     "disk": "硬盘",
