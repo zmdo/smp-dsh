@@ -6,6 +6,7 @@ import { api, requestError } from '../../shared/api.ts'
 import { Dialog as Modal, DialogButton as Button } from '@smp/console-kit/dialog'
 import { AuthenticationFields } from '../form/AuthenticationFields.tsx'
 import { SystemFields } from '../form/SystemFields.tsx'
+import { RequiredSoftware } from '../components/RequiredSoftware.tsx'
 import type { ServerFormModel } from '../form/useServerForm.ts'
 import { MoveServer } from '../detail/MoveServer.tsx'
 
@@ -84,7 +85,8 @@ export function BasicSettings(props: {
         </label>
       </div>
       <AuthenticationFields form={form} />
-      <SystemFields form={form} editing showPolicies={false} />
+      <SystemFields form={form} editing showPolicies={false} showRequiredSoftware={false} />
+      <RequiredSoftware active={active} software={form.software} status={form.softwareStatus} />
       <div className="row smp-settings-actions">
         <button className="primary" type="submit" disabled={form.busy || form.pending !== null || !form.canSaveBasic}>
           {form.busy ? copy.saving : copy.save}

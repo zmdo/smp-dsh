@@ -350,3 +350,21 @@
 /* The configuration tab strip is full-bleed to the workspace frame; only its content is inset. */
 .smp-console .smp-server-workspace-panel:has(> .smp-server-settings-layer:not([hidden])) { padding: 0; }
 .smp-console .smp-settings-content { padding: 16px 24px 24px; }
+
+/* Configuration sections are separate cards, including the required-software table. */
+.smp-console .smp-server-settings-layer .smp-server-form-section {
+  border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+}
+.smp-console .smp-server-settings-layer .smp-server-form-section > h2 {
+  margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line);
+  background: var(--dsw-alias-bg-layer-2); font-size: 14px; font-weight: 600;
+}
+.smp-console .smp-server-settings-layer .smp-server-form-section-body { padding: 16px; }
+.smp-console .smp-server-settings-layer .smp-server-form-section > footer { padding: 12px 16px; }
+.smp-console .smp-server-settings-layer .smp-required-software {
+  border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+}
+.smp-console .smp-server-settings-layer .smp-required-software > h3 {
+  margin: 0; padding: 12px 16px; background: var(--dsw-alias-bg-layer-2);
+  border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 500;
+}
