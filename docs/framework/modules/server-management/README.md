@@ -57,3 +57,16 @@
 `npm run test --workspace=@smp/console-server-management`，数据库集成测试使用 `SMP_TEST_DATABASE_URL`。测试涵盖规则、SSH 替身、隔离 PostgreSQL、Cordis 生命周期、脚本和远端日志恢复。实际运行结果按[测试约定](../../development/testing.md)记录。
 
 源码：[宿主](../../../../plugins/server-management/src/index.ts)、[客户端](../../../../plugins/server-management/src/client.tsx)、[测试目录](../../../../plugins/server-management/test)。
+
+## Harness 工作区组
+
+服务器管理插件通过可选的 `workspaceGroups` 子注入注册一个 Harness 会话工作区组：
+
+- ID：`server-ops`
+- 中文：`服务器运维`
+- 英文：`Server operations`
+- 目录：`.smp/server-ops-workspaces`
+- 顺序：20
+
+`workspaceGroups` 不在时插件仍可启动；加载后注册失败只记录日志，不影响服务器管理主流程。
+
