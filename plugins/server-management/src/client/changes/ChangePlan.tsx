@@ -138,11 +138,25 @@ export function ChangePlan(props: {
           {plan.targets.map((t) => (
             <section className="smp-plan-target smp-card" key={t.id}>
               <h3>
-                {t.server_snapshot.name} <small>{t.server_snapshot.host}</small>
+                <span className="smp-plan-target-name">
+                  {t.server_snapshot.name} <small>{t.server_snapshot.host}</small>
+                </span>
+                <span
+                  className={`smp-plan-state ${
+                    t.preflight_state === 'failed'
+                      ? 'is-failed'
+                      : t.state === 'running'
+                        ? 'is-running'
+                        : t.state === 'pending'
+                          ? 'is-pending'
+                          : t.state === 'succeeded'
+                            ? 'is-success'
+                            : 'is-neutral'
+                  }`}
+                >
+                  {enumLabel(c, t.preflight_state)} · {enumLabel(c, t.state)}
+                </span>
               </h3>
-              <p>
-                {enumLabel(c, t.preflight_state)} · {enumLabel(c, t.state)}
-              </p>
               {!!t.preflight_error && (
                 <p className="banner error">
                   {displayJobError(

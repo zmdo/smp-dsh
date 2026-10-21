@@ -464,3 +464,16 @@
 .smp-console .smp-dialog .smp-plan-target table.smp-table th {
   background: var(--dsw-alias-bg-layer-2); color: var(--muted); font-size: 12px;
 }
+
+.smp-console .smp-dialog .smp-plan-target > h3 {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.smp-plan-target-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.smp-plan-state {
+  flex: none; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; line-height: 18px;
+  white-space: nowrap; background: var(--dsw-alias-bg-layer-2); color: var(--muted);
+}
+.smp-plan-state.is-pending { background: var(--warn-bg); color: var(--warn); }
+.smp-plan-state.is-running { background: var(--primary-soft); color: var(--primary); }
+.smp-plan-state.is-success { background: var(--green-bg); color: var(--green); }
+.smp-plan-state.is-failed { background: var(--red-bg); color: var(--red); }
