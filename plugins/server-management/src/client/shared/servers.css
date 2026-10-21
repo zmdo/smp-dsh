@@ -636,3 +636,31 @@
 .smp-server-usage-bar > i.warn { background: var(--warn); }
 .smp-server-usage-bar > i.hot { background: var(--red); }
 .smp-server-usage-bar > i.unknown { background: var(--muted); }
+
+.smp-resource-history { margin-top: 16px; padding: 0; }
+.smp-resource-history > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.smp-resource-history > header h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.smp-resource-ranges { display: flex; gap: 2px; }
+.smp-resource-ranges button { height: 26px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+.smp-resource-ranges button:hover { color: var(--text); }
+.smp-resource-ranges button.is-on { background: var(--primary-soft); color: var(--primary); }
+.smp-resource-readout { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 16px 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.smp-resource-readout .is-cpu { color: var(--primary); }
+.smp-resource-readout .is-memory { color: var(--green); }
+.smp-resource-readout .is-disk { color: var(--warn); }
+.smp-resource-readout time { margin-left: auto; color: var(--muted); }
+.smp-resource-chart { padding: 4px 8px 0; }
+.smp-resource-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.smp-chart-grid { stroke: var(--line); stroke-width: 1; }
+.smp-chart-label { fill: var(--muted); font-size: 10px; }
+.smp-chart-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.smp-chart-line.is-cpu { stroke: var(--primary); }
+.smp-chart-line.is-memory { stroke: var(--green); }
+.smp-chart-line.is-disk { stroke: var(--warn); }
+.smp-chart-cursor { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.smp-chart-dot.is-cpu { fill: var(--primary); }
+.smp-chart-dot.is-memory { fill: var(--green); }
+.smp-chart-dot.is-disk { fill: var(--warn); }
+.smp-resource-legend { display: flex; gap: 16px; padding: 0 16px 12px; color: var(--muted); font-size: 12px; }
+.smp-resource-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; }
+.smp-resource-history > p { margin: 0; padding: 16px; }

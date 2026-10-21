@@ -12,6 +12,7 @@ import {
 import { osLabel } from '../../../shared/operating-systems.ts'
 import { bytes, ratio } from '../../shared/resources.ts'
 import { RequiredSoftware } from '../components/RequiredSoftware.tsx'
+import { ResourceHistory } from './ResourceHistory.tsx'
 import { SoftwareState } from '../components/ServerStatus.tsx'
 
 export interface ServerDetailProps {
@@ -132,6 +133,7 @@ export function ServerDetail(props: ServerDetailProps) {
           </button>
         </div>
       </div>
+      <ResourceHistory active={active} serverId={server.id} />
       <RequiredSoftware active={active} software={server.required_software} status={server.software_status} />
     </Panel>
   )

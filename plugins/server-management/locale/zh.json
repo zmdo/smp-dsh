@@ -212,7 +212,9 @@
     "keysPagination": "密钥分页",
     "keysRange": "共 {count} 把，第 {from}–{to} 把",
     "keysTotal": "共 {count} 把",
-    "keysPageSize": "每页密钥数量"
+    "keysPageSize": "每页密钥数量",
+    "resourceHistory": "资源监控",
+    "resourceHistoryEmpty": "暂无资源历史，等待下一次采集。"
   },
   "reach": {
     "online": "在线",

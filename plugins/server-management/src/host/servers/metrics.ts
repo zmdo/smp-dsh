@@ -4,6 +4,7 @@ import { parseSample } from '../remote/parse.ts'
 import { connectSsh, type SshSession } from '../remote/ssh.ts'
 import { serverSecret } from './persistence/credential-repository.ts'
 import { saveMetrics, serverIds } from './persistence/metrics-repository.ts'
+import { cleanupMetrics, recordMetric, rollup1h, rollup5m } from './persistence/history-repository.ts'
 
 const SAMPLE = `cores=$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo)
 read_cpu() { awk '/^cpu /{idle=$5+$6; t=0; for(i=2;i<=NF;i++) t+=$i; print t, idle}' /proc/stat; }
@@ -39,6 +40,9 @@ export function startMetrics(
   const busy = new Set<string>()
   const tasks = new Set<Promise<void>>()
   let stopped = false
+  let lastRollup5m = 0
+  let lastRollup1h = 0
+  let lastCleanup = Date.now()
   const timer = setInterval(
     () => {
       const task = sampleAll()
@@ -53,9 +57,36 @@ export function startMetrics(
     Math.max(1, intervalSeconds) * 1000,
   )
 
+  const maintenance = setInterval(() => {
+    void maintain()
+  }, 60_000)
+  void maintain()
+
+  async function maintain(): Promise<void> {
+    if (stopped) return
+    const now = Date.now()
+    try {
+      if (lastRollup5m === 0 || now - lastRollup5m >= 5 * 60_000) {
+        await rollup5m(db, lastRollup5m === 0 ? 7 * 24 * 3600 : 2 * 3600)
+        lastRollup5m = now
+      }
+      if (lastRollup1h === 0 || now - lastRollup1h >= 60 * 60_000) {
+        await rollup1h(db, lastRollup1h === 0 ? 30 * 24 * 3600 : 2 * 24 * 3600)
+        lastRollup1h = now
+      }
+      if (now - lastCleanup >= 24 * 60 * 60_000) {
+        await cleanupMetrics(db)
+        lastCleanup = now
+      }
+    } catch (cause) {
+      onError(cause)
+    }
+  }
+
   return async () => {
     stopped = true
     clearInterval(timer)
+    clearInterval(maintenance)
     for (const session of sessions.values()) session.close()
     sessions.clear()
     await Promise.all(tasks)
@@ -119,7 +150,13 @@ export function startMetrics(
       const result = await session.exec(SAMPLE, 8000)
       if (stopped) return
       if (result.code !== 0) throw new Error(result.stderr || result.stdout || '采集失败')
-      await saveMetrics(db, id, parseSample(result.stdout), server.config_revision)
+      const sample = parseSample(result.stdout)
+      await saveMetrics(db, id, sample, server.config_revision)
+      try {
+        await recordMetric(db, id, sample)
+      } catch (cause) {
+        onError(cause)
+      }
     } catch (cause) {
       void cause
       session?.close()

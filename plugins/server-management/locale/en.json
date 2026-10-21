@@ -212,7 +212,9 @@
     "keysPagination": "Key pagination",
     "keysRange": "{count} keys, showing {from}–{to}",
     "keysTotal": "{count} keys",
-    "keysPageSize": "Keys per page"
+    "keysPageSize": "Keys per page",
+    "resourceHistory": "Resource history",
+    "resourceHistoryEmpty": "No resource history yet."
   },
   "reach": {
     "online": "Online",
