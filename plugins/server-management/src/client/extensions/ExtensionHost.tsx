@@ -2,10 +2,17 @@ import { Component, type ReactNode, useEffect, useMemo, useState } from 'react'
 import { serverCopy } from '../../shared/i18n.ts'
 import type { SlotService } from './slots.ts'
 
-export class ExtensionBoundary extends Component<{ label: string; children: ReactNode }, { failed: boolean }> {
+export class ExtensionBoundary extends Component<
+  { label: string; children: ReactNode; resetKey?: string },
+  { failed: boolean }
+> {
   state = { failed: false }
   static getDerivedStateFromError(): { failed: boolean } {
     return { failed: true }
+  }
+  componentDidUpdate(prev: Readonly<{ resetKey?: string }>) {
+    if (this.state.failed && prev.resetKey !== this.props.resetKey)
+      this.setState({ failed: false })
   }
   render() {
     if (this.state.failed) return <p className="banner error">{this.props.label}</p>
@@ -41,7 +48,7 @@ export function ExtensionHost(props: {
   if (entries.length === 0)
     return <p className="banner error">{copy.extensionUnavailable}</p>
   return (
-    <ExtensionBoundary label={copy.extensionLoadFailed}>
+    <ExtensionBoundary label={copy.extensionLoadFailed} resetKey={props.entry}>
       {props.renderSlot?.(props.slot, props.owner as never, {
         entryKey: props.entry,
         fallback: <p className="banner error">{copy.extensionUnavailable}</p>,
