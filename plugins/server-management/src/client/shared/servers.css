@@ -418,3 +418,11 @@
   background: var(--dsw-alias-bg-layer-2); color: var(--muted); font-size: 12px;
 }
 .smp-section-hint { margin: 8px 2px 0; color: var(--muted); font-size: 12px; line-height: 18px; }
+
+/* Policy table uses the same full-bleed, scrollable list frame as required software. */
+.smp-console .smp-server-settings-layer .smp-version-policies .smp-upgrade-scroll {
+  margin: 0;
+}
+.smp-console .smp-server-settings-layer .smp-version-policies table.smp-table {
+  min-width: 420px; width: 100%;
+}
