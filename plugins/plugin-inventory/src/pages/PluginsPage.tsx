@@ -85,7 +85,7 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
   const [presets, setPresets] = useState<readonly PresetGroup[]>([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
-  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0])
+  const [pageSize, setPageSize] = useState<number>(20)
   const [pageIndex, setPageIndex] = useState(1)
   const [openId, setOpenId] = useState('')
   const [error, setError] = useState('')
