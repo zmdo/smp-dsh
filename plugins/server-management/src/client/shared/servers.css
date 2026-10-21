@@ -534,3 +534,11 @@
 .smp-console .smp-task-filters > input[type="search"] {
   flex: 0 1 300px; min-width: 220px; width: 300px;
 }
+
+/* Configuration action bar stays pinned to the bottom of the scrolling settings area. */
+.smp-console .smp-settings-content .smp-settings-actions {
+  position: sticky; bottom: -24px; z-index: 3;
+  margin: 0 -24px -24px; padding: 12px 24px;
+  background: var(--dsw-alias-bg-layer-1);
+  border-top: 1px solid var(--line);
+}
