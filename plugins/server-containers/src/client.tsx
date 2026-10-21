@@ -53,7 +53,7 @@ function ContainersPanel(props: ExtensionSlotOwner) {
         {loading && !snapshot ? <p className="muted">{copy.loading}</p> : !snapshot?.last_success_at ? (
           !error && <p className="empty">{copy.noObservation}</p>
         ) : containers.length === 0 ? <p className="empty">{copy.noContainers}</p> : (
-          <div className="table-scroll"><table>
+          <div className="table-scroll"><table className="smp-table">
             <thead><tr><th>{copy.name}</th><th>{copy.image}</th><th>{copy.status}</th><th>{copy.ports}</th></tr></thead>
             <tbody>{visible.map((item) => <tr key={item.container_id}>
               <td>{item.name}</td><td>{item.image}</td><td>{item.status}</td><td>{item.ports}</td>

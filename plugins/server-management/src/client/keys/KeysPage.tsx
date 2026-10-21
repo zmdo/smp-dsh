@@ -137,7 +137,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
         </form>
       ) : null}
       <div className="table-wrap">
-        <table>
+        <table className="smp-table">
           <thead>
             <tr>
               <th>{copy.name}</th>

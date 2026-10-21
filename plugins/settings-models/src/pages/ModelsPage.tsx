@@ -212,7 +212,7 @@ export function ModelsPage(props: {
       ) : null}
       {rows.length === 0 ? <p className="empty">{copy.empty}</p> : (
         <div className="table-wrap">
-          <table className="smp-models-table">
+          <table className="smp-models-table smp-table">
             <thead>
               <tr>
                 <th className="toggle" />
@@ -466,7 +466,7 @@ function ModelChoices(props: {
   return (
     <>
       <div className="smp-model-picker">
-        <table>
+        <table className="smp-table">
           <colgroup>
             <col className="check" />
             <col />
@@ -490,7 +490,7 @@ function ModelChoices(props: {
           </thead>
         </table>
         <div className="smp-model-scroll">
-          <table>
+          <table className="smp-table">
             <colgroup>
               <col className="check" />
               <col />

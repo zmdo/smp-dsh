@@ -191,7 +191,7 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
         : rows.length === 0 ? <p className="empty">{narrowed ? copy.noMatch : copy.empty}</p>
           : (
             <div className="table-wrap">
-              <table className="smp-plugins">
+              <table className="smp-plugins smp-table">
                 <thead>
                   <tr>
                     <th>{copy.name}</th>

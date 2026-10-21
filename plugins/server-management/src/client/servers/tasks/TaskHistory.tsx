@@ -152,7 +152,7 @@ export function TaskHistory(props: TaskHistoryProps) {
         </p>
       )}
       <div className="table-scroll" aria-busy={!data && !error}>
-        <table className="smp-task-table">
+        <table className="smp-task-table smp-table">
           <thead>
             <tr>
               <th>{copy.createdAt}</th>

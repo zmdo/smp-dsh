@@ -23,7 +23,7 @@ export function UpgradeRecords(props: {
       )}
       <>
         <div className="smp-upgrade-scroll">
-          <table>
+          <table className="smp-table">
             <thead>
               <tr>
                 <th>{c.server}</th>

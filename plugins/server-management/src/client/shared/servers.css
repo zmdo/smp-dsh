@@ -117,19 +117,13 @@
 .smp-console .smp-upgrade-suggestions { margin: 0; }
 .smp-console .smp-upgrade-suggestions th:first-child { width: 32px; }
 .smp-console .smp-upgrade-suggestions th:last-child { width: 150px; }
-.smp-console .smp-upgrade-suggestions th, .smp-console .smp-detection-table th { font-size: 12px; background: var(--dsw-alias-bg-layer-2); }
 .smp-console .smp-upgrade-empty { height: 96px; padding: 24px 16px; box-sizing: border-box; text-align: center; color: var(--muted); font-size: 13px; }
 .smp-console .smp-detection-results { margin-top: 24px; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .smp-console .smp-detection-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .smp-console .smp-detection-head h2 { font-size: 14px; font-weight: 600; margin: 0; }
 .smp-console .smp-detection-head > span { color: var(--muted); font-size: 12px; }
 .smp-console .smp-detection-scroll { overflow-x: auto; }
-.smp-console .smp-detection-table { min-width: 720px; table-layout: fixed; font-size: 13px; }
-.smp-console .smp-detection-table th:nth-child(1) { width: 18%; }
-.smp-console .smp-detection-table th:nth-child(2) { width: 15%; }
-.smp-console .smp-detection-table th:nth-child(3) { width: 12%; }
-.smp-console .smp-detection-table th:nth-child(4) { width: 18%; }
-.smp-console .smp-detection-table td { vertical-align: top; overflow-wrap: anywhere; white-space: normal; line-height: 1.6; }
+.smp-console .smp-detection-table { min-width: 720px; font-size: 13px; }
 .smp-console .smp-detection-table td > b { font-weight: 500; }
 .smp-console .smp-detection-table small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
 .smp-console .smp-detection-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }

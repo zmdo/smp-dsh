@@ -14,7 +14,7 @@ export function RequiredSoftware(props: {
         <p className="muted">{copy.noRequiredSoftware}</p>
       ) : (
         <div className="table-wrap">
-          <table>
+          <table className="smp-table">
             <thead>
               <tr>
                 <th>{copy.softwareName}</th>

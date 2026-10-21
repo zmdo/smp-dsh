@@ -74,7 +74,7 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
         <span>{format(c.selected, { count: selected.length })}</span>
       </div>
       <div className="smp-upgrade-scroll smp-upgrade-suggestions">
-        <table>
+        <table className="smp-table">
           <thead>
             <tr>
               <th></th>

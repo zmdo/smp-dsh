@@ -483,3 +483,17 @@
   padding: 0;
   accent-color: var(--primary);
 }
+
+/* Shared list template. The server-instance table keeps its own custom layout. */
+.smp-console .smp-table { width: 100%; border-collapse: collapse; }
+.smp-console .smp-table th,
+.smp-console .smp-table td {
+  text-align: left;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.smp-console .smp-table th { color: #909399; font-weight: 500; background: #fafafa; }
+.smp-console .smp-table tbody tr:last-child td { border-bottom: 0; }
+.smp-console .smp-table small { display: block; margin-top: 4px; color: var(--muted); }
+.smp-console .smp-table-scroll { overflow: auto; min-width: 0; }

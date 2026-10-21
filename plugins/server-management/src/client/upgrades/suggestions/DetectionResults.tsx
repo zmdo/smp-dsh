@@ -19,7 +19,7 @@ export function DetectionResults(props: {
         <span>{format(copy.checkCount, { count: rows.length })}</span>
       </header>
       <div className="smp-detection-scroll">
-        <table className="smp-detection-table">
+        <table className="smp-detection-table smp-table">
           <thead>
             <tr>
               <th scope="col">{copy.server}</th>

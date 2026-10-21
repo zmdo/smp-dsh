@@ -268,7 +268,7 @@ export function ArchivePage(props: ArchivePageProps) {
         {catalog.phase === 'pending' && rows.length === 0 ? <p className="muted">{copy.loading}</p> : rows.length === 0 ? (
           <p className="empty">{narrowed ? copy.none : copy.empty}</p>
         ) : (
-          <table className="smp-archive-table">
+          <table className="smp-archive-table smp-table">
             <thead>
               <tr>
                 <th>{copy.byId}</th>

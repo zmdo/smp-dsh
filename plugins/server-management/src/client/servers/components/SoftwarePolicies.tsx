@@ -29,7 +29,7 @@ export function SoftwarePolicies(props: {
       <h3>{c.policies}</h3>
       <p className="muted">{c.policyHint}</p>
       <div className="smp-upgrade-scroll">
-        <table>
+        <table className="smp-table">
           <thead>
             <tr>
               <th>{c.software}</th>
