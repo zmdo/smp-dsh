@@ -372,7 +372,7 @@ function GroupChoice(props: {
           onChange={(event) => props.onRenameChange?.(event.target.value)}
         />
         <button
-          className="smp-server-group-icon-button primary"
+          className="smp-server-group-icon-button"
           type="submit"
           aria-label={copy.save}
           title={copy.save}
@@ -383,7 +383,7 @@ function GroupChoice(props: {
           </svg>
         </button>
         <button
-          className="smp-server-group-icon-button secondary"
+          className="smp-server-group-icon-button"
           type="button"
           aria-label={copy.cancel}
           title={copy.cancel}

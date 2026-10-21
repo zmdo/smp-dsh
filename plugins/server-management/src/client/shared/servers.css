@@ -318,5 +318,10 @@
 
 .smp-console .smp-server-group-icon-button {
   flex: none; display: grid; place-items: center; box-sizing: border-box;
-  width: 28px; height: 28px; min-height: 28px; padding: 0; border-radius: 4px;
+  width: 28px; height: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 4px;
+  background: transparent; color: var(--muted); cursor: pointer;
 }
+.smp-console .smp-server-group-icon-button:hover:not(:disabled) {
+  background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--primary);
+}
+.smp-console .smp-server-group-icon-button:disabled { opacity: 0.45; cursor: default; }
