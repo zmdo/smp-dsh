@@ -24,6 +24,8 @@ function ContainersPanel(props: OwnerProps) {
   const server = props.server
   const docker = (server.software_status ?? {})[`${owner}/docker-engine`] as { state?: string; detail?: string } | undefined
   const [containers, setContainers] = useState<{ container_id: string; name: string; image: string; status: string; ports: string }[]>([])
+  const [page, setPage] = useState(1)
+  const pageSize = 10
   useEffect(() => {
     let stopped = false
     void props.api?.data(server.id, `${owner}/container-list`).then((value) => {
@@ -31,21 +33,28 @@ function ContainersPanel(props: OwnerProps) {
     })
     return () => { stopped = true }
   }, [props.api, server.id])
+  useEffect(() => {
+    setPage(1)
+  }, [server.id, containers.length])
+  const pages = Math.max(1, Math.ceil(containers.length / pageSize))
+  const current = Math.min(page, pages)
+  const visible = containers.slice((current - 1) * pageSize, current * pageSize)
+  const zh = props.active === 'zh'
   return (
-    <section className="panel">
+    <section className="panel smp-container-panel" style={{ height: '100%', minHeight: 0, margin: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div className="panel-head"><h2>{copy.containers}</h2></div>
-      <div className="panel-body">
+      <div className="panel-body" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {docker !== undefined && docker.state !== 'installed' && (
           <p className="error">{docker.detail ?? 'Docker 未安装或未验证。'}</p>
         )}
         {containers.length === 0 ? (
           <p className="empty">{copy.noContainers}</p>
         ) : (
-          <div className="table-scroll">
+          <div className="table-scroll" style={{ flex: '1 1 0px', minHeight: 0, overflow: 'auto' }}>
             <table>
               <thead><tr><th>{copy.name}</th><th>{copy.image}</th><th>{copy.status}</th><th>{copy.ports}</th></tr></thead>
               <tbody>
-                {containers.map((item) => (
+                {visible.map((item) => (
                   <tr key={item.container_id}>
                     <td>{item.name}</td><td>{item.image}</td><td>{item.status}</td><td>{item.ports}</td>
                   </tr>
@@ -55,6 +64,17 @@ function ContainersPanel(props: OwnerProps) {
           </div>
         )}
       </div>
+      {containers.length > pageSize && (
+        <footer className="smp-container-pager">
+          <button className="secondary" type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>
+            {zh ? '上一页' : 'Previous'}
+          </button>
+          <span>{zh ? `${current} / ${pages} 页` : `Page ${current} / ${pages}`}</span>
+          <button className="secondary" type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>
+            {zh ? '下一页' : 'Next'}
+          </button>
+        </footer>
+      )}
     </section>
   )
 }
