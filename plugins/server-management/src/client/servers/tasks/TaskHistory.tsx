@@ -1,5 +1,5 @@
 import type { TaskDto, TaskPageDto, TaskResultDto } from '../../../shared/dto/tasks.ts'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { type ServerError } from '../../../shared/errors.ts'
 import {
   displayError,
@@ -39,6 +39,22 @@ export function TaskHistory(props: TaskHistoryProps) {
   const key = taskQuery(serverId, view)
   const data = loaded?.key === key ? loaded.data : undefined
 
+  // Filters are live; typing is debounced briefly so each keystroke does not hit the API.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onView({
+        ...view,
+        query: draft.query,
+        action: draft.action,
+        status: draft.status,
+        from: draft.from,
+        to: draft.to,
+        page: 1,
+      })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [draft.query, draft.action, draft.status, draft.from, draft.to])
+
   useEffect(() => {
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -68,11 +84,6 @@ export function TaskHistory(props: TaskHistoryProps) {
     }
   }, [key, props.refresh])
 
-  function search(event: FormEvent) {
-    event.preventDefault()
-    onView({ ...view, ...draft, page: 1 })
-  }
-
   function reset() {
     const next = emptyTaskView(view.pageSize)
     setDraft({ query: '', action: '', status: '', from: '', to: '' })
@@ -84,7 +95,7 @@ export function TaskHistory(props: TaskHistoryProps) {
   return (
     <section className="smp-task-history" aria-label={copy.taskReport}>
       <div className="smp-task-top">
-      <form className="smp-task-filters" onSubmit={search}>
+      <form className="smp-task-filters" onSubmit={(event) => event.preventDefault()}>
         <input
           type="search"
           aria-label={copy.taskKeyword}
@@ -133,9 +144,6 @@ export function TaskHistory(props: TaskHistoryProps) {
             onChange={(event) => setDraft({ ...draft, to: event.target.value })}
           />
         </div>
-        <button className="secondary" type="submit">
-          {copy.search}
-        </button>
         <button className="secondary" type="button" onClick={reset}>
           {copy.reset}
         </button>

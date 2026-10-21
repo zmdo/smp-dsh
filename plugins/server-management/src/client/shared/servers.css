@@ -530,3 +530,7 @@
 .smp-console .smp-task-filters input,
 .smp-console .smp-task-filters select { min-width: 120px; }
 .smp-console .smp-task-date-range { min-width: 260px; flex: 0 1 320px; }
+
+.smp-console .smp-task-filters > input[type="search"] {
+  flex: 0 1 300px; min-width: 220px; width: 300px;
+}
