@@ -542,3 +542,15 @@
   background: var(--dsw-alias-bg-layer-1);
   border-top: 1px solid var(--line);
 }
+
+/* One fixed action-bar height across all configuration tabs. */
+.smp-console .smp-settings-content .smp-settings-actions {
+  box-sizing: border-box; height: 56px; min-height: 56px; max-height: 56px;
+  align-items: center; padding: 0 24px; overflow-x: auto; overflow-y: hidden;
+}
+
+/* Flatten the retained extension wrapper so its action bar can stick to the settings viewport. */
+.smp-console .smp-settings-content > div:not([hidden]):has(> .smp-extension-settings) {
+  display: contents;
+}
+.smp-console .smp-settings-content [data-extension-actions] { display: contents; }
