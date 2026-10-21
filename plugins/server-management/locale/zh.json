@@ -207,7 +207,8 @@
     "externalAddress": "外网",
     "internalAddress": "内网",
     "copyAddress": "复制地址",
-    "copied": "已复制"
+    "copied": "已复制",
+    "basicInfo": "基础信息"
   },
   "reach": {
     "online": "在线",

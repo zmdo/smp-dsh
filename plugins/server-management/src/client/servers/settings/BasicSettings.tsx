@@ -52,39 +52,44 @@ export function BasicSettings(props: {
           {displayError(active, error)}
         </p>
       )}
-      <div className="triple">
-        <label className="field">
-          {copy.name}
-          <input
-            value={form.name}
-            onChange={(event) => {
-              form.setName(event.target.value)
-            }}
-          />
-        </label>
-        <label className="field">
-          {copy.group}
-          <select value={form.groupId} disabled onChange={() => {}}>
-            <option value="">{copy.ungrouped}</option>
-            {form.groups.map((group) => (
-              <option key={group.id} value={group.id} disabled={!group.available && group.id !== form.original?.groupId}>
-                {localizedGroupName(active, group)}
-                {group.available ? '' : ` (${copy.pluginUnavailable})`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          {copy.region}
-          <input
-            value={form.region}
-            onChange={(event) => {
-              form.setRegion(event.target.value)
-            }}
-            placeholder={copy.autoRegion}
-          />
-        </label>
-      </div>
+      <section className="smp-server-form-section smp-card" aria-label={copy.basicInfo}>
+        <h2>{copy.basicInfo}</h2>
+        <div className="smp-server-form-section-body">
+          <div className="triple smp-basic-info-grid">
+            <label className="field">
+              {copy.name}
+              <input
+                value={form.name}
+                onChange={(event) => {
+                  form.setName(event.target.value)
+                }}
+              />
+            </label>
+            <label className="field">
+              {copy.group}
+              <select value={form.groupId} disabled onChange={() => {}}>
+                <option value="">{copy.ungrouped}</option>
+                {form.groups.map((group) => (
+                  <option key={group.id} value={group.id} disabled={!group.available && group.id !== form.original?.groupId}>
+                    {localizedGroupName(active, group)}
+                    {group.available ? '' : ` (${copy.pluginUnavailable})`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              {copy.region}
+              <input
+                value={form.region}
+                onChange={(event) => {
+                  form.setRegion(event.target.value)
+                }}
+                placeholder={copy.autoRegion}
+              />
+            </label>
+          </div>
+        </div>
+      </section>
       <AuthenticationFields form={form} />
       <SystemFields form={form} editing showPolicies={false} showRequiredSoftware={false} />
       <RequiredSoftware active={active} software={form.software} status={form.softwareStatus} />

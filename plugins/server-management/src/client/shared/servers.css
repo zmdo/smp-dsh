@@ -584,3 +584,9 @@
 
 /* The scrolling panel owns the viewport; its cards keep their natural height. */
 .smp-console .smp-settings-scroll { overscroll-behavior: contain; }
+
+/* Basic information uses a wider name and narrower group/region controls. */
+.smp-console form.panel-form .triple.smp-basic-info-grid {
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.8fr);
+  max-width: 900px;
+}
