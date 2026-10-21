@@ -410,3 +410,11 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+/* Configuration tables share the compact card table rhythm. */
+.smp-console .smp-version-policies table.smp-table th,
+.smp-console .smp-version-policies table.smp-table td { padding: 9px 12px; }
+.smp-console .smp-version-policies table.smp-table th {
+  background: var(--dsw-alias-bg-layer-2); color: var(--muted); font-size: 12px;
+}
+.smp-section-hint { margin: 8px 2px 0; color: var(--muted); font-size: 12px; line-height: 18px; }
