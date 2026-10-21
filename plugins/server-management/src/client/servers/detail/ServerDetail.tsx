@@ -36,7 +36,7 @@ export function ServerDetail(props: ServerDetailProps) {
     : server.group_name || copy.ungrouped
 
   return (
-    <Panel title={copy.serverDetails}>
+    <Panel>
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       {queued ? <p className="banner ok">{copy.jobQueued}</p> : null}
       {!server.type_available && <p className="banner error">{copy.typeUnavailable}</p>}

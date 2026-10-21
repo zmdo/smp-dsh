@@ -149,19 +149,6 @@ export function ServerList(props: ServerListProps) {
         </nav>
       </aside>
       <div className="smp-server-main">
-        <div className="row">
-          <label>
-            <input
-              type="checkbox"
-              checked={view.needsUpgrade ?? false}
-              onChange={(e) => onView({ ...view, needsUpgrade: e.target.checked, page: 1 })}
-            />
-            {serverCopy(active).upgrades.needsUpgrade}
-          </label>
-          <button className="link" onClick={props.onUpgrades}>
-            {serverCopy(active).upgrades.openUpgrades}
-          </button>
-        </div>
         <Panel
           title={
             <>

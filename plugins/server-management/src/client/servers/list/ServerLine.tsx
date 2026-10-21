@@ -26,11 +26,6 @@ export function ServerLine(props: {
         >
           {server.name}
         </button>
-        {server.upgradeCount > 0 && (
-          <small>
-            {serverCopy(active).upgrades.needsUpgrade} ({server.upgradeCount})
-          </small>
-        )}
       </td>
       <td className="smp-server-address-cell">
         <AddressLine active={active} label={copy.externalAddress} value={server.address.host} />

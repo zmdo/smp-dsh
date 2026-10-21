@@ -171,7 +171,7 @@ export function ServerWorkspace(props: {
       </header>
       {server === undefined ? (
         <section className="smp-server-workspace-panel">
-          <Panel title={copy.serverDetails}>
+          <Panel>
             <p className="muted">{error === null ? copy.loading : displayError(active, error)}</p>
           </Panel>
         </section>
@@ -258,7 +258,7 @@ export function ServerWorkspace(props: {
               </div>
             )}
             {panel === 'terminal' || panel === 'config' || extensionKey !== '' ? null : panel === 'tasks' ? (
-              <Panel title={copy.taskReport} className="smp-task-panel">
+              <Panel className="smp-task-panel">
                 <TaskHistory
                   key={serverId}
                   active={active}

@@ -43,7 +43,7 @@ export function ServerSettings(props: {
     ...extensions.map((entry) => ({ key: `extension:${entry.key}`, label: localized(entry.name, active) })),
   ]
   return (
-    <Panel title={copy.configuration} className="smp-server-settings-panel">
+    <Panel className="smp-server-settings-panel">
       <nav className="smp-settings-tabs" aria-label={copy.configuration}>
         {tabs.map((tab) => (
           <button
