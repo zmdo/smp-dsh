@@ -40,7 +40,7 @@ export function SystemFields(props: { form: ServerFormModel; editing: boolean; s
     typeKey,
   } = props.form
   return (
-    <section className="smp-server-form-section" aria-label={copy.systemInfo}>
+    <section className="smp-server-form-section smp-card" aria-label={copy.systemInfo}>
       <h2>{copy.systemInfo}</h2>
       <div className="smp-server-form-section-body">
         <label className="field">

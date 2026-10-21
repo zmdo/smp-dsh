@@ -389,3 +389,13 @@
 .smp-console .smp-server-settings-layer .smp-extension-settings > .smp-settings-actions {
   margin: 12px 16px 0; padding-top: 12px; border-top: 1px solid var(--line);
 }
+
+.smp-console .smp-server-workspace .node-card.smp-card {
+  border: 1px solid var(--line); border-radius: 4px; padding: 16px;
+}
+.smp-console .smp-server-workspace .smp-required-software.smp-card {
+  border: 1px solid var(--line); border-radius: 4px;
+}
+.smp-console .smp-server-workspace .smp-required-software.smp-card > h3 {
+  padding: 12px 16px; background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--line);
+}

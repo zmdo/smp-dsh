@@ -127,7 +127,7 @@ export function ExtensionSettingsSection(props: {
   }
 
   return (
-    <section className="smp-extension-settings" aria-label={localized(entry.name, active)}>
+    <section className="smp-extension-settings smp-card" aria-label={localized(entry.name, active)}>
       <div className="row smp-extension-settings-head">
         <h3>{localized(entry.name, active)}</h3>
         {saved && !dirty && <span className="muted">{copy.extensionSaved}</span>}

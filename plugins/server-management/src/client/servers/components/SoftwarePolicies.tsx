@@ -25,7 +25,7 @@ export function SoftwarePolicies(props: {
     )
   }
   return (
-    <section className="smp-version-policies">
+    <section className="smp-version-policies smp-card">
       <h3>{c.policies}</h3>
       <p className="muted">{c.policyHint}</p>
       <div className="smp-upgrade-scroll">

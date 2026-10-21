@@ -45,7 +45,7 @@ export function ServerDetail(props: ServerDetailProps) {
           {server.os_verification === 'mismatch' ? copy.osMismatch : copy.osUnverified}
         </p>
       )}
-      <div className="node-card">
+      <div className="node-card smp-card">
         {server.status.reasons.length > 0 && (
           <ul className="smp-server-status-reasons">
             {server.status.reasons.map((reason, index) => (

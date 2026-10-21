@@ -8,7 +8,7 @@ export function RequiredSoftware(props: {
 }) {
   const copy = serverCopy(props.active).ui
   return (
-    <section className="smp-required-software" aria-label={copy.requiredSoftware}>
+    <section className="smp-required-software smp-card" aria-label={copy.requiredSoftware}>
       <h3>{copy.requiredSoftware}</h3>
       {props.software.length === 0 ? (
         <p className="muted">{copy.noRequiredSoftware}</p>
