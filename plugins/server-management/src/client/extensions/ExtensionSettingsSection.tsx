@@ -227,7 +227,7 @@ export function ExtensionSettingsSection(props: {
       )}
       {entry.affectsExecution === true && <p className="muted">{copy.extensionRequiresPlan}</p>}
     </section>
-    {actions}
+    <div data-extension-actions={entry.key}>{actions}</div>
     </>
   )
 }
