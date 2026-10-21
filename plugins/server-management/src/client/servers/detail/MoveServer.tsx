@@ -104,12 +104,7 @@ export function MoveServer(props: {
           <ChangePlan key={plan} active={active} id={plan} onNewPlan={setPlan} onClose={props.onClose} />
         ) : (
           <>
-            <div className="row">
-              <h2>{c.moveServer}</h2>
-              <button className="link" onClick={props.onClose}>
-                {c.close}
-              </button>
-            </div>
+            <h2>{c.moveServer}</h2>
             <p>{c.moveHint}</p>
             {error && (
               <p className="banner error" role="alert">
@@ -155,13 +150,18 @@ export function MoveServer(props: {
               />
               {c.installMissing}
             </label>
-            <button
-              className="primary"
-              disabled={busy || !selected || !choices?.available}
-              onClick={() => void preflight()}
-            >
-              {c.preflight}
-            </button>
+            <div className="row smp-upgrade-footer">
+              <button
+                className="primary"
+                disabled={busy || !selected || !choices?.available}
+                onClick={() => void preflight()}
+              >
+                {c.preflight}
+              </button>
+              <button className="secondary" type="button" onClick={props.onClose}>
+                {c.close}
+              </button>
+            </div>
           </>
         )}
       </div>
