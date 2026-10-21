@@ -82,11 +82,7 @@
 .smp-task-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
 .smp-task-filters label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
 .smp-console .smp-task-filters input, .smp-console .smp-task-filters select { box-sizing: border-box; width: auto; min-width: 140px; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--dsw-alias-bg-layer-1); color: var(--text); }
-.smp-console .smp-task-table { min-width: 720px; table-layout: fixed; }
-.smp-console .smp-task-table th:first-child { width: 160px; }
-.smp-console .smp-task-table th:nth-child(2) { width: 170px; }
-.smp-console .smp-task-table th:nth-child(3) { width: 100px; }
-.smp-console .smp-task-table td { vertical-align: top; overflow-wrap: anywhere; white-space: normal; }
+.smp-console .smp-task-table { min-width: 720px; }
 .smp-task-table small { display: block; margin-top: 4px; }
 .smp-task-table ul { margin: 6px 0; padding-left: 18px; }
 @media (max-width: 900px) {
@@ -224,7 +220,7 @@
   flex: 1; min-height: 0; overflow: auto;
 }
 .smp-console .smp-task-panel .smp-task-table thead th {
-  position: sticky; top: 0; z-index: 1; background: var(--dsw-alias-bg-layer-2);
+  position: sticky; top: 0; z-index: 1; background: #fafafa;
 }
 
 .smp-server-terminal-layer { flex: 1; min-width: 0; min-height: 0; display: flex; }
