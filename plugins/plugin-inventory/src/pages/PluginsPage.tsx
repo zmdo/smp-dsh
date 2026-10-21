@@ -35,8 +35,8 @@ const PILL: Record<PluginStatus, string> = {
 
 const PAGE_STYLE = `
 .smp-plugins-bar, .smp-plugins-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.smp-plugins-bar { margin-bottom: 12px; }
-.smp-plugins-pager { margin-top: 12px; }
+.smp-plugins-bar { margin: 0; padding: 12px 16px; justify-content: flex-end; border-bottom: 1px solid var(--line); }
+.smp-plugins-pager { margin: 0; padding: 12px 16px; border-top: 1px solid var(--line); }
 .smp-plugins-pager .row, .smp-plugins-bar .row { gap: 8px; }
 .smp-console select.smp-page-size, .smp-console select.smp-status-filter { width: auto; }
 .smp-console input.smp-page-jump { width: 64px; }
@@ -134,9 +134,10 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
     setOpenId('')
   }
   return (
-    <Panel title={copy.title}>
-      {error !== '' && <p className="banner error">{error}</p>}
-      <div className="smp-plugins-bar">
+    <Panel
+      className="smp-list-panel"
+      title={copy.title}
+      extra={
         <input
           className="search"
           type="search"
@@ -149,6 +150,10 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
             setOpenId('')
           }}
         />
+      }
+    >
+      {error !== '' && <p className="banner error">{error}</p>}
+      <div className="smp-plugins-bar">
         <span className="row">
           <label className="row">
             {copy.status}
@@ -190,7 +195,7 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
       {loading ? <p className="muted">{copy.loading}</p>
         : rows.length === 0 ? <p className="empty">{narrowed ? copy.noMatch : copy.empty}</p>
           : (
-            <div className="table-wrap">
+            <div className="table-wrap smp-list-scroll">
               <table className="smp-plugins smp-table">
                 <thead>
                   <tr>
@@ -214,7 +219,7 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
             </div>
           )}
       {rows.length > 0 && (
-        <div className="smp-plugins-pager">
+        <div className="smp-plugins-pager smp-list-pager">
           <span className="muted">{fill(copy.total, { count: rows.length })}</span>
           <span className="row">
             <button className="secondary" type="button" disabled={page <= 1} onClick={() => { setPageIndex(page - 1); setOpenId('') }}>{copy.prev}</button>
