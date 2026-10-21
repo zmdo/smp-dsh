@@ -498,10 +498,10 @@
 /* Task report: locked filter/pager toolbar above a full-bleed scrolling table. */
 .smp-console .smp-server-workspace-panel:has(> .panel.smp-task-panel) { padding: 0; }
 .smp-console .smp-task-top {
-  flex: none; padding: 16px 24px; background: var(--dsw-alias-bg-layer-1);
+  flex: none; padding: 12px 16px; background: var(--dsw-alias-bg-layer-1);
   border-bottom: 1px solid var(--line); z-index: 2;
 }
-.smp-console .smp-task-top .smp-task-filters { margin: 0 0 12px; }
+.smp-console .smp-task-top .smp-task-filters { margin: 0 0 8px; justify-content: flex-end; }
 .smp-console .smp-task-top .banner { margin: 0 0 12px; }
 .smp-console .smp-task-pager {
   flex: none; min-height: 0; padding: 12px 24px; border-top: 1px solid var(--line);
@@ -525,3 +525,8 @@
 }
 .smp-console .smp-task-date-range > input:focus { outline: none; }
 .smp-console .smp-task-date-range > span { flex: none; color: var(--muted); }
+
+.smp-console .smp-task-filters { gap: 8px; }
+.smp-console .smp-task-filters input,
+.smp-console .smp-task-filters select { min-width: 120px; }
+.smp-console .smp-task-date-range { min-width: 260px; flex: 0 1 320px; }

@@ -136,7 +136,7 @@ export function TaskHistory(props: TaskHistoryProps) {
         <button className="secondary" type="submit">
           {copy.search}
         </button>
-        <button className="link" type="button" onClick={reset}>
+        <button className="secondary" type="button" onClick={reset}>
           {copy.reset}
         </button>
       </form>
