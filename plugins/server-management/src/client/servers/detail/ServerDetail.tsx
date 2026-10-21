@@ -104,10 +104,10 @@ export function ServerDetail(props: ServerDetailProps) {
             <span>{copy.disk}</span>
             {meter(ratio(server.disk_used_bytes, server.disk_total_bytes), bytes(server.disk_used_bytes))}
           </div>
-          <div>
-            <span>{copy.hostFingerprint}</span>
-            <b className="mono">{server.host_fingerprint || copy.notPinned}</b>
-          </div>
+        </div>
+        <div className="smp-server-fingerprint">
+          <span>{copy.hostFingerprint}</span>
+          <b className="mono">{server.host_fingerprint || copy.notPinned}</b>
         </div>
         <div className="node-actions">
           <button className="secondary" type="button" onClick={props.onUpgrades}>

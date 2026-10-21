@@ -618,3 +618,11 @@
 }
 .smp-console .smp-keys-table-wrap { flex: 1; min-height: 0; overflow: auto; }
 .smp-console .smp-keys-pager { flex: none; }
+
+/* Host fingerprint gets its own row below the detail grid. */
+.smp-console .smp-server-fingerprint {
+  display: flex; align-items: baseline; gap: 12px; margin-top: 12px;
+  padding-top: 10px; border-top: 1px solid var(--line);
+}
+.smp-console .smp-server-fingerprint > span { flex: none; color: var(--muted); font-size: 12px; }
+.smp-console .smp-server-fingerprint > b { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
