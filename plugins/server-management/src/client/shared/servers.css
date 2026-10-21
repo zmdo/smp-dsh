@@ -590,3 +590,9 @@
   grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.8fr);
   max-width: 900px;
 }
+
+.smp-console form.panel-form .smp-basic-info-grid > .field { min-width: 0; }
+.smp-console form.panel-form .smp-basic-info-grid input,
+.smp-console form.panel-form .smp-basic-info-grid select {
+  box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%;
+}
