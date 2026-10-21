@@ -1,4 +1,4 @@
-import { Component, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { Component, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { serverCopy } from '../../shared/i18n.ts'
 import type { SlotService } from './slots.ts'
 
@@ -44,9 +44,18 @@ export function ExtensionHost(props: {
 }) {
   const copy = serverCopy(props.active).ui
   const entries = useSlotEntries(props.slots, props.slot, props.entry)
+  const hadEntry = useRef(false)
+  const lastEntry = useRef(props.entry)
+  if (lastEntry.current !== props.entry) {
+    lastEntry.current = props.entry
+    hadEntry.current = false
+  }
+  useEffect(() => {
+    if (entries.length > 0) hadEntry.current = true
+  }, [entries.length])
   if (entries.length > 1) return <p className="banner error">{copy.extensionConflict}</p>
   if (entries.length === 0)
-    return <p className="banner error">{copy.extensionUnavailable}</p>
+    return <p className="banner error">{hadEntry.current ? copy.extensionLoadFailed : copy.extensionUnavailable}</p>
   return (
     <ExtensionBoundary label={copy.extensionLoadFailed} resetKey={props.entry}>
       {props.renderSlot?.(props.slot, props.owner as never, {
