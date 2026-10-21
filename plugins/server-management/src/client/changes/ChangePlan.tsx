@@ -232,29 +232,27 @@ export function ChangePlan(props: {
           {plan.state === 'awaiting_confirmation' && (
             <div className="smp-plan-confirm">
               <p className="banner ok">{c.preflightReady}</p>
-              <p>{c.confirmHint}</p>
               <label>
                 <input type="checkbox" checked={immediate} onChange={(e) => setImmediate(e.target.checked)} />
                 {c.immediate}
               </label>
+              {!immediate && (
+                <div className="smp-upgrade-fields">
+                  <label className="field">
+                    {c.start}
+                    <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    {c.end}
+                    <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    {c.timezone}
+                    <input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+                  </label>
+                </div>
+              )}
               <div className="smp-upgrade-fields">
-                <label className="field">
-                  {c.start}
-                  <input
-                    type="datetime-local"
-                    disabled={immediate}
-                    value={start}
-                    onChange={(e) => setStart(e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  {c.end}
-                  <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
-                </label>
-                <label className="field">
-                  {c.timezone}
-                  <input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
-                </label>
                 <label className="field">
                   {c.concurrency}
                   <input
@@ -288,20 +286,25 @@ export function ChangePlan(props: {
                   {c.ackService}
                 </label>
               )}
-              <button
-                type="button"
-                className="primary"
-                disabled={
-                  busy ||
-                  (needsReplacement && !replacement) ||
-                  (needsMajor && !major) ||
-                  (needsService && !service)
-                }
-                onClick={() => void act('confirm')}
-              >
-                {c.confirm}
-              </button>
+              {props.dialog !== true && (
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={
+                    busy ||
+                    (needsReplacement && !replacement) ||
+                    (needsMajor && !major) ||
+                    (needsService && !service)
+                  }
+                  onClick={() => void act('confirm')}
+                >
+                  {c.confirm}
+                </button>
+              )}
             </div>
+          )}
+          {plan.state === 'awaiting_confirmation' && (
+            <p className="smp-section-hint">{c.confirmHint}</p>
           )}
           {plan.window_start && (
             <p>
