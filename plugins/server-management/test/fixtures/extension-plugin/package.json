@@ -12,8 +12,29 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["lib/index.js", "lib/client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "scripts/*.sh"],
-  "engines": { "dsh": "0.2.1-alpha.5" },
-  "dsh": { "bundle": { "patch": "./cordis.patch.yml" }, "client": { "platform": "web" } },
-  "scripts": { "build": "node ../../../../../scripts/build-plugin.mjs" }
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "scripts/*.sh"
+  ],
+  "engines": {
+    "dsh": "0.2.1-alpha.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node ../../../../../scripts/build-plugin.mjs"
+  },
+  "peerDependencies": {
+    "@smp/console-server-management": "^0.1.0"
+  }
 }

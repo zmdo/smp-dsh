@@ -1,6 +1,6 @@
 # 步骤 8 验收执行记录
 
-> 最终状态见 [97-FINAL-REPORT.md](97-FINAL-REPORT.md)。
+> 原步骤 8 最终状态见 [97-FINAL-REPORT.md](97-FINAL-REPORT.md)。后续设计修复的定向回归见[四台测试服务器补充验收](../server-extension-four-host-acceptance-2026-10-21/README.md)，该补充不代表再次执行全部 167 项。
 
 - 首轮执行时间：2026-10-20 20:50～21:05 CST；最近补充：2026-10-21
 - 分支：`ces/detail-extensions`
@@ -20,7 +20,7 @@
 | 07 | CONT-03 运行容器 | 通过 | [07-CONT-03.md](07-CONT-03.md) |
 | 08 | CONT-04 停止容器 | 通过 | [08-CONT-04.md](08-CONT-04.md) |
 | 09 | CONT-05 Compose 容器 | 通过 | [09-CONT-05.md](09-CONT-05.md) |
-| 13 | SW-01 安装缺失软件 | 部分通过；加组修复的定向回归通过，完整首次安装待重测 | [13-SW-01.md](13-SW-01.md) / [17-SW-01-RETEST.md](17-SW-01-RETEST.md) / [18-SW-01-VALIDATION.md](18-SW-01-VALIDATION.md) / [19-SW-01-DIAGNOSTIC.md](19-SW-01-DIAGNOSTIC.md) / [20-SW-01-GROUP-FIX.md](20-SW-01-GROUP-FIX.md) |
+| 13 | SW-01 安装缺失软件 | 通过；完整首次安装及加组链路见报告 21 | [13-SW-01.md](13-SW-01.md) / [17-SW-01-RETEST.md](17-SW-01-RETEST.md) / [18-SW-01-VALIDATION.md](18-SW-01-VALIDATION.md) / [19-SW-01-DIAGNOSTIC.md](19-SW-01-DIAGNOSTIC.md) / [20-SW-01-GROUP-FIX.md](20-SW-01-GROUP-FIX.md) / [21-SW-01-FULL.md](21-SW-01-FULL.md) |
 | 14 | SW-02 单台 Docker 升级 | 回测通过 | [14-SW-02.md](14-SW-02.md) / [16-SW-02-RETEST.md](16-SW-02-RETEST.md) |
 | 15 | SW-04 批量升级 | 成功路径通过 | [15-SW-04.md](15-SW-04.md) / [23-SW-04.md](23-SW-04.md) |
 | 10 | CONT-06 权限不足 | 回测通过 | [10-CONT-06.md](10-CONT-06.md) / [12-CONT-06-RETEST.md](12-CONT-06-RETEST.md) |
@@ -50,7 +50,7 @@
 
 - 预检固定实际 SSH 用户及 UID，不再遍历 `sudo` 组；执行和校验确认成员关系，失败原因进入远端任务结果。
 - 自动化测试 20 项通过；`43.128.69.189` 上复现权限拒绝后，使用新配方恢复权限，新 SSH 会话验证通过。
-- 此次保持 Docker 版本不变，只完成用户组专项回归；完整首次安装仍待重测。详见[报告 20](20-SW-01-GROUP-FIX.md)。
+- 报告 20 当时只完成用户组专项回归；后续[报告 21](21-SW-01-FULL.md)已完成首次安装、自动加组和新 SSH 会话验证。最终结论为通过。
 
 ## 最终状态
 

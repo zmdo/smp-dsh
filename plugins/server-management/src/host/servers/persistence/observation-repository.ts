@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Db } from '../../database/connection.ts'
 import { type Component } from '../../definitions/catalog.ts'
-import { type ContainerObservation, type SoftwareStatus } from '../../recipes/software.ts'
+import { type SoftwareStatus } from '../../recipes/software.ts'
 import { type OsProbe } from '../../remote/os-probe.ts'
 
 export async function markConnected(db: Db, serverId: string, fingerprint: string): Promise<void> {

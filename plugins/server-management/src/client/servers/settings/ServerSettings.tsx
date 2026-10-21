@@ -4,7 +4,6 @@ import type { ServerDto } from '../../../shared/dto/servers.ts'
 import { localized, serverCopy } from '../../../shared/i18n.ts'
 import { useServerForm } from '../form/useServerForm.ts'
 import { ExtensionSettingsSection } from '../../extensions/ExtensionSettingsSection.tsx'
-import { extensionApi } from '../../extensions/api.ts'
 import type { ExtensionCatalogEntry, RenderSlot, SlotService } from '../../extensions/slots.ts'
 import { BasicSettings } from './BasicSettings.tsx'
 import { PolicySettings } from './PolicySettings.tsx'
@@ -22,6 +21,7 @@ export function ServerSettings(props: {
   const { active, serverId } = props
   const copy = serverCopy(active).ui
   const [section, setSection] = useState<string>('basic')
+  const [visited, setVisited] = useState<Set<string>>(() => new Set())
   const extensions = props.extensions ?? []
   const form = useServerForm({
     active,
@@ -37,7 +37,6 @@ export function ServerSettings(props: {
     if (section.startsWith('extension:') && !extensions.some((entry) => `extension:${entry.key}` === section))
       setSection('basic')
   }, [extensions, section])
-  const extensionEntry = extensions.find((item) => `extension:${item.key}` === section)
   const tabs = [
     { key: 'basic', label: copy.basicConfig },
     { key: 'policies', label: copy.policiesConfig },
@@ -53,7 +52,10 @@ export function ServerSettings(props: {
             role="tab"
             aria-selected={section === tab.key}
             className={`smp-settings-tab${section === tab.key ? ' is-on' : ''}`}
-            onClick={() => setSection(tab.key)}
+            onClick={() => {
+              setVisited((previous) => new Set([...previous, tab.key]))
+              setSection(tab.key)
+            }}
           >
             {tab.label}
           </button>
@@ -64,18 +66,19 @@ export function ServerSettings(props: {
           <BasicSettings active={active} form={form} server={server} onDeleted={props.onDeleted} />
         ) : section === 'policies' ? (
           <PolicySettings active={active} form={form} />
-        ) : extensionEntry !== undefined ? (
-          <ExtensionSettingsSection
-            active={active}
-            server={server}
-            entry={extensionEntry}
-            renderSlot={props.renderSlot}
-            slots={props.slots}
-            onSaved={props.onSaved}
-          />
-        ) : (
-          <p className="muted">{copy.extensionUnavailable}</p>
-        )}
+        ) : null}
+        {extensions.filter((entry) => visited.has(`extension:${entry.key}`)).map((entry) => (
+          <div key={`${serverId}:${entry.key}`} hidden={section !== `extension:${entry.key}`}>
+            <ExtensionSettingsSection
+              active={active}
+              server={server}
+              entry={entry}
+              renderSlot={props.renderSlot}
+              slots={props.slots}
+              onSaved={props.onSaved}
+            />
+          </div>
+        ))}
       </div>
     </Panel>
   )

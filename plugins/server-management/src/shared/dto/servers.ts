@@ -49,14 +49,6 @@ export interface ServerDto {
   last_checked_at: string | null
 }
 
-export interface ContainerDto {
-  container_id: string
-  name: string
-  image: string
-  status: string
-  ports: string
-}
-
 export interface ServerListItem {
   id: string
   name: string

@@ -1,3 +1,4 @@
+import { buildPublicApi } from './build-public-api.mjs'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import * as esbuild from 'esbuild'
 
@@ -12,6 +13,8 @@ await esbuild.build({
   platform: 'node',
   packages: 'external',
 })
+
+await buildPublicApi(pkg)
 
 if (!existsSync('src/client.tsx')) {
   process.exit(0)

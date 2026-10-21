@@ -1,6 +1,6 @@
 # 服务器管理交接状态与下一步
 
-核对基线：`ces/develop`，`f2b8d86`，2026-10-20。
+状态更新：`ces/detail-extensions`，2026-10-21；步骤 1～8 已验收完成。
 
 ## 当前已实现
 
@@ -10,7 +10,7 @@
 
 ## 已确认需求的当前状态
 
-步骤 1～6 已完成；步骤 7～8 尚未开始：
+步骤 1～8 已完成，最终结果见[报告 97](../../../reports/step8-container-extension-acceptance/97-FINAL-REPORT.md)：
 
 | 需求 | 当前状态 |
 | --- | --- |
@@ -20,22 +20,22 @@
 | 配置编辑 | 已实现（步骤 3）：基础配置、软件策略独立保存；配置层保留草稿；移组／删除入口在配置内 |
 | 面板扩展 | 已实现（步骤 5）：宿主目录、两个 keyed 槽、动态侧栏、错误边界；独立测试插件完成浏览器验证 |
 | 配置扩展 | 已实现（步骤 5）：动态栏目、通用草稿／保存／冲突、带修订存储和执行配置计划／复核 |
-| 容器类型 | 普通类型更名为“容器服务器”，由独立正式插件提供；待步骤 7 |
+| 容器类型 | 普通类型更名为“容器服务器”，由独立正式插件提供；已完成步骤 7 |
 | 公共类型目录 | 已实现（步骤 4）：用户组、未分组和省略 types 的系统组继承公共目录；默认仍为空置 |
 | 扩展巡检 | 已实现（步骤 6）：核心 inspect 执行扩展脚本、设置关闭、来源、观察、失败隔离、取消和 fence 校验 |
-| 容器清单采集 | 默认开启，可关闭；关闭后手动刷新和必要软件检测继续保留；待步骤 7 |
+| 容器清单采集 | 默认开启，可关闭；关闭后手动刷新和必要软件检测继续保留；已完成步骤 7 |
 
-当前 `builtin/general`、容器表和 Docker 配方仍属于核心。不能先删核心实现再假设新插件已经加载，也不能两边同时开启同一巡检。
+当前容器类型键为 `@smp/console-server-containers/container`。Docker／Compose 配方、容器观察及面板由容器插件接管。核心保留空置类型和通用执行能力。
 
 ## 执行入口
 
 需求细节：[详情扩展与容器插件设计](../../../design/server-management/detail-extensions-and-container-plugin.md)。
 
-具体步骤：[八步实施计划](../../../design/server-management/detail-extensions-implementation-plan.md)。**步骤 1～6 已完成，下一步为步骤 7：完整迁出容器插件并统一切换。** 原计划保留用于逐步更新实施记录；本页只总结当前交接状态。
+具体步骤：[八步实施计划](../../../design/server-management/detail-extensions-implementation-plan.md)。**步骤 1～8 已完成；后续维护使用[扩展接入约定](extension-api.md)。** 原计划保留用于逐步更新实施记录；本页只总结当前交接状态。
 
 顺序为：基础工作区 → 终端所有权 → 内置配置 → 公共类型与扩展契约 → 自定义面板／配置 → 巡检扩展 → 容器迁出与数据切换 → 完整验收。
 
-`publicTypes` 和 `registerServerExtensions()` 已在步骤 4 提供；步骤 5 已声明详情／配置槽、扩展目录与 `server_extension_settings` 表，并提供数据／配置接口。客户端组件仍需插件通过 `registerServerPanel()`／`registerSettingsSection()` 注册；没有正式测试插件。
+`publicTypes` 和 `registerServerExtensions()` 已在步骤 4 提供；步骤 5 已声明详情／配置槽、扩展目录与 `server_extension_settings` 表，并提供数据／配置接口。客户端组件仍需插件通过 `registerServerPanel()`／`registerSettingsSection()` 注册；正式测试插件位于核心的 `test/fixtures/extension-plugin`，日常 CES profile 不加载它。
 
 ## 其他未覆盖边界
 

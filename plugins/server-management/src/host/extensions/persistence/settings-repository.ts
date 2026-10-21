@@ -28,3 +28,10 @@ export function saveSettings(
     [input.serverId, input.owner, input.section, JSON.stringify(input.value), input.expectedRevision],
   )
 }
+
+/** A parent row also serializes the first settings insert, for which no child row exists yet. */
+export function lockSettingsServer(db: Db, serverId: string) {
+  return db.query<{ type_key: string; declared_os: import('../../../shared/operating-system-types.ts').DeclaredOs; config_revision: string }>(
+    'select type_key,declared_os,config_revision::text from servers where id=$1 for update', [serverId],
+  )
+}

@@ -1,4 +1,4 @@
-import { registerServerPanel, registerSettingsSection, type ExtensionSlotOwner, type SlotService } from '../../src/client/extensions/slots.ts'
+import { registerServerPanel, registerSettingsSection, type ExtensionSlotOwner, type SlotService } from '@smp/console-server-management/client-api'
 
 export function FixtureDatabasePanel(_props: ExtensionSlotOwner) {
   return null

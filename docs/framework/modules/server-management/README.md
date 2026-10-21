@@ -1,6 +1,6 @@
 # 服务器管理交接索引
 
-核对基线：`ces/develop`，`f2b8d86`，2026-10-20。此模块当前包名为 `@smp/console-server-management`。
+状态更新：`ces/detail-extensions`，2026-10-21；八步验收与代码设计修复后的现状。此模块当前包名为 `@smp/console-server-management`。
 
 ## 阅读分工
 
@@ -10,7 +10,8 @@
 | 类型、系统分组、软件／配方注册与 OS 范围 | [定义与配方](definitions-and-recipes.md) |
 | 登记识别、巡检、安装、移动、升级和恢复 | [执行与升级](execution-and-upgrades.md) |
 | 现有 HTTP／WebSocket 路由 | [接口地图](http-api.md) |
-| 未实现的新详情侧栏和容器插件 | [交接状态与下一步](handoff.md) |
+| 详情面板、配置、巡检与独立插件接入 | [扩展接入](extension-api.md) |
+| 八步交付状态与保留边界 | [交接状态与下一步](handoff.md) |
 
 ## 已实现的页面与操作
 
@@ -21,16 +22,16 @@
 - 已保存密钥不要求重新粘贴私钥；软件表展示版本要求和检测到的已安装版本。
 - 升级管理顶部有升级建议、升级计划、执行记录，支持只读检测、拒绝／推迟提醒、共同版本预检及预约确认。
 
-步骤 1～6 已实现详情工作区、终端保留、配置栏目、公共类型目录、扩展元数据、面板／配置槽、动态入口、扩展数据／配置接口、执行配置计划，以及复用核心队列的扩展巡检、观察和取消。下一步是容器插件迁出。
+步骤 1～8 已交付，最终验收清单 167/167 通过。容器类型、配方、清单和配置由独立插件提供；本轮进一步补齐注册身份与配置并发校验、公共类型声明和面板刷新。详见[扩展接入](extension-api.md)。
 
 ## 当前类型
 
 | 稳定键 | 名称 | 必要软件 |
 | --- | --- | --- |
 | `builtin/vacant` | 空置服务器 / Vacant server | 无，默认登记类型 |
-| `builtin/general` | 普通服务器 / General-purpose server | Docker、Compose，限制为当前配方支持的 Linux |
+| `@smp/console-server-containers/container` | 容器服务器 / Container server | 插件提供 Docker、Compose，限制为其 apt 配方支持的 Linux |
 
-不要把已确认的“容器服务器”新名称写成当前运行代码。步骤 4 后插件可通过 `publicTypes` 把自定义类型加入用户分组；容器类型本身和 Docker／Compose 迁出仍待步骤 7。
+`builtin/general` 已退出当前类型目录。容器插件启用后通过 `publicTypes` 向公共目录贡献容器类型，默认登记类型仍为空置。
 
 ## 代码组织
 

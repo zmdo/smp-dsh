@@ -1,6 +1,6 @@
-import type { DefinitionBundle, Registration } from '../../../../src/shared/contracts/definitions.ts'
-import type { ServerExtensionBundle } from '../../../../src/shared/contracts/extensions.ts'
-import type { ServerExtensionRuntime } from '../../../../src/host/extensions/runtime.ts'
+import type { DefinitionBundle, Registration } from '@smp/console-server-management/contracts'
+import type { ServerExtensionBundle } from '@smp/console-server-management/contracts'
+import type { ServerExtensionRuntime } from '@smp/console-server-management/contracts'
 import { fileURLToPath } from 'node:url'
 
 const owner = '@smp/console-server-extension-fixture'
@@ -32,12 +32,12 @@ const extensions: ServerExtensionBundle = {
   ],
   settings: [
     {
-      key: 'database-settings',
+      key: 'database-settings', revision: '1',
       name: { zh: '数据库设置', en: 'Database settings' },
       appliesTo: { types: [type] },
     },
     {
-      key: 'database-execution',
+      key: 'database-execution', revision: '1',
       name: { zh: '数据库执行策略', en: 'Database execution policy' },
       appliesTo: { types: [type] },
       affectsExecution: true,

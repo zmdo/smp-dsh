@@ -22,7 +22,7 @@ const bundle: ServerExtensionBundle = {
   ],
   settings: [
     {
-      key: 'database-settings',
+      key: 'database-settings', revision: '1',
       name: { zh: '数据库设置', en: 'Database settings' },
       appliesTo: { types: ['builtin/vacant'] },
     },
@@ -131,4 +131,27 @@ test('Cordis ownership is checked and unload removes the extension catalog', asy
   assert.throws(() => root.serverManagement.registerServerExtensions(bundle), { code: 'definition_owner' })
   await provided()
   extensions.close()
+})
+
+test('query withdrawal waits for its admitted handler and discards a late result', async () => {
+  const definitions = new DefinitionRegistry(noDb, builtinCatalog())
+  const extensions = new ServerExtensionRegistry(definitions)
+  let finish!: () => void
+  const pending = new Promise<void>((resolve) => { finish = resolve })
+  const registration = extensions.registerExtensions(bundle, {}, {
+    queries: { 'database-status': async () => { await pending; return { ok: true } } },
+  })
+  await registration.ready
+  const query = extensions.runQuery({ type_key: 'builtin/vacant', declared_os: { kind: 'custom', text: 'test' } } as ServerDto, '@test/ext/database-status', new URLSearchParams())
+  const rejected = assert.rejects(query, { code: 'extension_unavailable' })
+  let disposed = false
+  const disposal = registration.dispose().then(() => { disposed = true })
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(disposed, false)
+  finish()
+  await rejected
+  await disposal
+  assert.equal(disposed, true)
+  await extensions.close()
+  await definitions.close()
 })

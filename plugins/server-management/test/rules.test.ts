@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {keyInUse,retestAfterEdit,shouldRetest,type RetestSnap} from '../src/host/servers/rules.ts'
 import { omitSecrets } from '../src/host/servers/service.ts'
-import {parsePs,parseSample} from '../src/host/remote/parse.ts'
+import {parseSample} from '../src/host/remote/parse.ts'
 import {chosenRegion,privatePlace} from '../src/host/servers/region.ts'
 
 test('a metric sample clamps cpu and disk', () => {
@@ -11,13 +11,6 @@ test('a metric sample clamps cpu and disk', () => {
   assert.equal(sample.cpuPercent, 80)
   assert.equal(sample.memTotalBytes, 1024 * 1024)
   assert.equal(sample.diskUsedBytes, 1000)
-})
-
-test('container lines become records', () => {
-  const rows = parsePs('{"ID":"abc","Names":"/web","Image":"nginx","State":"running","Ports":"80/tcp","Labels":"smp.managed=true,smp.strategy=alpha"}\n')
-  assert.equal(rows[0]?.name, 'web')
-  assert.equal(rows[0]?.managed, true)
-  assert.equal(rows[0]?.strategySlug, 'alpha')
 })
 
 test('a written region wins and a private address is local', () => {

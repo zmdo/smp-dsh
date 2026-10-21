@@ -16,6 +16,8 @@ export interface ExtensionPanel {
 }
 
 export interface ExtensionSettingsSection {
+  /** Bump whenever validation, defaults or execution semantics change. Stable across restarts. */
+  readonly revision: string
   readonly key: string
   readonly name: LocalizedText
   readonly order?: number
@@ -67,5 +69,6 @@ export interface ExtensionCatalogEntry {
   readonly order: number
   readonly appliesTo: ExtensionScope
   readonly affectsExecution?: boolean
+  readonly settingsRevision?: string
   readonly settingsKey?: DefinitionKey
 }

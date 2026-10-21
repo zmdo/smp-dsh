@@ -32,7 +32,6 @@
     "reachability": "可达状态",
     "memory": "内存",
     "disk": "硬盘",
-    "containersCount": "容器数",
     "lastCheck": "最近检查",
     "group": "分组",
     "cannotLoadServers": "暂时无法读取服务器",
@@ -104,10 +103,7 @@
     "components": "组件",
     "installed": "已安装",
     "notInstalled": "未安装",
-    "containers": "容器",
-    "image": "镜像",
     "status": "状态",
-    "ports": "端口",
     "jobs": "任务",
     "keysTitle": "服务器密钥",
     "searchKeys": "搜索名称或指纹",
@@ -132,10 +128,8 @@
     "adjustGroup": "调整分组／类型",
     "typeChangeNote": "涉及安装或替换软件的类型变更需要先进行软件预检，完成前保留当前分组和类型。",
     "containerUnavailable": "没有安装 Docker，未执行容器巡检。",
-    "containerError": "容器巡检失败；如有列表，展示的是上次成功巡检的结果。",
     "containerUnknown": "尚未执行容器巡检。",
     "containerObserved": "上次成功巡检：{time}",
-    "noContainers": "上次成功巡检未发现容器。",
     "typeSource": "由 {plugin} 提供",
     "operatingSystem": "操作系统",
     "osRelease": "系统版本",
@@ -235,26 +229,6 @@
     "recovering": "核对远端结果",
     "blocked": "已阻止",
     "cancelled": "已取消"
-  },
-  "containerStatus": {
-    "created": "已创建",
-    "running": "运行中",
-    "paused": "已暂停",
-    "restarting": "重启中",
-    "removing": "删除中",
-    "exited": "已退出",
-    "dead": "失效",
-    "unknown": "未知"
-  },
-  "components": {
-    "docker": {
-      "name": "Docker Engine",
-      "summary": "容器引擎"
-    },
-    "compose": {
-      "name": "Docker Compose",
-      "summary": "Compose 插件"
-    }
   },
   "errors": {
     "request_failed": "请求没有完成",
@@ -555,5 +529,15 @@
     "checkAvailableHint": "存在符合版本要求的升级目标，可在升级建议中安排。",
     "selection": "选择需要安排升级的服务器",
     "emptyPlans": "暂无升级计划。"
+  },
+  "components": {
+    "docker": {
+      "name": "Docker Engine",
+      "summary": "容器引擎"
+    },
+    "compose": {
+      "name": "Docker Compose",
+      "summary": "Compose 插件"
+    }
   }
 }

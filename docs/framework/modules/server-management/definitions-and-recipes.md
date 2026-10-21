@@ -19,7 +19,7 @@
 
 完整键为 `builtin/<key>` 或 `<插件包名>/<本地键>`。类型、软件和配方身份不应依赖显示名称；软件不以分组为身份。
 
-用户分组、未分组和系统组省略 `types` 时使用公共目录：内置空置、普通和插件贡献的 `publicTypes`。系统组显式 `types` 完整替换且不得为空；公共类型使用完整类型键，登记默认仍为空置。
+用户分组、未分组和系统组省略 `types` 时使用公共目录：内置空置和插件贡献的 `publicTypes`（包括正式容器插件）。系统组显式 `types` 完整替换且不得为空；公共类型使用完整类型键，登记默认仍为空置。
 
 ## 最小系统组示例
 
@@ -37,13 +37,13 @@ export async function apply(ctx) {
 }
 ```
 
-这是 API 形态示例，完整包还需要 manifest、正式类型导入和 bundle；组默认仍继承当前内置两类。不能把工作区组的 `register()` 与这里的系统服务器组定义混用。
+这是 API 形态示例，完整包还需要 manifest、正式类型导入和 bundle；组默认继承当前公共类型目录。不能把工作区组的 `register()` 与这里的系统服务器组定义混用。
 
 ## OS 范围
 
 登记目录包含 Windows Server、Ubuntu、Debian、RHEL、Rocky、AlmaLinux 等系列及“其他”输入。可登记不等于可安装。
 
-当前内置 apt 配方允许 Ubuntu 22.04／24.04、Debian 12／13 的 x86_64／aarch64。Windows 可登记为空置；其他系统或文本不能被模糊匹配成 Ubuntu 来授权安装。声明系统与 SSH 探测不符时阻止软件变更。
+当前容器插件 apt 配方允许 Ubuntu 22.04／24.04、Debian 12／13 的 x86_64／aarch64。Windows 可登记为空置；其他系统或文本不能被模糊匹配成 Ubuntu 来授权安装。声明系统与 SSH 探测不符时阻止软件变更。
 
 当前代码显式拒绝自定义 `operatingSystems` 贡献和 PowerShell 软件配方；接口类型中出现字段不表示执行器已支持。软件解析返回非空 `additionalRequirements` 也会被拒绝，递归新增软件身份不是已实现能力。
 
@@ -64,3 +64,5 @@ export async function apply(ctx) {
 远端依赖 Python 3、apt 和 root／既有无交互 sudo。只读 Docker 检查可使用已具备的 sudo 权限；没有权限时报告真实失败，不改 socket 权限。容器清单同轮固定 Docker 上下文，不能前半段普通用户、后半段失败后偷偷切另一套上下文。
 
 源码：[契约](../../../../plugins/server-management/src/shared/contracts/definitions.ts)、[注册服务](../../../../plugins/server-management/src/host/definitions/service.ts)、[注册器](../../../../plugins/server-management/src/host/definitions/registry.ts)、[能力校验](../../../../plugins/server-management/src/host/definitions/validation.ts)、[OS](../../../../plugins/server-management/src/shared/operating-systems.ts)、[脚本协议](../../../../plugins/server-management/src/host/recipes/protocol.ts)、[版本规则](../../../../plugins/server-management/src/shared/versions.ts)。
+
+2026-10-21 更新：插件接入的公共包入口、配置契约修订与巡检生命周期见[扩展接入](extension-api.md)。

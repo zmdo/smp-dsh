@@ -98,6 +98,7 @@ export function componentText(
       summary:
         component.summary_i18n === undefined ? component.summary : localized(component.summary_i18n, active),
     }
+  // Legacy component IDs remain translatable in persisted task errors.
   const labels = serverCopy(active).components
   return Object.hasOwn(labels, component.id) ? labels[component.id as keyof typeof labels] : component
 }

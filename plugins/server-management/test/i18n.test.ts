@@ -95,7 +95,7 @@ test('dates use the platform locale and external names and output remain intact'
   assert.equal(formatDate('invalid', 'en'), '—')
   assert.equal(formatDate(null, 'zh'), '—')
   assert.equal(format(serverCopy('en').ui.range, { count: 23, from: 11, to: 20 }), 'Showing 11–20 of 23')
-  assert.equal(enumLabel(serverCopy('zh').containerStatus, 'custom state'), 'custom state')
+  assert.equal(enumLabel(serverCopy('zh').jobStatus, 'custom state'), 'custom state')
   const component = { id: 'custom', name: '自定义软件', summary: 'Original description' }
   assert.equal(componentText('en', component), component)
   assert.equal(errorText('en', 'ssh_failed', { detail: '原始输出' }), 'Unable to connect to SSH. 原始输出')

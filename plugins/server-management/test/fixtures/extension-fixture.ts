@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url'
-import type { DefinitionBundle } from '../../src/shared/contracts/definitions.ts'
-import type { ServerExtensionBundle } from '../../src/shared/contracts/extensions.ts'
-import type { ServerExtensionRuntime } from '../../src/host/extensions/runtime.ts'
-import type { ServerDto } from '../../src/shared/dto/servers.ts'
+import type { DefinitionBundle } from '@smp/console-server-management/contracts'
+import type { ServerExtensionBundle } from '@smp/console-server-management/contracts'
+import type { ServerExtensionRuntime } from '@smp/console-server-management/contracts'
+import type { ServerDto } from '@smp/console-server-management/contracts'
 
 export const fixtureType = '@test/extension-fixture/database'
 
@@ -32,7 +32,7 @@ export const fixtureExtension: ServerExtensionBundle = {
   ],
   settings: [
     {
-      key: 'database-settings',
+      key: 'database-settings', revision: '1',
       name: { zh: '数据库设置', en: 'Database settings' },
       appliesTo: { types: [fixtureType] },
     },

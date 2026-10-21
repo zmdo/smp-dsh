@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "\u5bb9\u5668\u670d\u52a1\u5668\u7c7b\u578b\u3001\u5bb9\u5668\u9762\u677f\u548c\u5bb9\u5668\u8bbe\u7f6e",
+  "description": "容器服务器类型、容器面板和容器设置",
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
@@ -34,5 +34,8 @@
   "scripts": {
     "build": "node ../../scripts/build-plugin.mjs",
     "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@smp/console-server-management": "file:../server-management"
   }
 }

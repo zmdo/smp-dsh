@@ -7,6 +7,11 @@ import type { Db } from '../src/host/database/connection.ts'
 import { extensionSettings, saveExtensionSettings } from '../src/host/extensions/settings.ts'
 import { applyExtensionSettingsPlan, planExtensionSettings } from '../src/host/extensions/settings-plan.ts'
 
+import { DefinitionRegistry } from '../src/host/definitions/registry.ts'
+import { builtinCatalog } from '../src/host/definitions/catalog.ts'
+import { ServerExtensionRegistry } from '../src/host/extensions/registry.ts'
+import { lockSettingsServer } from '../src/host/extensions/persistence/settings-repository.ts'
+
 test(
   'extension settings use revisioned conditional writes',
   { skip: !process.env.SMP_TEST_DATABASE_URL, timeout: 30_000 },
@@ -19,6 +24,18 @@ test(
       options: `-c search_path=${schema}`,
     })
     const db = pool as unknown as Db
+    const definitions = new DefinitionRegistry(db, builtinCatalog())
+    const extensions = new ServerExtensionRegistry(definitions)
+    const metadata = { contractVersion: 1 as const, owner: '@test/ext', settings: [{
+      key: 'database-settings', revision: '1', name: { zh: '配置', en: 'Settings' }, affectsExecution: true,
+    }] }
+    let accepts = true
+    const runtime = { settings: { 'database-settings': { defaults: { collect: true }, validate(value: unknown) {
+      if (!accepts) throw new Error('new validator rejects old value')
+      return value as { collect: boolean }
+    } } } }
+    let registration = extensions.registerExtensions(metadata, {}, runtime)
+    await registration.ready
     try {
       for (const name of [
         '0010_server_management.sql',
@@ -74,14 +91,14 @@ test(
         section: 'database-settings',
         value: { collect: true },
         expectedRevision: '2',
-      })
+      }, extensions)
       const applied = await applyExtensionSettingsPlan(db, {
         serverId,
         owner: '@test/ext',
         section: 'database-settings',
         planId: plan.id,
         digest: plan.digest,
-      })
+      }, extensions)
       assert.equal(applied.revision, '3')
       await assert.rejects(
         applyExtensionSettingsPlan(db, {
@@ -90,7 +107,7 @@ test(
           section: 'database-settings',
           planId: plan.id,
           digest: plan.digest,
-        }),
+        }, extensions),
         { code: 'extension_plan_not_pending' },
       )
       await assert.rejects(
@@ -100,10 +117,46 @@ test(
           section: 'database-settings',
           value: { collect: false },
           expectedRevision: '2',
-        }),
+        }, extensions),
         { code: 'extension_settings_conflict' },
       )
+      const input = { serverId, owner: '@test/ext', section: 'database-settings', value: { collect: false }, expectedRevision: '3' }
+      const old = await planExtensionSettings(db, input, extensions)
+      await registration.dispose()
+      registration = extensions.registerExtensions(metadata, {}, runtime)
+      await registration.ready
+      const applyOld = () => applyExtensionSettingsPlan(db, { ...input, planId: old.id, digest: old.digest }, extensions)
+      accepts = false
+      await assert.rejects(applyOld(), /new validator rejects/)
+      accepts = true
+      await registration.dispose()
+      metadata.settings[0]!.revision = '2'
+      registration = extensions.registerExtensions(metadata, {}, runtime)
+      await registration.ready
+      await assert.rejects(applyOld(), { code: 'extension_plan_invalid' })
+      await registration.dispose()
+      metadata.settings[0]!.revision = '1'
+      registration = extensions.registerExtensions(metadata, {}, runtime)
+      await registration.ready
+      // Identical provider restart preserves the pending confirmation.
+      assert.equal((await applyOld()).revision, '4')
+      const next = await planExtensionSettings(db, { ...input, expectedRevision: '4' }, extensions)
+      await pool.query('update servers set config_revision=config_revision+1 where id=$1', [serverId])
+      await assert.rejects(applyExtensionSettingsPlan(db, { ...input, planId: next.id, digest: next.digest }, extensions), { code: 'extension_plan_invalid' })
+      // Parent locking also serializes a first settings insert against an inspection commit.
+      const blocker = await pool.connect()
+      await blocker.query('begin')
+      await lockSettingsServer(blocker as unknown as Db, serverId)
+      let written = false
+      const writing = saveExtensionSettings(db, { ...input, section: 'first-insert', expectedRevision: '0' }).then((value) => { written = true; return value })
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      assert.equal(written, false)
+      await blocker.query('commit')
+      blocker.release()
+      assert.equal((await writing)?.revision, '1')
     } finally {
+      await extensions.close()
+      await definitions.close()
       await pool.end()
       await admin.query(`drop schema ${schema} cascade`)
       await admin.end()

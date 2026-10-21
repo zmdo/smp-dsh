@@ -32,7 +32,6 @@
     "reachability": "Reachability",
     "memory": "Memory",
     "disk": "Disk",
-    "containersCount": "Containers",
     "lastCheck": "Last checked",
     "group": "Group",
     "cannotLoadServers": "Unable to load servers",
@@ -104,10 +103,7 @@
     "components": "Components",
     "installed": "Installed",
     "notInstalled": "Not installed",
-    "containers": "Containers",
-    "image": "Image",
     "status": "Status",
-    "ports": "Ports",
     "jobs": "Tasks",
     "keysTitle": "Server keys",
     "searchKeys": "Search name or fingerprint",
@@ -132,10 +128,8 @@
     "adjustGroup": "Change group / type",
     "typeChangeNote": "Changes that require installing or replacing software must pass a software preflight. The current group and type are kept until then.",
     "containerUnavailable": "Docker is not installed; container inspection was skipped.",
-    "containerError": "Container inspection failed; any listed containers are from the last successful inspection.",
     "containerUnknown": "Containers have not been inspected.",
     "containerObserved": "Last successful container inspection: {time}",
-    "noContainers": "No containers found in the last successful inspection.",
     "typeSource": "Provided by {plugin}",
     "operatingSystem": "Operating system",
     "osRelease": "OS release",
@@ -235,26 +229,6 @@
     "recovering": "Reconciling",
     "blocked": "Blocked",
     "cancelled": "Cancelled"
-  },
-  "containerStatus": {
-    "created": "Created",
-    "running": "Running",
-    "paused": "Paused",
-    "restarting": "Restarting",
-    "removing": "Removing",
-    "exited": "Exited",
-    "dead": "Dead",
-    "unknown": "Unknown"
-  },
-  "components": {
-    "docker": {
-      "name": "Docker Engine",
-      "summary": "Container engine"
-    },
-    "compose": {
-      "name": "Docker Compose",
-      "summary": "Compose plugin"
-    }
   },
   "errors": {
     "request_failed": "The request could not be completed.",
@@ -555,5 +529,15 @@
     "checkAvailableHint": "Eligible target versions are available. Schedule an upgrade from the suggestions.",
     "selection": "Select servers for an upgrade plan",
     "emptyPlans": "No upgrade plans."
+  },
+  "components": {
+    "docker": {
+      "name": "Docker Engine",
+      "summary": "Container engine"
+    },
+    "compose": {
+      "name": "Docker Compose",
+      "summary": "Compose plugin"
+    }
   }
 }

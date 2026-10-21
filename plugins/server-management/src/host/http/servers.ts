@@ -94,13 +94,13 @@ export async function routeServers(
       if (revision === undefined || !/^\d+$/.test(revision))
         throw new HttpError(422, 'extension_settings_invalid')
       const validated = found.runtime.validate(value)
-      return sendJson(response, 200, await planExtensionSettings(deps.db, { serverId: id, owner, section, value: validated, expectedRevision: revision }))
+      return sendJson(response, 200, await planExtensionSettings(deps.db, { serverId: id, owner, section, value: validated, expectedRevision: revision }, deps.extensions))
     }
     const planId = body !== null && typeof body === 'object' ? (body as { plan_id?: unknown }).plan_id : undefined
     const planDigest = body !== null && typeof body === 'object' ? (body as { digest?: unknown }).digest : undefined
     if (typeof planId !== 'string' || !UUID.test(planId) || typeof planDigest !== 'string' || !/^[0-9a-f]{64}$/.test(planDigest))
       throw new HttpError(422, 'extension_plan_invalid')
-    return sendJson(response, 200, await applyExtensionSettingsPlan(deps.db, { serverId: id, owner, section, planId, digest: planDigest }))
+    return sendJson(response, 200, await applyExtensionSettingsPlan(deps.db, { serverId: id, owner, section, planId, digest: planDigest }, deps.extensions))
   }
   if (parts.length === 2 && parts[1] === 'extension-settings') {
     const server = await serverRead(deps, id)
@@ -131,7 +131,7 @@ export async function routeServers(
         section: key.slice(found.entry.owner.length + 1),
         value: validated,
         expectedRevision: revision,
-      })
+      }, deps.extensions)
       if (saved === undefined) throw new HttpError(409, 'extension_settings_conflict')
       return sendJson(response, 200, saved)
     }

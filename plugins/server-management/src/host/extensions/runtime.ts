@@ -23,3 +23,9 @@ export interface ServerExtensionRuntime {
     commit?(db: DbClient, server: ExtensionInspectionServer, result: Json): Promise<void>
   }>
 }
+
+/** Trusted host plugins register callbacks; this interface is not sent to the browser. */
+export interface ServerManagementHostContract {
+  registerDefinitions(input: import('../../shared/contracts/definitions.ts').DefinitionBundle): import('../../shared/contracts/definitions.ts').Registration
+  registerServerExtensions(input: import('../../shared/contracts/extensions.ts').ServerExtensionBundle, runtime?: ServerExtensionRuntime): import('../../shared/contracts/definitions.ts').Registration
+}

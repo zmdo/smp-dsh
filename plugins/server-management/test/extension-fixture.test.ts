@@ -9,7 +9,8 @@ import type { SlotService } from '../src/client/extensions/slots.ts'
 import { fixtureDefinitions, fixtureExtension, fixtureRuntime, fixtureType } from './fixtures/extension-fixture.ts'
 import { registerFixtureClient } from './fixtures/extension-fixture-client.ts'
 import { runExtensionInspections } from '../src/host/extensions/inspect.ts'
-import type { WorkerContext } from '../src/host/execution/context.ts'
+import type { InspectionContext } from '../src/host/extensions/inspect.ts'
+import { inspectionJob } from './fixtures/inspection-job.ts'
 
 function fakeDb(): Db {
   const client = {
@@ -135,15 +136,9 @@ test('the core inspect path executes a fixture script and stores an extension ob
   await registration.ready
   const context = {
     db,
-    job: {
-      id: 'job-1',
-      server_id: 'server-1',
-      worker_id: 'worker-1',
-      fence: '1',
-      definition_revision: 'fixture',
-    },
+    job: inspectionJob(),
     server: {
-      id: 'server-1',
+      id: 'server-1', host: 'test', ssh_port: 22, ssh_user: 'test',
       type_key: fixtureType,
       declared_os: { kind: 'custom', text: 'test' },
       config_revision: '1',
@@ -154,8 +149,7 @@ test('the core inspect path executes a fixture script and stores an extension ob
       },
     },
     guard: async () => {},
-    extensions,
-  } as unknown as WorkerContext
+  } satisfies InspectionContext
   const results = await runExtensionInspections(context, extensions)
   assert.equal(results.length, 1)
   assert.equal(results[0]?.status, 'succeeded')
@@ -192,8 +186,8 @@ test('a disabled extension setting skips the inspection script', async () => {
   let executed = 0
   const context = {
     db,
-    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
-    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    job: inspectionJob(),
+    server: { id: 'server-1', host: 'test', ssh_port: 22, ssh_user: 'test', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
     session: {
       async exec() {
         executed += 1
@@ -201,8 +195,7 @@ test('a disabled extension setting skips the inspection script', async () => {
       },
     },
     guard: async () => {},
-    extensions,
-  } as unknown as WorkerContext
+  } satisfies InspectionContext
   assert.deepEqual(await runExtensionInspections(context, extensions), [])
   assert.equal(executed, 0)
   await registration.dispose()
@@ -234,8 +227,8 @@ test('a provider that unloads during the script cannot publish a success observa
   await registration.ready
   const context = {
     db,
-    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
-    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    job: inspectionJob(),
+    server: { id: 'server-1', host: 'test', ssh_port: 22, ssh_user: 'test', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
     session: {
       async exec() {
         await registration.dispose()
@@ -243,8 +236,7 @@ test('a provider that unloads during the script cannot publish a success observa
       },
     },
     guard: async () => {},
-    extensions,
-  } as unknown as WorkerContext
+  } satisfies InspectionContext
   const results = await runExtensionInspections(context, extensions)
   assert.equal(results.length, 1)
   assert.equal(results[0]?.status, 'failed')
@@ -281,8 +273,8 @@ test('a setting revision change during the script rejects the success observatio
   await registration.ready
   const context = {
     db,
-    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
-    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    job: inspectionJob(),
+    server: { id: 'server-1', host: 'test', ssh_port: 22, ssh_user: 'test', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
     session: {
       async exec() {
         changed = true
@@ -290,8 +282,7 @@ test('a setting revision change during the script rejects the success observatio
       },
     },
     guard: async () => {},
-    extensions,
-  } as unknown as WorkerContext
+  } satisfies InspectionContext
   const results = await runExtensionInspections(context, extensions)
   assert.equal(results[0]?.status, 'failed')
   assert.equal((results[0]?.error as { code?: string }).code, 'extension_inspection_setting_changed')
@@ -325,12 +316,11 @@ test('a lost fence prevents publishing observations', async () => {
   await registration.ready
   const context = {
     db,
-    job: { id: 'job-1', server_id: 'server-1', worker_id: 'worker-1', fence: '1', definition_revision: 'fixture' },
-    server: { id: 'server-1', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
+    job: inspectionJob(),
+    server: { id: 'server-1', host: 'test', ssh_port: 22, ssh_user: 'test', type_key: fixtureType, declared_os: { kind: 'custom', text: 'test' }, config_revision: '1' },
     session: { async exec() { return { code: 0, stdout: '{"ok":true}\n', stderr: '' } } },
     guard: async () => {},
-    extensions,
-  } as unknown as WorkerContext
+  } satisfies InspectionContext
   await assert.rejects(runExtensionInspections(context, extensions), { code: 'job_lease_lost' })
   assert.equal(captured.length, 0)
   await registration.dispose()

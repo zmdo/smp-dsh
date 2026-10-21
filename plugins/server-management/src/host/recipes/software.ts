@@ -1,14 +1,7 @@
 import type { PackageIdentity } from '../../shared/contracts/recipes.ts'
-import { errorDetail } from '../../shared/i18n.ts'
 import type { DetectedOs } from '../../shared/operating-systems.ts'
 import { componentRevision, type Component } from '../definitions/catalog.ts'
-import {
-  excerpt,
-  parseComposeVersion,
-  parseDockerVersion,
-  parsePs,
-  type ParsedContainer,
-} from '../remote/parse.ts'
+import { excerpt } from '../remote/parse.ts'
 import { type CommandResult, type SshSession } from '../remote/ssh.ts'
 import { observe } from './planning.ts'
 
@@ -25,9 +18,6 @@ export interface SoftwareProbe {
 
 export type SoftwareStatus = Record<string, SoftwareProbe>
 
-const DOCKER_VERSION = "docker version --format '{{json .}}'"
-const COMPOSE_VERSION = 'docker compose version --format json'
-const DOCKER_PS = "docker ps -a --no-trunc --format '{{json .}}'"
 
 function probe(state: SoftwareProbe['state'], detail = '', version?: string): SoftwareProbe {
   return {
@@ -77,28 +67,3 @@ export async function detectSoftware(
   }
   return result
 }
-
-async function probeCompose(session: SshSession, prefix: '' | 'sudo -n '): Promise<SoftwareProbe> {
-  const result = await session.exec(prefix + COMPOSE_VERSION, 15_000)
-  if (result.code !== 0) {
-    const detail = result.stderr || result.stdout
-    if (/['"]?compose['"]? is not a docker command|unknown command ['"]compose['"]/i.test(detail))
-      return probe('missing', detail)
-    return probe('unknown', detail)
-  }
-  try {
-    return probe('installed', '', parseComposeVersion(result.stdout))
-  } catch (cause) {
-    return probe('unknown', errorDetail(cause, ''))
-  }
-}
-
-export interface ContainerObservation {
-  state: 'ready' | 'unavailable' | 'error'
-  docker: string | null
-  compose: string | null
-  containers?: ParsedContainer[]
-  detail?: string
-}
-
-/** Optional Docker inspection does not change SSH reachability or a type's software requirements. */

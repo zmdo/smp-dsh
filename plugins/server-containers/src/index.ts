@@ -1,9 +1,11 @@
 import { fileURLToPath } from 'node:url'
-import type { DefinitionBundle, RecipeDefinition, ScriptDefinition } from '../../server-management/src/shared/contracts/definitions.ts'
-import type { ServerExtensionBundle } from '../../server-management/src/shared/contracts/extensions.ts'
-import type { ServerExtensionRuntime } from '../../server-management/src/host/extensions/runtime.ts'
-import { randomUUID } from 'node:crypto'
-import { APT_SOFTWARE_OS } from '../../server-management/src/shared/operating-systems.ts'
+import type { DefinitionBundle, RecipeDefinition, ScriptDefinition } from '@smp/console-server-management/contracts'
+import type { ServerExtensionBundle } from '@smp/console-server-management/contracts'
+import type { ServerExtensionRuntime } from '@smp/console-server-management/contracts'
+import type { Db, ServerManagementHostContract } from '@smp/console-server-management/contracts'
+import { parseContainers, type Container } from './model.ts'
+import { containerSnapshot, replaceContainers, requireContainerSchema } from './persistence/containers.ts'
+import { APT_SOFTWARE_OS } from './operating-systems.ts'
 
 const owner = '@smp/console-server-containers'
 const docker = `${owner}/docker-engine`
@@ -77,7 +79,7 @@ export const containerExtensions: ServerExtensionBundle = {
   ],
   settings: [
     {
-      key: 'container-settings',
+      key: 'container-settings', revision: '1',
       name: { zh: '容器设置', en: 'Container settings' },
       appliesTo: { types: [type] },
     },
@@ -97,30 +99,9 @@ const runtime: ServerExtensionRuntime = {
   inspections: {
     'container-check': {
       enabled: (value) => (value as { collect?: boolean } | undefined)?.collect !== false,
-      validate(raw) {
-        const rows = raw
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => JSON.parse(line) as { ID: string; Names: string; Image: string; Status: string; Ports: string })
-        return {
-          containers: rows.map((row) => ({
-            container_id: row.ID,
-            name: row.Names,
-            image: row.Image,
-            status: row.Status,
-            ports: row.Ports,
-          })),
-        }
-      },
+      validate: parseContainers,
       async commit(db, server, result) {
-        const value = result as { containers?: { container_id: string; name: string; image: string; status: string; ports: string }[] }
-        await db.query('delete from server_containers where server_id=$1', [server.id])
-        for (const item of value.containers ?? [])
-          await db.query(
-            'insert into server_containers(id,server_id,container_id,name,image,status,ports,managed,strategy_slug,observed_at) values($1,$2,$3,$4,$5,$6,$7,false,null,now())',
-            [randomUUID(), server.id, item.container_id, item.name, item.image, item.status, item.ports],
-          )
+        await replaceContainers(db, server.id, (result as { containers: Container[] }).containers)
       },
     },
   },
@@ -130,34 +111,27 @@ const runtime: ServerExtensionRuntime = {
       validate(value) {
         if (value === null || typeof value !== 'object' || typeof (value as { collect?: unknown }).collect !== 'boolean')
           throw new Error('invalid container settings')
-        return value
+        return { collect: (value as { collect: boolean }).collect }
       },
     },
   },
 }
 
 interface Ctx {
-  database: { pool: { query(sql: string, params?: unknown[]): Promise<{ rows: unknown[] }> } }
-  serverManagement: {
-    registerDefinitions(input: DefinitionBundle): { ready: Promise<void> }
-    registerServerExtensions(input: ServerExtensionBundle, runtime?: ServerExtensionRuntime): { ready: Promise<void> }
-  }
+  database: { pool: Pick<Db, 'query'> }
+  serverManagement: ServerManagementHostContract
 }
 
 export const inject = ['serverManagement', 'database']
 
 export async function apply(ctx: Ctx): Promise<void> {
+  await requireContainerSchema(ctx.database.pool)
   const definitionsReady = ctx.serverManagement.registerDefinitions(containerDefinitions)
   await definitionsReady.ready
   const extensionRuntime: ServerExtensionRuntime = {
     ...runtime,
     queries: {
-      'container-list': async (server) => ({
-        rows: (await ctx.database.pool.query(
-          'select container_id,name,image,status,ports from server_containers where server_id=$1 order by name',
-          [server.id],
-        )).rows,
-      }),
+      'container-list': async (server) => ({ ...await containerSnapshot(ctx.database.pool, server.id) }),
     },
   }
   const extensionsReady = ctx.serverManagement.registerServerExtensions(containerExtensions, extensionRuntime)

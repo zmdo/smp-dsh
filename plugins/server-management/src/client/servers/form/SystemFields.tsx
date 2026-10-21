@@ -52,8 +52,10 @@ export function SystemFields(props: { form: ServerFormModel; editing: boolean; s
               setOsFamily(event.target.value)
               setOsRelease('')
               setOsText('')
-              setTypeKey('')
-              setAuto(false)
+              if (!props.editing) {
+                setTypeKey('')
+                setAuto(false)
+              }
             }}
           >
             <option value="">{copy.osChoose}</option>
@@ -85,8 +87,10 @@ export function SystemFields(props: { form: ServerFormModel; editing: boolean; s
               disabled={family === undefined}
               onChange={(event) => {
                 setOsRelease(event.target.value)
-                setTypeKey('')
-                setAuto(false)
+                if (!props.editing) {
+                  setTypeKey('')
+                  setAuto(false)
+                }
               }}
             >
               <option value="">{copy.osChoose}</option>

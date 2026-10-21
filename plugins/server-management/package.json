@@ -10,14 +10,25 @@
     "./client": "./lib/client.js",
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./contracts": {
+      "types": "./lib/types/contracts.d.ts",
+      "default": "./lib/contracts.js"
+    },
+    "./client-api": {
+      "types": "./lib/types/client-api.d.ts",
+      "default": "./lib/client-api.js"
+    }
   },
   "files": [
     "lib/index.js",
     "lib/client.js",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "lib/contracts.js",
+    "lib/client-api.js",
+    "lib/types"
   ],
   "engines": {
     "dsh": "0.2.1-alpha.5"
@@ -32,7 +43,9 @@
   },
   "scripts": {
     "build": "node ../../scripts/build-plugin.mjs",
-    "test": "node --test test/**/*.test.ts"
+    "test": "node --test test/**/*.test.ts",
+    "pretest": "node ../../scripts/build-public-api.mjs",
+    "build:api": "node ../../scripts/build-public-api.mjs"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "~4.0.5-alpha.2",

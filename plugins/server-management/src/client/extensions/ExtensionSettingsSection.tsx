@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import type { ServerDto } from '../../shared/dto/servers.ts'
 import { type ServerError } from '../../shared/errors.ts'
 import { displayError, localized, serverCopy } from '../../shared/i18n.ts'
+import { RequestScope } from '../shared/request-scope.ts'
 import { requestError } from '../shared/api.ts'
 import { ExtensionHost } from './ExtensionHost.tsx'
 import { extensionApi } from './api.ts'
@@ -16,84 +17,99 @@ export function ExtensionSettingsSection(props: {
   onSaved: () => void
 }) {
   const { active, entry, server } = props
+  const requests = useRef(new RequestScope()).current
   const copy = serverCopy(active).ui
   const [value, setValue] = useState<unknown>()
   const [draft, setDraft] = useState<unknown>()
   const [revision, setRevision] = useState('0')
   const [loading, setLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [planned, setPlanned] = useState<{ id: string; digest: string; expires_at: string }>()
   const [saved, setSaved] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [error, setError] = useState<ServerError | null>(null)
-  const dirty = !loading && JSON.stringify(value) !== JSON.stringify(draft)
+  const dirty = loaded && !loading && JSON.stringify(value) !== JSON.stringify(draft)
 
   const load = useCallback(async () => {
+    const request = requests.begin()
     setLoading(true)
     setError(null)
     setConflict(false)
     setPlanned(undefined)
     try {
-      const current = await extensionApi.settings(server.id, entry.key)
+      const current = await extensionApi.settings(server.id, entry.key, request.signal)
+      if (!request.current()) return
       setValue(current.value)
       setDraft(current.value)
       setRevision(current.revision)
       setSaved(false)
+      setLoaded(true)
     } catch (cause) {
+      if (!request.current()) return
       setError(requestError(cause))
     } finally {
-      setLoading(false)
+      if (request.current()) setLoading(false)
     }
-  }, [entry.key, server.id])
+  }, [entry.key, server.id, requests])
 
   useEffect(() => {
     void load()
-  }, [load])
+    return () => requests.cancel()
+  }, [load, requests])
 
   async function save(): Promise<void> {
     if (!dirty || saving || entry.affectsExecution === true) return
+    const request = requests.begin()
     setSaving(true)
     setError(null)
     setConflict(false)
     try {
       const current = await extensionApi.saveSettings(server.id, entry.key, draft, revision)
+      if (!request.current()) return
       setValue(current.value)
       setDraft(current.value)
       setRevision(current.revision)
       setSaved(true)
       props.onSaved()
     } catch (cause) {
+      if (!request.current()) return
       const next = requestError(cause)
       if (next.code === 'extension_settings_conflict') setConflict(true)
       else setError(next)
     } finally {
-      setSaving(false)
+      if (request.current()) setSaving(false)
     }
   }
 
   async function plan(): Promise<void> {
     if (!dirty || saving || entry.affectsExecution !== true) return
+    const request = requests.begin()
     setSaving(true)
     setError(null)
     setConflict(false)
     try {
-      setPlanned(await extensionApi.planSettings(server.id, entry.key, draft, revision))
+      const next = await extensionApi.planSettings(server.id, entry.key, draft, revision)
+      if (request.current()) setPlanned(next)
     } catch (cause) {
+      if (!request.current()) return
       const next = requestError(cause)
       if (next.code === 'extension_settings_conflict') setConflict(true)
       else setError(next)
     } finally {
-      setSaving(false)
+      if (request.current()) setSaving(false)
     }
   }
 
   async function applyPlan(): Promise<void> {
     if (planned === undefined || saving) return
+    const request = requests.begin()
     setSaving(true)
     setError(null)
     setConflict(false)
     try {
       const current = await extensionApi.applySettings(server.id, entry.key, planned.id, planned.digest)
+      if (!request.current()) return
       setValue(current.value)
       setDraft(current.value)
       setRevision(current.revision)
@@ -101,11 +117,12 @@ export function ExtensionSettingsSection(props: {
       setSaved(true)
       props.onSaved()
     } catch (cause) {
+      if (!request.current()) return
       const next = requestError(cause)
       if (next.code === 'extension_settings_conflict') setConflict(true)
       else setError(next)
     } finally {
-      setSaving(false)
+      if (request.current()) setSaving(false)
     }
   }
 
@@ -117,7 +134,7 @@ export function ExtensionSettingsSection(props: {
       </div>
       {loading ? (
         <p className="muted">{copy.loading}</p>
-      ) : (
+      ) : loaded ? (
         <ExtensionHost
           active={active}
           slot={SETTINGS_SECTION_SLOT}
@@ -134,6 +151,7 @@ export function ExtensionSettingsSection(props: {
               saving,
               error,
               onChange: (value) => {
+                if (saving) return
                 setDraft(value)
                 setPlanned(undefined)
               },
@@ -142,8 +160,11 @@ export function ExtensionSettingsSection(props: {
           renderSlot={props.renderSlot as never}
           slots={props.slots}
         />
-      )}
-      {error !== null && <p className="banner error">{displayError(active, error)}</p>}
+      ) : null}
+      {error !== null && <p className="banner error">
+        {displayError(active, error)}{' '}
+        {!loaded && <button className="link" type="button" onClick={() => { void load() }}>{copy.extensionReload}</button>}
+      </p>}
       {conflict && (
         <p className="banner error">
           {copy.extensionConflictReload}{' '}

@@ -22,9 +22,10 @@ interface Installed {
   identity: object
   runtime: ServerExtensionRuntime
   scripts: Map<string, LoadedScript>
+  users: Set<Promise<void>>
 }
 
-/** Metadata catalog only; component slots and persistence arrive with the panel steps. */
+/** Owns extension generations and drains admitted callbacks on withdrawal. */
 export class ServerExtensionRegistry {
   private readonly definitions: DefinitionRegistry
   private readonly owners = new Map<string, Installed>()
@@ -55,7 +56,7 @@ export class ServerExtensionRegistry {
       if (cancelled) return
       record = await this.activate(input, identity, runtime)
       if (cancelled || this.closed) {
-        this.remove(record)
+        await this.remove(record)
         record = undefined
       }
     })
@@ -68,7 +69,7 @@ export class ServerExtensionRegistry {
       dispose: async () => {
         cancelled = true
         await ready
-        if (record !== undefined) this.remove(record)
+        if (record !== undefined) await this.remove(record)
       },
     }
   }
@@ -96,6 +97,21 @@ export class ServerExtensionRegistry {
     return undefined
   }
 
+  assertCurrent(entry: ExtensionCatalogEntry): void {
+    if (!this.owners.get(entry.owner)?.entries.includes(entry))
+      throw new ServerError(entry.kind === 'inspection' ? 'extension_inspection_unavailable' : 'extension_unavailable', { key: entry.key })
+  }
+
+  /** Withdraw immediately; drain admitted callbacks before releasing plugin resources. */
+  retain(entry: ExtensionCatalogEntry): () => void {
+    this.assertCurrent(entry)
+    const installed = this.owners.get(entry.owner)!
+    let done!: () => void
+    const pending = new Promise<void>((resolve) => { done = resolve })
+    installed.users.add(pending)
+    return () => { installed.users.delete(pending); done() }
+  }
+
   inspectionsFor(server: Pick<ServerDto, 'type_key' | 'declared_os'>): readonly ExtensionCatalogEntry[] {
     return this.list(server.type_key, server.declared_os).filter((entry) => entry.kind === 'inspection')
   }
@@ -118,10 +134,17 @@ export class ServerExtensionRegistry {
     if (!this.applies(found.entry, server)) throw new ServerError('extension_unavailable', { key })
     const handler = found.runtime.queries?.[key.slice(found.entry.owner.length + 1)]
     if (handler === undefined) throw new ServerError('extension_query_unavailable', { key })
-    return handler(server, search)
+    const release = this.retain(found.entry)
+    try {
+      const result = await handler(server, search)
+      this.assertCurrent(found.entry)
+      return result
+    } finally {
+      release()
+    }
   }
 
-  settings(server: ServerDto, key: string): { entry: ExtensionCatalogEntry; runtime: { defaults: Json; validate(value: unknown): Json } } {
+  settings(server: Pick<ServerDto, 'type_key' | 'declared_os'>, key: string): { entry: ExtensionCatalogEntry; runtime: { defaults: Json; validate(value: unknown): Json } } {
     const found = this.entry(key, 'settings')
     if (found === undefined) throw new ServerError('extension_not_found', { key })
     if (!this.applies(found.entry, server)) throw new ServerError('extension_unavailable', { key })
@@ -138,9 +161,8 @@ export class ServerExtensionRegistry {
 
   async close(): Promise<void> {
     this.closed = true
-    this.owners.clear()
-    this.revision += 1
-    await Promise.allSettled([this.tail])
+    await Promise.all([...this.owners.values()].map((record) => this.remove(record)))
+    await this.tail
   }
 
   private async activate(input: ServerExtensionBundle, identity: object, runtime: ServerExtensionRuntime): Promise<Installed> {
@@ -164,6 +186,8 @@ export class ServerExtensionRegistry {
         const key = `${input.owner}/${item.key}`
         if (keys.has(key)) throw new ServerError('extension_definition_conflict', { key })
         validateText(item.name)
+        if (kind === 'settings' && (!('revision' in item) || typeof item.revision !== 'string' || !item.revision.trim() || item.revision.length > 128))
+          throw new ServerError('extension_definition_invalid', { field: 'revision' })
         if (kind === 'settings' && 'sensitive' in item && item.sensitive === true)
           throw new ServerError('extension_definition_invalid', { field: 'sensitive' })
         if (item.order !== undefined && !Number.isSafeInteger(item.order))
@@ -188,6 +212,7 @@ export class ServerExtensionRegistry {
           name: { ...item.name },
           order: item.order ?? 0,
           appliesTo: structuredClone(appliesTo),
+          ...(kind === 'settings' && 'revision' in item ? { settingsRevision: String(item.revision) } : {}),
           ...(kind === 'settings' && 'affectsExecution' in item && item.affectsExecution === true
             ? { affectsExecution: true }
             : {}),
@@ -201,16 +226,18 @@ export class ServerExtensionRegistry {
     await add('settings', input.settings)
     await add('query', input.queries)
     await add('inspection', input.inspections)
-    const record: Installed = { owner: input.owner, entries, identity, runtime, scripts }
+    const record: Installed = { owner: input.owner, entries, identity, runtime, scripts, users: new Set() }
     this.owners.set(input.owner, record)
     this.revision += 1
     return record
   }
 
-  private remove(record: Installed): void {
-    if (this.owners.get(record.owner) !== record) return
-    this.owners.delete(record.owner)
-    this.revision += 1
+  private async remove(record: Installed): Promise<void> {
+    if (this.owners.get(record.owner) === record) {
+      this.owners.delete(record.owner)
+      this.revision += 1
+    }
+    await Promise.all(record.users)
   }
 }
 
