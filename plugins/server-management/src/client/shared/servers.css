@@ -494,3 +494,19 @@
 .smp-console .smp-dialog .smp-plan-target.smp-table-card table.smp-table th {
   background: #fafafa; color: #909399; font-size: 13px; font-weight: 500;
 }
+
+/* Task report: locked filter/pager toolbar above a full-bleed scrolling table. */
+.smp-console .smp-server-workspace-panel:has(> .panel.smp-task-panel) { padding: 0; }
+.smp-console .smp-task-top {
+  flex: none; padding: 16px 24px 0; background: var(--dsw-alias-bg-layer-1);
+  border-bottom: 1px solid var(--line); z-index: 2;
+}
+.smp-console .smp-task-top .smp-task-filters { margin: 0 0 12px; }
+.smp-console .smp-task-top .banner { margin: 0 0 12px; }
+.smp-console .smp-task-pager {
+  min-height: 0; padding: 0 0 12px; border-top: 0;
+}
+.smp-console .smp-task-panel .smp-task-history .table-scroll {
+  flex: 1; min-height: 0; overflow: auto; border-top: 0;
+}
+.smp-console .smp-task-table { min-width: 100%; }

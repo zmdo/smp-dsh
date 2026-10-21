@@ -83,6 +83,7 @@ export function TaskHistory(props: TaskHistoryProps) {
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / view.pageSize))
   return (
     <section className="smp-task-history" aria-label={copy.taskReport}>
+      <div className="smp-task-top">
       <form className="smp-task-filters" onSubmit={search}>
         <label>
           {copy.taskKeyword}
@@ -151,42 +152,7 @@ export function TaskHistory(props: TaskHistoryProps) {
           {displayError(active, error)}
         </p>
       )}
-      <div className="table-scroll" aria-busy={!data && !error}>
-        <table className="smp-task-table smp-table">
-          <thead>
-            <tr>
-              <th>{copy.createdAt}</th>
-              <th>{copy.taskType}</th>
-              <th>{copy.status}</th>
-              <th>{copy.taskDetails}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.items ?? []).map((job) => (
-              <tr key={job.id}>
-                <td>{formatDate(job.created_at, active)}</td>
-                <td title={job.action === 'inspection_report' ? undefined : job.id}>
-                  {enumLabel(serverCopy(active).actions, job.action)}
-                </td>
-                <td>
-                  <span className={`pill ${job.status}`}>
-                    {enumLabel(serverCopy(active).jobStatus, job.status)}
-                  </span>
-                </td>
-                <td>
-                  <TaskResult active={active} job={job} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!data ? (
-          <p className="empty">{error ? copy.cannotLoadTasks : copy.loading}</p>
-        ) : (
-          data.items.length === 0 && <p className="empty">{copy.noTasks}</p>
-        )}
-      </div>
-      <footer className="smp-server-pager" aria-label={copy.taskPagination}>
+      <div className="smp-server-pager smp-task-pager" aria-label={copy.taskPagination}>
         <span>
           {format(data?.total ? copy.taskRange : copy.taskTotal, {
             count: data?.total ?? 0,
@@ -227,7 +193,43 @@ export function TaskHistory(props: TaskHistoryProps) {
             {copy.next}
           </button>
         </div>
-      </footer>
+      </div>
+      </div>
+      <div className="table-scroll" aria-busy={!data && !error}>
+        <table className="smp-task-table smp-table">
+          <thead>
+            <tr>
+              <th>{copy.createdAt}</th>
+              <th>{copy.taskType}</th>
+              <th>{copy.status}</th>
+              <th>{copy.taskDetails}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(data?.items ?? []).map((job) => (
+              <tr key={job.id}>
+                <td>{formatDate(job.created_at, active)}</td>
+                <td title={job.action === 'inspection_report' ? undefined : job.id}>
+                  {enumLabel(serverCopy(active).actions, job.action)}
+                </td>
+                <td>
+                  <span className={`pill ${job.status}`}>
+                    {enumLabel(serverCopy(active).jobStatus, job.status)}
+                  </span>
+                </td>
+                <td>
+                  <TaskResult active={active} job={job} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!data ? (
+          <p className="empty">{error ? copy.cannotLoadTasks : copy.loading}</p>
+        ) : (
+          data.items.length === 0 && <p className="empty">{copy.noTasks}</p>
+        )}
+      </div>
     </section>
   )
 }
