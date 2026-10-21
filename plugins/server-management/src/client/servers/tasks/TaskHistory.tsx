@@ -83,7 +83,6 @@ export function TaskHistory(props: TaskHistoryProps) {
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / view.pageSize))
   return (
     <section className="smp-task-history" aria-label={copy.taskReport}>
-      <p className="muted">{copy.inspectionHistoryHint}</p>
       <form className="smp-task-filters" onSubmit={search}>
         <label>
           {copy.taskKeyword}
