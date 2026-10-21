@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ServerDto } from '../../../shared/dto/servers.ts'
 import type { ServerError } from '../../../shared/errors.ts'
-import { displayError, groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
+import { displayError, format, groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
 import { api, requestError } from '../../shared/api.ts'
 import { AuthenticationFields } from '../form/AuthenticationFields.tsx'
 import { SystemFields } from '../form/SystemFields.tsx'
@@ -17,6 +17,7 @@ export function BasicSettings(props: {
   const { active, form } = props
   const copy = serverCopy(active).ui
   const [moving, setMoving] = useState(false)
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<ServerError | null>(null)
 
@@ -25,6 +26,7 @@ export function BasicSettings(props: {
     setDeleteError(null)
     try {
       await api(`/console-api/servers/${props.server.id}`, { method: 'DELETE' })
+      setConfirmingRemove(false)
       props.onDeleted()
     } catch (cause) {
       setDeleteError(requestError(cause))
@@ -90,11 +92,28 @@ export function BasicSettings(props: {
         <button className="secondary" type="button" onClick={() => setMoving(true)}>
           {serverCopy(active).upgrades.moveServer}
         </button>
-        <button className="danger-button" type="button" disabled={deleting || form.busy} onClick={() => { void remove() }}>
+        <button className="danger-button" type="button" disabled={deleting || form.busy} onClick={() => setConfirmingRemove(true)}>
           {copy.removeServer}
         </button>
       </div>
       {moving && <MoveServer active={active} server={props.server} onClose={() => setMoving(false)} />}
+      {confirmingRemove && (
+        <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={copy.removeServer}>
+          <div className="smp-upgrade-dialog">
+            <h2>{copy.removeServer}</h2>
+            <p>{format(copy.removeServerHint, { name: props.server.name })}</p>
+            {deleteError !== null && <p className="banner error" role="alert">{displayError(active, deleteError)}</p>}
+            <div className="row smp-upgrade-footer">
+              <button className="danger-button" type="button" disabled={deleting} onClick={() => { void remove() }}>
+                {copy.remove}
+              </button>
+              <button className="secondary" type="button" disabled={deleting} onClick={() => setConfirmingRemove(false)}>
+                {copy.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   )
 }
