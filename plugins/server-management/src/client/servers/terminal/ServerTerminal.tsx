@@ -181,7 +181,7 @@ export function ServerTerminal(props: {
   const canReconnect = status === 'idle' || status === 'disconnected' || status === 'failed'
   return (
     <Panel
-      title={copy.terminal}
+      title={props.embedded ? undefined : copy.terminal}
       className={props.embedded ? 'smp-server-terminal-panel' : undefined}
       extra={
         props.embedded ? undefined : (
