@@ -444,3 +444,23 @@
 .smp-console .smp-dialog .smp-version-policies table.smp-table th {
   background: var(--dsw-alias-bg-layer-2); color: var(--muted); font-size: 12px;
 }
+
+/* Preflight target rows use the same section-card frame as configuration cards. */
+.smp-console .smp-dialog .smp-plan-target {
+  margin: 12px 0; padding: 0; border-radius: 4px; overflow: hidden;
+}
+.smp-console .smp-dialog .smp-plan-target > h3 {
+  margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line);
+  background: var(--dsw-alias-bg-layer-2); font-size: 14px; font-weight: 600;
+}
+.smp-console .smp-dialog .smp-plan-target > p {
+  margin: 0; padding: 8px 16px;
+}
+.smp-console .smp-dialog .smp-plan-target > .smp-upgrade-scroll {
+  margin: 0;
+}
+.smp-console .smp-dialog .smp-plan-target table.smp-table th,
+.smp-console .smp-dialog .smp-plan-target table.smp-table td { padding: 9px 12px; }
+.smp-console .smp-dialog .smp-plan-target table.smp-table th {
+  background: var(--dsw-alias-bg-layer-2); color: var(--muted); font-size: 12px;
+}
