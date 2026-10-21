@@ -343,3 +343,10 @@
 
 .smp-plan-dialog > .row:last-child { display: none; }
 .smp-plan-dialog .smp-plan-confirm > button { display: none; }
+
+.smp-server-address-cell { min-width: 150px; }
+.smp-address-row { display: flex; align-items: center; gap: 6px; min-width: 0; line-height: 20px; }
+.smp-address-row > small { flex: none; width: 28px; color: var(--muted); font-size: 11px; }
+.smp-address-row > .mono { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.smp-copy-address { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
+.smp-copy-address:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--primary); }

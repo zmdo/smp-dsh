@@ -203,7 +203,11 @@
     "removeServer": "Remove server",
     "removeServerHint": "Remove \"{name}\" from the platform. Starting tasks and plans are cancelled; software on the server is not uninstalled.",
     "renameGroup": "Rename group",
-    "renameGroupNamed": "Rename group \"{name}\""
+    "renameGroupNamed": "Rename group \"{name}\"",
+    "externalAddress": "Public",
+    "internalAddress": "Private",
+    "copyAddress": "Copy address",
+    "copied": "Copied"
   },
   "reach": {
     "online": "Online",

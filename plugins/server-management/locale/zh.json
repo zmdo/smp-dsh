@@ -203,7 +203,11 @@
     "removeServer": "移除服务器",
     "removeServerHint": "将从平台移除「{name}」。未开始的任务和计划会被取消，不会卸载服务器上的软件。",
     "renameGroup": "重命名分组",
-    "renameGroupNamed": "重命名分组「{name}」"
+    "renameGroupNamed": "重命名分组「{name}」",
+    "externalAddress": "外网",
+    "internalAddress": "内网",
+    "copyAddress": "复制地址",
+    "copied": "已复制"
   },
   "reach": {
     "online": "在线",

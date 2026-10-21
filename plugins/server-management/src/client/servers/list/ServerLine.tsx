@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { format, formatDate, localized, serverCopy } from '../../../shared/i18n.ts'
 import { type ServerListItem } from '../../../shared/dto/servers.ts'
 import { bytes, meter, ratio } from '../../shared/resources.ts'
@@ -31,8 +32,9 @@ export function ServerLine(props: {
           </small>
         )}
       </td>
-      <td className="mono">
-        {server.address.host}:{server.address.port}
+      <td className="smp-server-address-cell">
+        <AddressLine active={active} label={copy.externalAddress} value={server.address.host} />
+        <AddressLine active={active} label={copy.internalAddress} value={server.internal_host} />
       </td>
       <td>{server.region || '—'}</td>
       <td>{server.operatingSystem.label}</td>
@@ -112,5 +114,37 @@ export function ServerLine(props: {
         </button>
       </td>
     </tr>
+  )
+}
+
+function AddressLine(props: { active: string; label: string; value: string | null }) {
+  const copy = serverCopy(props.active).ui
+  const [copied, setCopied] = useState(false)
+  const value = props.value ?? ''
+  return (
+    <span className="smp-address-row">
+      <small>{props.label}</small>
+      <span className="mono">{value || '—'}</span>
+      {value !== '' && (
+        <button
+          className="smp-copy-address"
+          type="button"
+          aria-label={copied ? copy.copied : copy.copyAddress}
+          title={copied ? copy.copied : copy.copyAddress}
+          onClick={(event) => {
+            event.stopPropagation()
+            void navigator.clipboard.writeText(value).then(() => {
+              setCopied(true)
+              window.setTimeout(() => setCopied(false), 1500)
+            })
+          }}
+        >
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <rect x="5" y="5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2h7" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+    </span>
   )
 }

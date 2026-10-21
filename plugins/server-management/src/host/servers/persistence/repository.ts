@@ -134,3 +134,7 @@ export function updateServer(db: Db, id: string, patch: ServerPatch) {
   })
   return db.query<never>(`update servers set ${sets.join(', ')}, updated_at = now() where id = $1`, params)
 }
+
+export function saveInternalHost(db: Db, serverId: string, host: string) {
+  return db.query<never>('update servers set internal_host=$2, updated_at=now() where id=$1', [serverId, host])
+}

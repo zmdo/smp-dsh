@@ -28,6 +28,7 @@ export interface ServerFact {
   ssh_key_id: string | null
   group_id: string | null
   region: string
+  internal_host: string | null
   install_required_software: boolean
   type_key: string
   type_snapshot: ServerTypeView
@@ -95,6 +96,7 @@ export interface ServerSecret {
   group_id: string | null
   type_key: string
   config_revision: string | number
+  internal_host: string | null
 }
 
 
