@@ -452,5 +452,5 @@
 .smp-dialog-button.is-primary:hover:not(:disabled) { background: var(--dsw-alias-button-primary-hover); }
 .smp-dialog-button.is-ghost { background: transparent; color: var(--dsw-alias-label-primary); }
 .smp-dialog-button.is-ghost:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
-.smp-dialog-button.is-danger { background: var(--red); color: #fff; }
+.smp-dialog-button.is-danger { background: var(--dsw-alias-state-error-primary); color: #fff; }
 .smp-dialog-button.is-danger:hover:not(:disabled) { filter: brightness(0.92); }
