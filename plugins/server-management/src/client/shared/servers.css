@@ -602,3 +602,8 @@
 .smp-console .smp-keys-table-wrap { margin: 0; }
 .smp-console .smp-keys-table-wrap table { width: 100%; }
 .smp-console .smp-keys-pager { padding: 12px 16px; border-top: 1px solid var(--line); }
+
+/* Keep the keys table header flush with the panel title bar. */
+.smp-console .smp-keys-panel > .panel-body { padding-top: 0; }
+
+.smp-console .smp-keys-table-wrap th { white-space: nowrap; }
