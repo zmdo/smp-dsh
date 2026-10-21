@@ -399,3 +399,14 @@
 .smp-console .smp-server-workspace .smp-required-software.smp-card > h3 {
   padding: 12px 16px; background: var(--dsw-alias-bg-layer-2); border-bottom: 1px solid var(--line);
 }
+
+/* Required-software is a dense embedded table; keep its compact card styling. */
+.smp-console .smp-required-software table.smp-table th,
+.smp-console .smp-required-software table.smp-table td {
+  padding: 9px 12px;
+}
+.smp-console .smp-required-software table.smp-table th {
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--muted);
+  font-size: 12px;
+}
