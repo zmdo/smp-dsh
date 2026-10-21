@@ -454,3 +454,32 @@
 .smp-dialog-button.is-ghost:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
 .smp-dialog-button.is-danger { background: var(--dsw-alias-state-error-primary); color: #fff; }
 .smp-dialog-button.is-danger:hover:not(:disabled) { filter: brightness(0.92); }
+
+/* Dialog form controls match the panel controls, while the dialog is portaled inside .smp-console. */
+.smp-console .smp-dialog input:not([type="checkbox"]):not([type="radio"]),
+.smp-console .smp-dialog select,
+.smp-console .smp-dialog textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  outline: none;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--text);
+}
+.smp-console .smp-dialog textarea { height: auto; min-height: 120px; padding: 8px 10px; resize: vertical; }
+.smp-console .smp-dialog input:focus,
+.smp-console .smp-dialog select:focus,
+.smp-console .smp-dialog textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(0, 94, 235, 0.12);
+}
+.smp-console .smp-dialog input[type="checkbox"],
+.smp-console .smp-dialog input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  accent-color: var(--primary);
+}
