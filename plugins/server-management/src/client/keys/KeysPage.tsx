@@ -71,7 +71,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
 
   return (
     <Panel
-      className="smp-keys-panel"
+      className="smp-keys-panel smp-list-panel"
       title={copy.keysTitle}
       extra={
         <div className="row">
@@ -144,7 +144,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
           </div>
         </form>
       ) : null}
-      <div className="table-wrap smp-keys-table-wrap">
+      <div className="table-wrap smp-keys-table-wrap smp-list-scroll">
         <table className="smp-table">
           <thead>
             <tr>
@@ -188,7 +188,7 @@ export function KeysPage(props: { locale: LocaleFace }) {
           </tbody>
         </table>
       </div>
-      <footer className="smp-server-pager smp-keys-pager" aria-label={copy.keysPagination}>
+      <footer className="smp-server-pager smp-keys-pager smp-list-pager" aria-label={copy.keysPagination}>
         <span>
           {format(shown.length ? copy.keysRange : copy.keysTotal, {
             count: shown.length,

@@ -104,6 +104,8 @@ export function ModelsPage(props: {
   const [catalog, setCatalog] = useState<ProviderSource[]>([])
   const [documents, setDocuments] = useState<SettingsNamespace[]>([])
   const [rows, setRows] = useState<ModelRow[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [keys, setKeys] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
   const [open, setOpen] = useState<string | undefined>(undefined)
@@ -191,8 +193,13 @@ export function ModelsPage(props: {
     })
   }
 
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize))
+  const current = Math.min(page, pages)
+  const visibleRows = rows.slice((current - 1) * pageSize, current * pageSize)
+
   return (
     <Panel
+      className="smp-list-panel"
       title={copy.title}
       extra={<button className="primary" type="button" onClick={() => setAdding(true)}>{copy.add}</button>}
     >
@@ -211,7 +218,7 @@ export function ModelsPage(props: {
         />
       ) : null}
       {rows.length === 0 ? <p className="empty">{copy.empty}</p> : (
-        <div className="table-wrap">
+        <div className="table-wrap smp-list-scroll">
           <table className="smp-models-table smp-table">
             <thead>
               <tr>
@@ -224,7 +231,7 @@ export function ModelsPage(props: {
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => (
+              {visibleRows.map(row => (
                 <ModelLine
                   key={row.provider}
                   row={row}
@@ -245,6 +252,20 @@ export function ModelsPage(props: {
           </table>
         </div>
       )}
+      <footer className="smp-server-pager smp-list-pager" aria-label={copy.pagination}>
+        <span>{rows.length ? copy.range.replace('{count}', String(rows.length)).replace('{from}', String((current - 1) * pageSize + 1)).replace('{to}', String(Math.min(current * pageSize, rows.length))) : copy.total.replace('{count}', '0')}</span>
+        <div className="row">
+          <label>
+            {copy.perPage}
+            <select aria-label={copy.pageSize} value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }}>
+              {[10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+          <button className="secondary" type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>{copy.previous}</button>
+          <span aria-live="polite">{copy.page.replace('{page}', String(current)).replace('{pages}', String(pages))}</span>
+          <button className="secondary" type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>{copy.next}</button>
+        </div>
+      </footer>
     </Panel>
   )
 }
