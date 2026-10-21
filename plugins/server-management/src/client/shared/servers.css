@@ -426,3 +426,21 @@
 .smp-console .smp-server-settings-layer .smp-version-policies table.smp-table {
   min-width: 420px; width: 100%;
 }
+
+/* The move dialog embeds the same compact policy table as the settings card. */
+.smp-console .smp-dialog .smp-version-policies {
+  flex: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+}
+.smp-console .smp-dialog .smp-version-policies > h3 {
+  margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line);
+  background: var(--dsw-alias-bg-layer-2); font-size: 14px; font-weight: 600;
+}
+.smp-console .smp-dialog .smp-version-policies .smp-upgrade-scroll { margin: 0; }
+.smp-console .smp-dialog .smp-version-policies table.smp-table {
+  min-width: 420px; width: 100%;
+}
+.smp-console .smp-dialog .smp-version-policies table.smp-table th,
+.smp-console .smp-dialog .smp-version-policies table.smp-table td { padding: 9px 12px; }
+.smp-console .smp-dialog .smp-version-policies table.smp-table th {
+  background: var(--dsw-alias-bg-layer-2); color: var(--muted); font-size: 12px;
+}
