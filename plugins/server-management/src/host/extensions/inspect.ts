@@ -23,6 +23,7 @@ export async function runExtensionInspections(
   extensions: ServerExtensionRegistry,
 ): Promise<ExtensionInspectionResult[]> {
   const entries = extensions.inspectionsFor(context.server)
+  const manual = context.job.request_snapshot.source === 'manual'
   const results: ExtensionInspectionResult[] = []
   for (const entry of entries) {
     await context.guard()
@@ -43,7 +44,7 @@ export async function runExtensionInspections(
       const stored = (await readSettings(context.db, context.server.id, settings.entry.owner, section)).rows[0]
       settingRevision = stored?.revision ?? '0'
       const value = stored?.value ?? settings.runtime.defaults
-      if (inspection.runtime.enabled?.(value) === false) continue
+      if (!manual && inspection.runtime.enabled?.(value) === false) continue
     }
     try {
       const response = await context.session.exec(scriptCommand(inspection.script), inspection.script.timeoutMs, {

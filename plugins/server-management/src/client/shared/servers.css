@@ -307,3 +307,12 @@
   .smp-server-workspace-identity h2 { max-width: 24ch; }
   .smp-server-workspace-panel { padding: 12px; }
 }
+
+/* Container extension panel: fixed frame, table scroll, pagination fixed. */
+.smp-server-extension-layer:has(.smp-container-panel) { overflow: hidden; }
+.smp-server-extension-layer > .smp-container-panel {
+  height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.smp-container-panel > .panel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.smp-container-panel .table-scroll { flex: 1; min-height: 0; overflow: auto; }
+.smp-container-panel .smp-container-pager { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
