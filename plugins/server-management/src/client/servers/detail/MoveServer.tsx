@@ -109,7 +109,7 @@ export function MoveServer(props: {
       title={c.moveServer}
       closeLabel={c.close}
       onClose={props.onClose}
-      className="smp-dialog-wide"
+      className="smp-dialog-wide smp-dialog-move"
       footer={
         <>
           <Button onClick={props.onClose}>{c.close}</Button>

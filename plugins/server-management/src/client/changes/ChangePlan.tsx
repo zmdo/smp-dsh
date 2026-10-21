@@ -136,7 +136,7 @@ export function ChangePlan(props: {
           </p>
           {plan.targets.length > 1 && <p className="muted">{c.executionHint}</p>}
           {plan.targets.map((t) => (
-            <section className="smp-plan-target smp-card" key={t.id}>
+            <section className="smp-plan-target smp-card smp-table-card" key={t.id}>
               <h3>
                 <span className="smp-plan-target-name">
                   {t.server_snapshot.name} <small>{t.server_snapshot.host}</small>

@@ -485,3 +485,12 @@
 .smp-console .smp-dialog .smp-change-plan > .smp-plan-target {
   margin-top: 8px;
 }
+
+.smp-console .smp-dialog.smp-dialog-move { flex: none; width: min(900px, calc(100vw - 16px)); max-width: calc(100vw - 16px); }
+
+/* Target tables use the same row rhythm as every other table module. */
+.smp-console .smp-dialog .smp-plan-target.smp-table-card table.smp-table th,
+.smp-console .smp-dialog .smp-plan-target.smp-table-card table.smp-table td { padding: 11px 16px; }
+.smp-console .smp-dialog .smp-plan-target.smp-table-card table.smp-table th {
+  background: #fafafa; color: #909399; font-size: 13px; font-weight: 500;
+}
