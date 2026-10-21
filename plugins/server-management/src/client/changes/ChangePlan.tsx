@@ -134,7 +134,7 @@ export function ChangePlan(props: {
               {plan.targets.filter((t) => t.state === 'running').length})
             </b>
           </p>
-          <p className="muted">{c.executionHint}</p>
+          {plan.targets.length > 1 && <p className="muted">{c.executionHint}</p>}
           {plan.targets.map((t) => (
             <section className="smp-plan-target smp-card" key={t.id}>
               <h3>
