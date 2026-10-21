@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Panel } from '@smp/console-kit'
+import { Dialog as Modal, DialogButton as Button } from '@smp/console-kit/dialog'
 import { displayError, format, groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
 import { SERVER_STATES } from '../../../shared/server-status.ts'
 import type { ServerListView as ListView } from '../../shared/server-page-state.ts'
@@ -306,34 +307,36 @@ export function ServerList(props: ServerListProps) {
           </footer>
         </Panel>
       </div>
-      {removing !== null && (
-        <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={copy.removeServer}>
-          <div className="smp-upgrade-dialog smp-confirm-dialog">
-            <h2>{copy.removeServer}</h2>
-            <p>{format(copy.removeServerHint, { name: removing.name })}</p>
-            {actionError !== null && <p className="banner error" role="alert">{displayError(active, actionError)}</p>}
-            <div className="row smp-upgrade-footer">
-              <button className="secondary" type="button" disabled={removingBusy} onClick={() => setRemoving(null)}>
-                {copy.cancel}
-              </button>
-              <button
-                className="danger-button"
-                type="button"
-                disabled={removingBusy}
-                onClick={() => {
-                  setRemovingBusy(true)
-                  void removeServer(removing.id).then((ok) => {
-                    setRemovingBusy(false)
-                    if (ok) setRemoving(null)
-                  })
-                }}
-              >
-                {copy.remove}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={removing !== null}
+        title={copy.removeServer}
+        closeLabel={serverCopy(active).upgrades.close}
+        onClose={() => setRemoving(null)}
+        footer={
+          <>
+            <Button disabled={removingBusy} onClick={() => setRemoving(null)}>
+              {copy.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={removingBusy}
+              onClick={() => {
+                if (removing === null) return
+                setRemovingBusy(true)
+                void removeServer(removing.id).then((ok) => {
+                  setRemovingBusy(false)
+                  if (ok) setRemoving(null)
+                })
+              }}
+            >
+              {copy.remove}
+            </Button>
+          </>
+        }
+      >
+        <p>{format(copy.removeServerHint, { name: removing?.name ?? '' })}</p>
+        {actionError !== null && <p className="banner error" role="alert">{displayError(active, actionError)}</p>}
+      </Modal>
     </div>
   )
 }

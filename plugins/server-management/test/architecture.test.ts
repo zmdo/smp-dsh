@@ -21,7 +21,7 @@ test('client and shared modules depend only on their declared boundaries, includ
         if (!specifier.startsWith('.')) {
           assert.equal(scope, 'client', `${file} must not import ${specifier}`)
           assert.ok(
-            ['react', 'react/jsx-runtime', '@smp/console-kit', '@xterm/xterm', '@xterm/addon-fit', '@xterm/xterm/css/xterm.css'].includes(specifier),
+            ['react', 'react/jsx-runtime', '@smp/console-kit', '@smp/console-kit/dialog', '@xterm/xterm', '@xterm/addon-fit', '@xterm/xterm/css/xterm.css'].includes(specifier),
             `${file}: ${specifier}`,
           )
           continue

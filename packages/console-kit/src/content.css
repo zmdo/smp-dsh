@@ -412,3 +412,45 @@
   padding: 8px 10px;
   resize: vertical;
 }
+
+
+/* Harness-style dialog: centered card, header close, scrollable body, fixed footer. */
+.smp-dialog-root {
+  position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center;
+  padding: max(24px, var(--dsh-frame-overlay-top, 24px)) 24px;
+}
+.smp-dialog-mask {
+  position: absolute; inset: var(--dsh-frame-chrome-top, 0px) 0 0;
+  backdrop-filter: var(--dsw-mask-blur); background: var(--dsw-alias-bg-mask-1);
+}
+.smp-dialog {
+  position: relative; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;
+  width: min(380px, 100%); max-height: 100%; padding: 0 0 24px; overflow: hidden;
+  border: 0; border-radius: var(--dsw-radius-panel); background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-prominent); color: var(--dsw-alias-label-primary);
+}
+.smp-dialog-wide { width: min(720px, 100%); }
+.smp-dialog-plan { width: min(1000px, 100%); }
+.smp-dialog-content { display: flex; flex-direction: column; min-height: 0; width: 100%; }
+.smp-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 22px 14px 12px 24px; }
+.smp-dialog-title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; }
+.smp-dialog-close {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent;
+  color: var(--dsw-alias-label-secondary); cursor: pointer;
+}
+.smp-dialog-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.smp-dialog-description { margin: 0; padding: 0 24px; font-size: 14px; line-height: 22px; }
+.smp-dialog-body { display: flex; flex-direction: column; min-width: 0; min-height: 0; margin-top: 20px; padding: 0 24px; overflow: auto; }
+.smp-dialog-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 24px; }
+.smp-dialog-button {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: 36px;
+  padding: 0 14px; border: 0; border-radius: var(--dsw-radius-md); font-size: 14px; line-height: 22px; cursor: pointer;
+}
+.smp-dialog-button:disabled { cursor: not-allowed; opacity: 0.4; }
+.smp-dialog-button.is-primary { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
+.smp-dialog-button.is-primary:hover:not(:disabled) { background: var(--dsw-alias-button-primary-hover); }
+.smp-dialog-button.is-ghost { background: transparent; color: var(--dsw-alias-label-primary); }
+.smp-dialog-button.is-ghost:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+.smp-dialog-button.is-danger { background: var(--red); color: #fff; }
+.smp-dialog-button.is-danger:hover:not(:disabled) { filter: brightness(0.92); }

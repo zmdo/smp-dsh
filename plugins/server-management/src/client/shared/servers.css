@@ -334,3 +334,12 @@
 .smp-upgrade-footer { justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--line); }
 
 .smp-console .smp-upgrade-dialog.smp-confirm-dialog { width: min(420px, 100%); }
+
+.smp-plan-dialog > .row:first-child { display: none; }
+.smp-plan-dialog .smp-change-plan { min-width: 0; }
+
+.smp-plan-dialog > .row:last-child { display: none; }
+.smp-plan-dialog .smp-plan-confirm > button { display: none; }
+
+.smp-plan-dialog > .row:last-child { display: none; }
+.smp-plan-dialog .smp-plan-confirm > button { display: none; }

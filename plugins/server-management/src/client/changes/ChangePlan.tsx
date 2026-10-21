@@ -9,6 +9,7 @@ import {
   serverCopy,
 } from '../../shared/i18n.ts'
 import { zonedTime } from '../../shared/schedule-time.ts'
+import { Dialog, DialogButton } from '@smp/console-kit/dialog'
 import { api, requestError } from '../shared/api.ts'
 const localDate = (value: Date) =>
   new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
@@ -17,6 +18,7 @@ export function ChangePlan(props: {
   id: string
   onClose: () => void
   onNewPlan?: (id: string) => void
+  dialog?: boolean
 }) {
   const { active } = props,
     c = serverCopy(active).upgrades
@@ -85,8 +87,32 @@ export function ChangePlan(props: {
   const needsReplacement = mutations.some((ch) => ch.action === 'replace'),
     needsMajor = plan?.targets.some((t) => t.target_snapshot.risks?.major) ?? false,
     needsService = mutations.some((ch) => ch.effects.length)
-  return (
-    <section className="smp-change-plan">
+  const dialogFooter = props.dialog === true && plan !== undefined ? (
+    <>
+      {plan.state === 'awaiting_confirmation' && (
+        <DialogButton
+          variant="primary"
+          disabled={busy || (needsReplacement && !replacement) || (needsMajor && !major) || (needsService && !service)}
+          onClick={() => void act('confirm')}
+        >
+          {c.confirm}
+        </DialogButton>
+      )}
+      {['scheduled', 'running'].includes(plan.state) && (
+        <DialogButton disabled={busy} onClick={() => void act('pause')}>{c.pause}</DialogButton>
+      )}
+      {['draft', 'awaiting_confirmation', 'scheduled', 'running', 'paused', 'blocked', 'partial_failure'].includes(plan.state) && (
+        <DialogButton disabled={busy} onClick={() => void act('cancel')}>{c.cancel}</DialogButton>
+      )}
+      {['paused', 'blocked', 'partial_failure', 'missed', 'cancelled'].includes(plan.state) && (
+        <DialogButton disabled={busy || plan.targets.some((t) => t.state === 'running')} onClick={() => void act('retry')}>
+          {c.retry}
+        </DialogButton>
+      )}
+    </>
+  ) : undefined
+  const body = (
+    <section className={`smp-change-plan${props.dialog === true ? ' smp-plan-dialog' : ''}`}>
       <div className="row">
         <h2>
           {c.planId} {props.id.slice(0, 8)}
@@ -302,4 +328,18 @@ export function ChangePlan(props: {
       )}
     </section>
   )
+  if (props.dialog === true)
+    return (
+      <Dialog
+        open
+        title={`${c.planId} ${props.id.slice(0, 8)}`}
+        closeLabel={c.close}
+        onClose={props.onClose}
+        className="smp-dialog-plan"
+        footer={dialogFooter}
+      >
+        {body}
+      </Dialog>
+    )
+  return body
 }

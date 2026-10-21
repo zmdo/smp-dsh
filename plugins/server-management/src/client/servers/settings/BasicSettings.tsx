@@ -3,6 +3,7 @@ import type { ServerDto } from '../../../shared/dto/servers.ts'
 import type { ServerError } from '../../../shared/errors.ts'
 import { displayError, format, groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
 import { api, requestError } from '../../shared/api.ts'
+import { Dialog as Modal, DialogButton as Button } from '@smp/console-kit/dialog'
 import { AuthenticationFields } from '../form/AuthenticationFields.tsx'
 import { SystemFields } from '../form/SystemFields.tsx'
 import type { ServerFormModel } from '../form/useServerForm.ts'
@@ -97,23 +98,25 @@ export function BasicSettings(props: {
         </button>
       </div>
       {moving && <MoveServer active={active} server={props.server} onClose={() => setMoving(false)} />}
-      {confirmingRemove && (
-        <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={copy.removeServer}>
-          <div className="smp-upgrade-dialog smp-confirm-dialog">
-            <h2>{copy.removeServer}</h2>
-            <p>{format(copy.removeServerHint, { name: props.server.name })}</p>
-            {deleteError !== null && <p className="banner error" role="alert">{displayError(active, deleteError)}</p>}
-            <div className="row smp-upgrade-footer">
-              <button className="secondary" type="button" disabled={deleting} onClick={() => setConfirmingRemove(false)}>
-                {copy.cancel}
-              </button>
-              <button className="danger-button" type="button" disabled={deleting} onClick={() => { void remove() }}>
-                {copy.remove}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={confirmingRemove}
+        title={copy.removeServer}
+        closeLabel={serverCopy(active).upgrades.close}
+        onClose={() => setConfirmingRemove(false)}
+        footer={
+          <>
+            <Button disabled={deleting} onClick={() => setConfirmingRemove(false)}>
+              {copy.cancel}
+            </Button>
+            <Button variant="danger" disabled={deleting} onClick={() => { void remove() }}>
+              {copy.remove}
+            </Button>
+          </>
+        }
+      >
+        <p>{format(copy.removeServerHint, { name: props.server.name })}</p>
+        {deleteError !== null && <p className="banner error" role="alert">{displayError(active, deleteError)}</p>}
+      </Modal>
     </form>
   )
 }
