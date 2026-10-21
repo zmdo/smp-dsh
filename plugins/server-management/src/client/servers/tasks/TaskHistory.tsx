@@ -85,61 +85,54 @@ export function TaskHistory(props: TaskHistoryProps) {
     <section className="smp-task-history" aria-label={copy.taskReport}>
       <div className="smp-task-top">
       <form className="smp-task-filters" onSubmit={search}>
-        <label>
-          {copy.taskKeyword}
-          <input
-            type="search"
-            maxLength={200}
-            placeholder={copy.searchTasks}
-            value={draft.query}
-            onChange={(event) => setDraft({ ...draft, query: event.target.value })}
-          />
-        </label>
-        <label>
-          {copy.taskType}
-          <select
-            value={draft.action}
-            onChange={(event) => setDraft({ ...draft, action: event.target.value })}
-          >
-            <option value="">{copy.allTypes}</option>
-            {Object.entries(serverCopy(active).actions).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {copy.status}
-          <select
-            value={draft.status}
-            onChange={(event) => setDraft({ ...draft, status: event.target.value })}
-          >
-            <option value="">{copy.allStatuses}</option>
-            {Object.entries(serverCopy(active).jobStatus).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {copy.taskFrom}
+        <input
+          type="search"
+          aria-label={copy.taskKeyword}
+          maxLength={200}
+          placeholder={copy.searchTasks}
+          value={draft.query}
+          onChange={(event) => setDraft({ ...draft, query: event.target.value })}
+        />
+        <select
+          aria-label={copy.taskType}
+          value={draft.action}
+          onChange={(event) => setDraft({ ...draft, action: event.target.value })}
+        >
+          <option value="">{copy.allTypes}</option>
+          {Object.entries(serverCopy(active).actions).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={copy.status}
+          value={draft.status}
+          onChange={(event) => setDraft({ ...draft, status: event.target.value })}
+        >
+          <option value="">{copy.allStatuses}</option>
+          {Object.entries(serverCopy(active).jobStatus).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <div className="smp-task-date-range" role="group" aria-label={`${copy.taskFrom} – ${copy.taskTo}`}>
           <input
             type="datetime-local"
+            aria-label={copy.taskFrom}
             value={draft.from}
             onChange={(event) => setDraft({ ...draft, from: event.target.value })}
           />
-        </label>
-        <label>
-          {copy.taskTo}
+          <span aria-hidden="true">–</span>
           <input
             type="datetime-local"
+            aria-label={copy.taskTo}
             min={draft.from || undefined}
             value={draft.to}
             onChange={(event) => setDraft({ ...draft, to: event.target.value })}
           />
-        </label>
+        </div>
         <button className="secondary" type="submit">
           {copy.search}
         </button>

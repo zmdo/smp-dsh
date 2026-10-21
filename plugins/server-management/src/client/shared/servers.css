@@ -510,3 +510,18 @@
   flex: 1; min-height: 0; overflow: auto; border-top: 0;
 }
 .smp-console .smp-task-table { min-width: 100%; }
+
+/* Compact task filters: no visible labels, joined date-range control. */
+.smp-console .smp-task-filters > input,
+.smp-console .smp-task-filters > select { box-sizing: border-box; height: 34px; }
+.smp-console .smp-task-date-range {
+  display: flex; align-items: center; box-sizing: border-box; height: 34px; min-width: 0;
+  border: 1px solid var(--border); border-radius: 4px; background: var(--dsw-alias-bg-layer-1);
+}
+.smp-console .smp-task-date-range:focus-within { border-color: var(--primary); }
+.smp-console .smp-task-date-range > input {
+  flex: 1 1 0; min-width: 0; height: 100%; box-sizing: border-box; padding: 0 8px;
+  border: 0; background: transparent; color: var(--text); font: inherit;
+}
+.smp-console .smp-task-date-range > input:focus { outline: none; }
+.smp-console .smp-task-date-range > span { flex: none; color: var(--muted); }
