@@ -28,6 +28,7 @@ export function useServerList(props: ServerListProps) {
   const [groupName, setGroupName] = useState('')
   const [addingGroup, setAddingGroup] = useState(false)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [refresh, setRefresh] = useState(0)
   const dataVersion = useRef(0)
   const tableScroll = useRef<HTMLDivElement>(null)
@@ -145,6 +146,20 @@ export function useServerList(props: ServerListProps) {
     }
   }
 
+  async function retryConnections(): Promise<void> {
+    if (refreshing || rows.length === 0) return
+    setRefreshing(true)
+    setActionError(null)
+    const results = await Promise.allSettled(
+      rows.map((row) => api(`/console-api/servers/${row.id}/test`, { method: 'POST' })),
+    )
+    const failed = results.find((result) => result.status === 'rejected')
+    if (failed?.status === 'rejected') setActionError(requestError(failed.reason))
+    dataVersion.current += 1
+    setRefresh((value) => value + 1)
+    setRefreshing(false)
+  }
+
   async function removeServer(id: string): Promise<boolean> {
     setActionError(null)
     try {
@@ -190,8 +205,10 @@ export function useServerList(props: ServerListProps) {
     onView,
     page,
     pages,
+    refreshing,
     removeGroup,
     removeServer,
+    retryConnections,
     renameGroup,
     rows,
     selectGroup,

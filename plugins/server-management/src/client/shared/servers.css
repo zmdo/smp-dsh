@@ -744,3 +744,12 @@
 
 .smp-console .smp-plans-table tbody tr.smp-plan-row { cursor: pointer; }
 .smp-console .smp-plans-table tbody tr.smp-plan-row:hover td { background: #f7f9fc; }
+
+.smp-console .smp-server-header-icon {
+  flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.smp-console .smp-server-header-icon:hover:not(:disabled) { color: var(--primary); background: var(--dsw-specific-sidebar-nav-item-hover); }
+.smp-console .smp-server-header-icon:disabled { opacity: 0.45; cursor: not-allowed; }
+.smp-console .smp-server-header-icon.is-busy svg { animation: smp-spin 0.8s linear infinite; }
+@keyframes smp-spin { to { transform: rotate(360deg); } }

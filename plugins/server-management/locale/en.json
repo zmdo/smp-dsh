@@ -218,7 +218,8 @@
     "resourceHistoryCustom": "Custom",
     "resourceHistoryFrom": "From",
     "resourceHistoryTo": "To",
-    "resourceHistoryApply": "Apply"
+    "resourceHistoryApply": "Apply",
+    "retryConnections": "Retry connections"
   },
   "reach": {
     "online": "Online",

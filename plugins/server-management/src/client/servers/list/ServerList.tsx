@@ -35,6 +35,8 @@ export function ServerList(props: ServerListProps) {
     removeGroup,
     removeServer,
     renameGroup,
+    refreshing,
+    retryConnections,
     rows,
     selectGroup,
     setAddingGroup,
@@ -191,6 +193,20 @@ export function ServerList(props: ServerListProps) {
                 <option value="name">{copy.orderByName}</option>
                 <option value="last_checked">{copy.orderByLastCheck}</option>
               </select>
+              <button
+                className={`smp-server-header-icon${refreshing ? ' is-busy' : ''}`}
+                type="button"
+                aria-label={copy.retryConnections}
+                title={copy.retryConnections}
+                disabled={refreshing || rows.length === 0}
+                onClick={() => {
+                  void retryConnections()
+                }}
+              >
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path d="M13 6.5A5.5 5.5 0 1 1 11.7 3.2M13 2.5v4h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
               <button className="primary" type="button" onClick={props.onCreate}>
                 {copy.registerServer}
               </button>

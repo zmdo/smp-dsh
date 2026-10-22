@@ -218,7 +218,8 @@
     "resourceHistoryCustom": "自定义",
     "resourceHistoryFrom": "开始时间",
     "resourceHistoryTo": "结束时间",
-    "resourceHistoryApply": "查询"
+    "resourceHistoryApply": "查询",
+    "retryConnections": "重试连接"
   },
   "reach": {
     "online": "在线",
