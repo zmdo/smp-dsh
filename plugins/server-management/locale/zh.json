@@ -247,17 +247,16 @@
     "settingsSaving": "保存中…",
     "settingsSaved": "设置已保存。",
     "settingsLoading": "加载设置…",
-    "defaultTimeoutMsLabel": "命令超时（毫秒）",
-    "defaultCommandBytesLabel": "命令大小（字节）",
-    "defaultOutputBytesLabel": "捕获输出（字节）",
+    "defaultTimeoutMsLabel": "命令超时",
+    "defaultCommandBytesLabel": "命令大小",
+    "defaultOutputBytesLabel": "捕获输出",
     "auditKind": "类型",
     "auditAllKinds": "全部类型",
     "auditKindCommand": "命令",
     "auditKindUpload": "上传",
     "auditKindDownload": "下载",
     "auditTarget": "目标",
-    "auditSessionId": "会话 ID"
-,
+    "auditSessionId": "会话 ID",
     "auditBasic": "基本信息",
     "auditAgent": "Agent ID",
     "auditTool": "工具",
@@ -295,9 +294,14 @@
     "auditAllTime": "全部时间",
     "auditLast24h": "最近 24 小时",
     "auditLast7d": "最近 7 天",
-    "auditLast30d": "最近 30 天"
+    "auditLast30d": "最近 30 天",
+    "settingsBytesUnit": "字节",
+    "settingsTimeoutHint": "默认超时和允许配置的最大超时，单位毫秒。",
+    "settingsCommandHint": "单次命令的最大字节数。",
+    "settingsOutputHint": "单次执行捕获的最大输出字节数。"
   },
-  "reach": {    "online": "在线",
+  "reach": {
+    "online": "在线",
     "offline": "离线",
     "docker_unavailable": "Docker 不可用",
     "unknown": "未知"

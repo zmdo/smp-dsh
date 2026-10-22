@@ -4,11 +4,13 @@ import { displayError, serverCopy, type LocaleFace } from '../../shared/i18n.ts'
 import { api, requestError } from '../shared/api.ts'
 import { useActiveLocale } from '../shared/locale.ts'
 
-const FIELDS = [
-  ['defaultTimeoutMs', 'maxTimeoutMs'],
-  ['defaultCommandBytes', 'maxCommandBytes'],
-  ['defaultOutputBytes', 'maxOutputBytes'],
-] as const
+interface Row {
+  defaultKey: keyof ExecLimitsSettings
+  maxKey: keyof ExecLimitsSettings
+  title: string
+  description: string
+  unit: string
+}
 
 export function ExecutionSettings(props: { locale: LocaleFace }) {
   const active = useActiveLocale(props.locale)
@@ -18,6 +20,7 @@ export function ExecutionSettings(props: { locale: LocaleFace }) {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const version = useRef(0)
   useEffect(() => {
     const controller = new AbortController()
@@ -61,35 +64,87 @@ export function ExecutionSettings(props: { locale: LocaleFace }) {
   if (error !== null && form === undefined)
     return <p className="banner error" role="alert">{displayError(active, requestError(error))}</p>
   if (form === undefined) return <p className="muted">{c.settingsLoading}</p>
+  const rows: Row[] = [
+    {
+      defaultKey: 'defaultTimeoutMs',
+      maxKey: 'maxTimeoutMs',
+      title: c.defaultTimeoutMsLabel,
+      description: c.settingsTimeoutHint,
+      unit: 'ms',
+    },
+    {
+      defaultKey: 'defaultCommandBytes',
+      maxKey: 'maxCommandBytes',
+      title: c.defaultCommandBytesLabel,
+      description: c.settingsCommandHint,
+      unit: c.settingsBytesUnit,
+    },
+    {
+      defaultKey: 'defaultOutputBytes',
+      maxKey: 'maxOutputBytes',
+      title: c.defaultOutputBytesLabel,
+      description: c.settingsOutputHint,
+      unit: c.settingsBytesUnit,
+    },
+  ]
   return (
     <form className="smp-server-exec-settings" onSubmit={(event) => event.preventDefault()}>
       <header>
         <h2>{c.settingsServer}</h2>
         <p className="muted">{c.settingsHint}</p>
       </header>
-      {FIELDS.map(([defaultKey, maxKey]) => (
-        <section key={defaultKey} className="smp-server-exec-limit">
-          <h3>{c[`${defaultKey}Label` as keyof typeof c] ?? defaultKey}</h3>
-          <label>
-            {c.settingsDefault}
-            <input
-              type="number"
-              min={1}
-              value={form[defaultKey]}
-              onChange={(event) => change(defaultKey, Number(event.target.value))}
-            />
-          </label>
-          <label>
-            {c.settingsMaximum}
-            <input
-              type="number"
-              min={1}
-              value={form[maxKey]}
-              onChange={(event) => change(maxKey, Number(event.target.value))}
-            />
-          </label>
-        </section>
-      ))}
+      <div className="smp-server-exec-rows">
+        {rows.map((row) => {
+          const id = String(row.defaultKey)
+          const isOpen = expanded[id] === true
+          return (
+            <div className="smp-server-exec-row" key={id}>
+              <div className="smp-server-exec-row-text">
+                <div className="smp-server-exec-row-title">{row.title}</div>
+                <div className="smp-server-exec-row-desc">{row.description}</div>
+              </div>
+              <div className="smp-server-exec-control">
+                <input
+                  className="smp-server-exec-value"
+                  type="number"
+                  step="any"
+                  aria-label={`${row.title} ${c.settingsDefault}`}
+                  value={form[row.defaultKey]}
+                  onChange={(event) => change(row.defaultKey, Number(event.target.value))}
+                />
+                <span className="smp-server-exec-unit">{row.unit}</span>
+                <button
+                  type="button"
+                  className="smp-server-exec-expander"
+                  aria-label={`${row.title} ${c.settingsMaximum}`}
+                  aria-expanded={isOpen}
+                  onClick={() => setExpanded((current) => ({ ...current, [id]: !isOpen }))}
+                >
+                  <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                    <path d="M3.5 6 8 10.5 12.5 6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                  </svg>
+                </button>
+              </div>
+              {isOpen && (
+                <div className="smp-server-exec-max">
+                  <label>
+                    {c.settingsMaximum}
+                    <input
+                      className="smp-server-exec-value"
+                      type="number"
+                      step="any"
+                      aria-label={`${row.title} ${c.settingsMaximum}`}
+                      value={form[row.maxKey]}
+                      onChange={(event) => change(row.maxKey, Number(event.target.value))}
+                    />
+                  </label>
+                  <span className="smp-server-exec-unit">{row.unit}</span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
       {error !== null && <p className="banner error" role="alert">{displayError(active, requestError(error))}</p>}
       {saved && !dirty && <p className="banner success" role="status">{c.settingsSaved}</p>}
       {saving && <p className="muted" role="status">{c.settingsSaving}</p>}

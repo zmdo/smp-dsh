@@ -247,17 +247,16 @@
     "settingsSaving": "Saving…",
     "settingsSaved": "Settings saved.",
     "settingsLoading": "Loading settings…",
-    "defaultTimeoutMsLabel": "Command timeout (ms)",
-    "defaultCommandBytesLabel": "Command size (bytes)",
-    "defaultOutputBytesLabel": "Captured output (bytes)",
+    "defaultTimeoutMsLabel": "Command timeout",
+    "defaultCommandBytesLabel": "Command size",
+    "defaultOutputBytesLabel": "Captured output",
     "auditKind": "Type",
     "auditAllKinds": "All types",
     "auditKindCommand": "Command",
     "auditKindUpload": "Upload",
     "auditKindDownload": "Download",
     "auditTarget": "Target",
-    "auditSessionId": "Session ID"
-,
+    "auditSessionId": "Session ID",
     "auditBasic": "Basic",
     "auditAgent": "Agent ID",
     "auditTool": "Tool",
@@ -295,9 +294,14 @@
     "auditAllTime": "All time",
     "auditLast24h": "Last 24 hours",
     "auditLast7d": "Last 7 days",
-    "auditLast30d": "Last 30 days"
+    "auditLast30d": "Last 30 days",
+    "settingsBytesUnit": "bytes",
+    "settingsTimeoutHint": "Default and maximum command timeout in milliseconds.",
+    "settingsCommandHint": "Maximum command size in bytes for one execution.",
+    "settingsOutputHint": "Maximum captured output in bytes for one execution."
   },
-  "reach": {    "online": "Online",
+  "reach": {
+    "online": "Online",
     "offline": "Offline",
     "docker_unavailable": "Docker unavailable",
     "unknown": "Unknown"
