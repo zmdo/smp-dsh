@@ -55,8 +55,11 @@ export async function metricHistoryCustom(
         : seconds <= 7 * 24 * 3600
           ? { step: 900, source: '5m' as const }
           : seconds <= 30 * 24 * 3600
-            ? { step: 1800, source: '5m' as const }
-            : { step: 3600, source: '1h' as const }
+            ? { step: 3600, source: '5m' as const }
+            : {
+                step: Math.max(3600, Math.ceil(seconds / 720 / 3600) * 3600),
+                source: '1h' as const,
+              }
   return readHistory(db, serverId, 'custom', from, to, config, true)
 }
 
