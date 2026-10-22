@@ -188,7 +188,7 @@ private_key
 ```ts
 {
   query?: string
-  group?: string
+  group?: string // group id or exact name from platform_server_group_list
   status?: string
   page?: number
   page_size?: number
@@ -231,7 +231,46 @@ private_key
 - secret_ciphertext
 - 完整环境变量
 
-### 6.2 `platform_server_get`
+### 6.2 `platform_server_group_list`
+
+参数：
+
+```ts
+{
+  query?: string
+  page?: number
+  page_size?: number
+}
+```
+
+返回：
+
+```json
+{
+  "total": 2,
+  "page": 1,
+  "page_size": 20,
+  "pages": 1,
+  "ungrouped": 3,
+  "items": [
+    {
+      "id": "...",
+      "name": "生产",
+      "name_i18n": { "zh": "生产", "en": "Production" },
+      "kind": "user",
+      "server_count": 12
+    }
+  ]
+}
+```
+
+用途：
+
+- 让模型发现可用的分组名称和 ID
+- 再用 `platform_server_list.group` 筛选服务器
+- 不返回服务器凭据或服务器列表
+
+### 6.3 `platform_server_get`
 
 参数：
 
@@ -252,7 +291,7 @@ private_key
 - 容器摘要
 - 最近错误
 
-### 6.3 `platform_server_exec`
+### 6.4 `platform_server_exec`
 
 参数：
 
@@ -289,7 +328,7 @@ private_key
 
 工具参数不传时使用平台默认值；传入时只能小于等于管理端配置的最大值。
 
-### 6.4 执行限制配置
+### 6.5 执行限制配置
 
 执行限制由管理员在：
 

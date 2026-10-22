@@ -1,9 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { execParameters, getParameters, listParameters, TEXT_OUTPUT } from './schema.ts'
+import { execParameters, getParameters, groupListParameters, listParameters, TEXT_OUTPUT } from './schema.ts'
 import { DEFAULT_EXEC_LIMITS } from './exec.ts'
 import { executeHarnessCommand, type ApprovalRequester } from './exec.ts'
-import { getHarnessServer, listHarnessServers, type HarnessDeps } from './service.ts'
+import { getHarnessServer, listHarnessGroups, listHarnessServers, type HarnessDeps } from './service.ts'
 
 const LIST_DESCRIPTION =
   'List servers managed by this platform. Only servers returned by this tool are managed. ' +
@@ -23,6 +23,20 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
       isConcurrencySafe: () => true,
       async execute(args) {
         return JSON.stringify(await listHarnessServers(deps, args))
+      },
+    }),
+  )
+  ctx.tools.register(
+    defineTool({
+      name: 'platform_server_group_list',
+      description:
+        'List groups available for filtering managed servers. ' +
+        'Use a returned group id or exact name with platform_server_list.',
+      parameters: groupListParameters,
+      output: TEXT_OUTPUT,
+      isConcurrencySafe: () => true,
+      async execute(args) {
+        return JSON.stringify(await listHarnessGroups(deps, args))
       },
     }),
   )

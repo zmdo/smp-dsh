@@ -69,6 +69,21 @@ export function execParameters(limits: ExecLimits) {
   } as const
 }
 
+export const groupListParameters = {
+  query: {
+    type: 'string',
+    description: 'Optional words to match against group id, name or localized name.',
+  },
+  page: {
+    type: 'integer',
+    description: 'Page number, starting at 1. Defaults to 1.',
+  },
+  page_size: {
+    type: 'integer',
+    description: 'Number of groups per page, from 1 to 50. Defaults to 20.',
+  },
+} as const
+
 export const TEXT_OUTPUT = {
   schema: { type: 'string' as const },
   render: (_args: unknown, value: string) => [{ type: 'text' as const, text: value }],

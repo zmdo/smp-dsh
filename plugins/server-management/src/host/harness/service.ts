@@ -85,6 +85,32 @@ async function resolveGroup(deps: HarnessDeps, group: string | undefined): Promi
   return match.id
 }
 
+export async function listHarnessGroups(deps: HarnessDeps, input: { query?: string; page?: number; page_size?: number } = {}) {
+  const page = await serverList(deps, { groupId: null, query: '', status: '', order: 'name', page: 1, pageSize: 1 })
+  const needle = input.query?.trim().toLocaleLowerCase() ?? ''
+  const filtered = page.groups.filter((group) =>
+    needle === '' ||
+    [group.id, group.name, group.name_i18n?.zh ?? '', group.name_i18n?.en ?? '']
+      .some((value) => value.toLocaleLowerCase().includes(needle)),
+  )
+  const pageSize = Math.max(1, Math.min(50, input.page_size ?? 20))
+  const current = Math.min(Math.max(1, input.page ?? 1), Math.max(1, Math.ceil(filtered.length / pageSize)))
+  return {
+    total: filtered.length,
+    page: current,
+    page_size: pageSize,
+    pages: Math.max(1, Math.ceil(filtered.length / pageSize)),
+    ungrouped: page.counts.ungrouped,
+    items: filtered.slice((current - 1) * pageSize, current * pageSize).map((group) => ({
+      id: group.id,
+      name: group.name,
+      name_i18n: group.name_i18n,
+      kind: group.kind,
+      server_count: group.server_count,
+    })),
+  }
+}
+
 export async function getHarnessServer(deps: HarnessDeps, server: string) {
   const target = await resolveServer(deps, server)
   const row = await serverRead(deps, target.id)
