@@ -112,6 +112,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     extensions,
     enrollment,
     updateCheckIntervalSeconds: config.updateCheckIntervalSeconds,
+    connect,
     freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000,
   }
   ctx.inject(['tools'], (scope) => registerServerTools(scope, deps))

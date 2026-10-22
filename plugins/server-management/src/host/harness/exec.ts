@@ -1,0 +1,277 @@
+import { createHash, randomUUID } from 'node:crypto'
+import { serverSecret } from '../servers/persistence/credential-repository.ts'
+import { connectSsh, type SshSession } from '../remote/ssh.ts'
+import { finishAudit, insertAudit, type AuditFinish, type AuditStart } from '../audit/persistence/write-repository.ts'
+import { getHarnessServer, type HarnessDeps } from './service.ts'
+
+const MAX_COMMAND = 8 * 1024
+const MAX_TIMEOUT = 120_000
+const DEFAULT_TIMEOUT = 30_000
+const OUTPUT_LIMIT = 256 * 1024
+const AUDIT_EXCERPT = 4 * 1024
+const TOOL_EXCERPT = 64 * 1024
+
+export interface ExecArgs {
+  server: string
+  command: string
+  timeout_ms?: number
+}
+
+export interface ExecContext {
+  agent?: { id: string; session?: unknown }
+  callId: string
+  rootCallId?: string
+  signal: AbortSignal
+}
+
+export interface ApprovalRequester {
+  request(request: {
+    agent: { id: string; session?: unknown }
+    toolName: string
+    callId: string
+    reason?: string
+    displayReason?: { en: string; [locale: string]: string }
+    signal?: AbortSignal
+  }): Promise<string>
+}
+
+export async function executeHarnessCommand(
+  deps: HarnessDeps,
+  args: ExecArgs,
+  exec: ExecContext,
+  approval: ApprovalRequester | undefined,
+): Promise<string> {
+  const command = args.command
+  if (command.length === 0) throw toolError('command_required', 'A command is required.')
+  if (command.length > MAX_COMMAND) throw toolError('command_too_long', `Command must be at most ${MAX_COMMAND} characters.`)
+  const timeoutMs = clampTimeout(args.timeout_ms)
+  const target = await getHarnessServer(deps, args.server)
+  const secret = await serverSecret(deps.db, target.id)
+  if (secret === undefined) throw toolError('server_not_managed', 'The server is no longer managed by this platform.')
+
+  const now = new Date()
+  const auditId = randomUUID()
+  const redacted = redact(command)
+  const auditBase: Omit<AuditStart, 'approvalStatus' | 'approvalId' | 'approvedBy' | 'approvedAt' | 'approvalReason' | 'status' | 'startedAt' | 'finishedAt' | 'durationMs' | 'exitCode' | 'signal' | 'timedOut' | 'cancelled' | 'errorCode' | 'errorMessage' | 'stdoutExcerpt' | 'stderrExcerpt' | 'stdoutBytes' | 'stderrBytes' | 'stdoutTruncated' | 'stderrTruncated' | 'stdoutDigest' | 'stderrDigest'> = {
+    id: auditId,
+    serverId: target.id,
+    serverName: target.name,
+    host: target.host,
+    actorId: 'harness',
+    actorKind: 'harness',
+    harnessSessionId: exec.agent?.id ?? null,
+    agentId: exec.agent?.id ?? null,
+    harnessTurn: null,
+    harnessStep: null,
+    harnessEventSeq: null,
+    toolCallId: exec.callId,
+    rootToolCallId: exec.rootCallId ?? exec.callId,
+    parentToolCallId: null,
+    toolName: 'platform_server_exec',
+    permissionMode: 'exec',
+    command: redacted,
+    commandDigest: sha256(command),
+    commandLength: command.length,
+    commandTruncated: false,
+    redactionApplied: redacted !== command,
+    cwd: null,
+    metadata: {},
+  }
+
+  const approvalOutcome = await askApproval(approval, exec, target.name, command)
+  if (approvalOutcome !== 'allowed-once') {
+    const status = 'denied'
+    await insertAudit(deps.db, {
+      ...auditBase,
+      approvalStatus: 'denied',
+      approvalId: null,
+      approvedBy: null,
+      approvedAt: null,
+      approvalReason: approvalOutcome === 'unavailable' ? 'Approval channel unavailable' : `Approval ${approvalOutcome}`,
+      status,
+      startedAt: now,
+      finishedAt: now,
+      durationMs: 0,
+      exitCode: null,
+      signal: null,
+      timedOut: false,
+      cancelled: false,
+      errorCode: 'approval_denied',
+      errorMessage: `Approval was not granted: ${approvalOutcome}`,
+      stdoutExcerpt: null,
+      stderrExcerpt: null,
+      stdoutBytes: null,
+      stderrBytes: null,
+      stdoutTruncated: false,
+      stderrTruncated: false,
+      stdoutDigest: null,
+      stderrDigest: null,
+    })
+    throw toolError('approval_denied', `Approval was not granted: ${approvalOutcome}`)
+  }
+
+  const startedAt = new Date()
+  await insertAudit(deps.db, {
+    ...auditBase,
+    approvalStatus: 'approved',
+    approvalId: null,
+    approvedBy: null,
+    approvedAt: startedAt,
+    approvalReason: null,
+    status: 'pending',
+    startedAt,
+    finishedAt: null,
+    durationMs: null,
+    exitCode: null,
+    signal: null,
+    timedOut: false,
+    cancelled: false,
+    errorCode: null,
+    errorMessage: null,
+    stdoutExcerpt: null,
+    stderrExcerpt: null,
+    stdoutBytes: null,
+    stderrBytes: null,
+    stdoutTruncated: false,
+    stderrTruncated: false,
+    stdoutDigest: null,
+    stderrDigest: null,
+  })
+
+  let session: SshSession | undefined
+  const onAbort = () => session?.close()
+  exec.signal.addEventListener('abort', onAbort, { once: true })
+  const started = Date.now()
+  try {
+    if (exec.signal.aborted) throw toolError('cancelled', 'The execution was cancelled.')
+    session = await (deps.connect ?? connectSsh)({
+      host: secret.host,
+      port: secret.ssh_port,
+      username: secret.ssh_user,
+      authMethod: secret.auth_method,
+      secret: deps.secrets!.decrypt(secret.secret_ciphertext),
+      expectedFingerprint: secret.host_fingerprint,
+    })
+    if (exec.signal.aborted) throw toolError('cancelled', 'The execution was cancelled.')
+    const result = await session.exec(command, timeoutMs, { outputLimitBytes: OUTPUT_LIMIT })
+    const durationMs = Date.now() - started
+    const stdout = excerpt(result.stdout, TOOL_EXCERPT)
+    const stderr = excerpt(result.stderr, TOOL_EXCERPT)
+    const stdoutBytes = Buffer.byteLength(result.stdout)
+    const stderrBytes = Buffer.byteLength(result.stderr)
+    const status = result.code === 0 ? 'succeeded' : 'failed'
+    await finishAudit(deps.db, auditId, {
+      status,
+      finishedAt: new Date(),
+      durationMs,
+      exitCode: result.code,
+      signal: null,
+      timedOut: false,
+      cancelled: false,
+      errorCode: status === 'failed' ? 'command_exit_nonzero' : null,
+      errorMessage: status === 'failed' ? `Command exited with code ${result.code}` : null,
+      stdoutExcerpt: redact(excerpt(result.stdout, AUDIT_EXCERPT).text),
+      stderrExcerpt: redact(excerpt(result.stderr, AUDIT_EXCERPT).text),
+      stdoutBytes,
+      stderrBytes,
+      stdoutTruncated: stdoutBytes > AUDIT_EXCERPT,
+      stderrTruncated: stderrBytes > AUDIT_EXCERPT,
+      stdoutDigest: sha256(result.stdout),
+      stderrDigest: sha256(result.stderr),
+    })
+    return JSON.stringify({
+      exit_code: result.code,
+      stdout: stdout.text,
+      stderr: stderr.text,
+      stdout_truncated: stdout.truncated,
+      stderr_truncated: stderr.truncated,
+      duration_ms: durationMs,
+    })
+  } catch (cause) {
+    const durationMs = Date.now() - started
+    const cancelled = exec.signal.aborted
+    const timedOut = !cancelled && errorCode(cause) === 'command_timeout'
+    const status = cancelled ? 'cancelled' : timedOut ? 'timeout' : 'failed'
+    const message = cause instanceof Error ? cause.message : String(cause)
+    await finishAudit(deps.db, auditId, {
+      status,
+      finishedAt: new Date(),
+      durationMs,
+      exitCode: null,
+      signal: cancelled ? 'SIGABRT' : null,
+      timedOut,
+      cancelled,
+      errorCode: cancelled ? 'cancelled' : timedOut ? 'timeout' : errorCode(cause) ?? 'execution_failed',
+      errorMessage: message,
+      stdoutExcerpt: null,
+      stderrExcerpt: null,
+      stdoutBytes: null,
+      stderrBytes: null,
+      stdoutTruncated: false,
+      stderrTruncated: false,
+      stdoutDigest: null,
+      stderrDigest: null,
+    })
+    throw toolError(status === 'cancelled' ? 'cancelled' : status === 'timeout' ? 'timeout' : 'execution_failed', message)
+  } finally {
+    exec.signal.removeEventListener('abort', onAbort)
+    session?.close()
+  }
+}
+
+async function askApproval(
+  approval: ApprovalRequester | undefined,
+  exec: ExecContext,
+  serverName: string,
+  command: string,
+): Promise<string> {
+  if (approval === undefined || exec.agent === undefined) return 'unavailable'
+  try {
+    return await approval.request({
+      agent: exec.agent,
+      toolName: 'platform_server_exec',
+      callId: exec.callId,
+      reason: `Run a command on managed server ${serverName}: ${command.slice(0, 200)}`,
+      displayReason: {
+        en: `Allow this command to run on ${serverName}?`,
+        zh: `是否允许在服务器 ${serverName} 上执行这条命令？`,
+      },
+      signal: exec.signal,
+    })
+  } catch {
+    return 'unavailable'
+  }
+}
+
+function clampTimeout(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_TIMEOUT
+  if (!Number.isSafeInteger(value) || value <= 0) throw toolError('invalid_timeout', 'timeout_ms must be a positive integer.')
+  if (value > MAX_TIMEOUT) throw toolError('invalid_timeout', `timeout_ms must be at most ${MAX_TIMEOUT}.`)
+  return value
+}
+
+function excerpt(value: string, limit: number): { text: string; truncated: boolean } {
+  const buffer = Buffer.from(value, 'utf8')
+  if (buffer.length <= limit) return { text: value, truncated: false }
+  return { text: buffer.subarray(0, limit).toString('utf8').replace(/\uFFFD$/, ''), truncated: true }
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex')
+}
+
+function redact(command: string): string {
+  return command
+    .replace(/((?:password|passwd|token|secret|api[_-]?key)\s*[=:]\s*)(?:"[^"]*"|'[^']*'|\S+)/gi, '$1[REDACTED]')
+    .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g, '[REDACTED KEY]')
+}
+
+function errorCode(cause: unknown): string | undefined {
+  return typeof cause === 'object' && cause !== null && 'code' in cause
+    ? String((cause as { code: unknown }).code)
+    : undefined
+}
+
+function toolError(code: string, message: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code })
+}

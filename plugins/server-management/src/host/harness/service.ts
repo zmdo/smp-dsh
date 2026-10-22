@@ -1,5 +1,6 @@
 import type { DefinitionRegistry } from '../definitions/registry.ts'
 import type { Db } from '../database/connection.ts'
+import type { SshSession } from '../remote/ssh.ts'
 import { type ServerListQuery } from '../servers/query.ts'
 import { serverList, serverRead } from '../servers/list.ts'
 import type { ServerDisplayStatus } from '../../shared/server-status.ts'
@@ -8,6 +9,16 @@ export interface HarnessDeps {
   db: Db
   definitions: DefinitionRegistry
   freshnessMs?: number
+  secrets?: { decrypt(ciphertext: string): string }
+  connect?: (input: {
+    host: string
+    port: number
+    username: string
+    authMethod: string
+    secret: string
+    expectedFingerprint: string | null
+    readyTimeoutMs?: number
+  }) => Promise<SshSession>
 }
 
 export interface ListInput {

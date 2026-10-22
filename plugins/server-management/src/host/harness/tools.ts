@@ -1,6 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { getParameters, listParameters, TEXT_OUTPUT } from './schema.ts'
+import { execParameters, getParameters, listParameters, TEXT_OUTPUT } from './schema.ts'
+import { executeHarnessCommand, type ApprovalRequester } from './exec.ts'
 import { getHarnessServer, listHarnessServers, type HarnessDeps } from './service.ts'
 
 const LIST_DESCRIPTION =
@@ -21,6 +22,31 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
       isConcurrencySafe: () => true,
       async execute(args) {
         return JSON.stringify(await listHarnessServers(deps, args))
+      },
+    }),
+  )
+  ctx.tools.register(
+    defineTool({
+      name: 'platform_server_exec',
+      description:
+        'Run a command on one managed server through the platform SSH credentials. ' +
+        'The server argument must be a managed server id or exact name; never pass an arbitrary SSH host. ' +
+        'Every execution asks for approval and is audited.',
+      parameters: execParameters,
+      output: TEXT_OUTPUT,
+      timeoutMs: 125_000,
+      async execute(args, exec) {
+        return executeHarnessCommand(
+          deps,
+          args,
+          {
+            agent: exec.agent,
+            callId: String(exec.callId),
+            rootCallId: String(exec.rootCallId),
+            signal: exec.signal,
+          },
+          ctx.get('approval') as ApprovalRequester | undefined,
+        )
       },
     }),
   )
