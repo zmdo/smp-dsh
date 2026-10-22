@@ -14,6 +14,7 @@ import { Enrollment } from './host/servers/enrollment.ts'
 import { startMetrics } from './host/servers/metrics.ts'
 import { enqueueExisting } from './host/servers/service.ts'
 import { registerServerTools } from './host/harness/tools.ts'
+import { loadExecLimits } from './host/harness/settings-service.ts'
 import { registerServerOpsGroup, type WorkspaceGroupsService } from './host/workspace-group.ts'
 
 export { ServerManagement } from './host/definitions/service.ts'
@@ -116,7 +117,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const connect: typeof connectSsh = (input) =>
     connectSsh({ ...input, readyTimeoutMs: config.sshReadyTimeoutSeconds * 1000 })
   const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions }, connect)
-  const execLimits = {
+  const configuredExecLimits = {
     defaultTimeoutMs: config.harnessExecDefaultTimeoutMs,
     maxTimeoutMs: config.harnessExecMaxTimeoutMs,
     defaultCommandBytes: config.harnessExecDefaultCommandBytes,
@@ -124,8 +125,9 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     defaultOutputBytes: config.harnessExecDefaultOutputBytes,
     maxOutputBytes: config.harnessExecMaxOutputBytes,
   }
-  if (execLimits.defaultTimeoutMs > execLimits.maxTimeoutMs || execLimits.defaultCommandBytes > execLimits.maxCommandBytes || execLimits.defaultOutputBytes > execLimits.maxOutputBytes)
+  if (configuredExecLimits.defaultTimeoutMs > configuredExecLimits.maxTimeoutMs || configuredExecLimits.defaultCommandBytes > configuredExecLimits.maxCommandBytes || configuredExecLimits.defaultOutputBytes > configuredExecLimits.maxOutputBytes)
     throw new Error('harness execution defaults exceed their maximum limits')
+  const execLimits = await loadExecLimits(db, configuredExecLimits)
   const deps = {
     db,
     secrets: ctx.secrets,

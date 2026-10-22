@@ -17,4 +17,5 @@ export interface Deps {
   enrollment: Enrollment
   freshnessMs?: number
   updateCheckIntervalSeconds?: number
+  execLimits?: import('./harness/exec.ts').ExecLimits
 }

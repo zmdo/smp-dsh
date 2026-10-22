@@ -238,7 +238,18 @@
     "auditFailed": "失败",
     "auditDenied": "已拒绝",
     "auditTimeout": "超时",
-    "auditCancelled": "已取消"
+    "auditCancelled": "已取消",
+    "settingsServer": "服务器",
+    "settingsHint": "控制 Harness 在服务器上执行命令时的默认限制和管理端上限。",
+    "settingsDefault": "默认值",
+    "settingsMaximum": "最大值",
+    "settingsSave": "保存设置",
+    "settingsSaving": "保存中…",
+    "settingsSaved": "设置已保存。",
+    "settingsLoading": "加载设置…",
+    "defaultTimeoutMsLabel": "命令超时（毫秒）",
+    "defaultCommandBytesLabel": "命令大小（字节）",
+    "defaultOutputBytesLabel": "捕获输出（字节）"
   },
   "reach": {
     "online": "在线",

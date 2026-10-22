@@ -238,7 +238,18 @@
     "auditFailed": "Failed",
     "auditDenied": "Denied",
     "auditTimeout": "Timed out",
-    "auditCancelled": "Cancelled"
+    "auditCancelled": "Cancelled",
+    "settingsServer": "Servers",
+    "settingsHint": "Defaults and administrator ceilings for Harness command execution on managed servers.",
+    "settingsDefault": "Default",
+    "settingsMaximum": "Maximum",
+    "settingsSave": "Save settings",
+    "settingsSaving": "Saving…",
+    "settingsSaved": "Settings saved.",
+    "settingsLoading": "Loading settings…",
+    "defaultTimeoutMsLabel": "Command timeout (ms)",
+    "defaultCommandBytesLabel": "Command size (bytes)",
+    "defaultOutputBytesLabel": "Captured output (bytes)"
   },
   "reach": {
     "online": "Online",

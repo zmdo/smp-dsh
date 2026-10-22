@@ -858,3 +858,16 @@ body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff
 .smp-audit-status.is-failed,
 .smp-audit-status.is-timeout,
 .smp-audit-status.is-denied { color: #b91c1c; }
+
+.smp-server-exec-settings { display: grid; gap: 18px; max-width: 760px; }
+.smp-server-exec-settings header h2 { margin: 0 0 4px; font-size: 16px; }
+.smp-server-exec-settings header p { margin: 0; }
+.smp-server-exec-settings .smp-server-exec-limit { display: grid; grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(120px, 160px)); gap: 12px; align-items: end; padding: 14px 0; border-top: 1px solid var(--line); }
+.smp-server-exec-settings h3 { margin: 0; font-size: 14px; font-weight: 500; }
+.smp-server-exec-settings label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.smp-server-exec-settings input { width: 100%; box-sizing: border-box; }
+.smp-server-exec-settings footer { display: flex; justify-content: flex-end; }
+@media (max-width: 720px) {
+  .smp-server-exec-settings .smp-server-exec-limit { grid-template-columns: 1fr 1fr; }
+  .smp-server-exec-settings .smp-server-exec-limit h3 { grid-column: 1 / -1; }
+}

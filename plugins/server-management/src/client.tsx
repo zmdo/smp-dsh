@@ -1,4 +1,5 @@
 import { AuditPage } from './client/audit/AuditPage.tsx'
+import { ExecutionSettings } from './client/settings/ExecutionSettings.tsx'
 import { KeysPage } from './client/keys/KeysPage.tsx'
 import { ServersPage } from './client/servers/ServersPage.tsx'
 import { pageLabel } from './client/shared/page-label.ts'
@@ -46,6 +47,18 @@ export function apply(ctx: ClientCtx): void {
         inject: () => ({ locale: ctx.locale, pageState, slots: ctx.slots }),
       },
       ServersPage,
+    ),
+  )
+  ctx.slots.inject('settings.section', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.section',
+        id: 'server',
+        order: 20,
+        label: () => copy().settingsServer,
+        inject: () => ({ locale: ctx.locale }),
+      },
+      ExecutionSettings,
     ),
   )
   ctx.slots.inject('console.page', () =>

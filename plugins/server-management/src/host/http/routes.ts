@@ -4,6 +4,7 @@ import { errorPayload } from '../../shared/i18n.ts'
 import { type Deps } from '../dependencies.ts'
 import { HttpError } from '../errors.ts'
 import { routeAudits } from './audits.ts'
+import { routeHarnessSettings } from './harness-settings.ts'
 import { routeComponents, routeTypes } from './catalog.ts'
 import { routeChanges } from './changes.ts'
 import { routeGroups } from './groups.ts'
@@ -105,6 +106,11 @@ export function* registerRoutes(host: HttpHost, deps: Deps): Generator<() => voi
       guard(host, request, response, () =>
         routeJobs(deps.db, request, response, suffix(request, '/console-api/server-jobs')),
       ),
+  })
+  yield host.webServer.register({
+    kind: 'exact',
+    path: '/console-api/server-management-settings',
+    handler: (request, response) => guard(host, request, response, () => routeHarnessSettings(deps, request, response)),
   })
   yield host.webServer.register({
     kind: 'prefix',
