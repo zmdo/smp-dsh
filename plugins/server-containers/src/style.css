@@ -3,3 +3,14 @@
 .smp-container-panel > .panel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .smp-container-panel .table-scroll { flex: 1; min-height: 0; overflow: auto; }
 .smp-container-panel .smp-container-pager { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px; border-top: 1px solid var(--line); }
+
+.smp-container-panel .table-scroll thead th {
+  position: sticky; top: 0; z-index: 2; background: #fafafa;
+}
+.smp-container-panel .smp-container-pager { padding: 12px 16px; border-top: 1px solid var(--line); }
+.smp-container-panel .smp-container-pager .row { gap: 8px; }
+.smp-container-panel .smp-container-pager select { width: auto; }
+body[data-ds-dark-theme] .smp-container-panel .table-scroll thead th,
+html[data-ds-theme-source='dark'] .smp-container-panel .table-scroll thead th {
+  background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary);
+}
