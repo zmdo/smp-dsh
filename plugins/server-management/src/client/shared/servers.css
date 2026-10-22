@@ -700,3 +700,18 @@
 }
 .smp-chart-tooltip time { color: var(--muted); }
 .smp-chart-tooltip span { font-weight: 600; }
+
+/* Breathing room between the history charts and the required-software module. */
+.smp-resource-history { margin-bottom: 16px; }
+
+/* Plan target cards match the policy table-card header padding. */
+.smp-console .smp-dialog .smp-plan-target.smp-table-card > h3 {
+  padding: 14px 16px;
+}
+.smp-console .smp-dialog .smp-plan-target {
+  margin-bottom: 18px;
+}
+
+/* Plan list is framed like the other table modules. */
+.smp-console .smp-plan-list-card { border-radius: 4px; overflow: hidden; }
+.smp-console .smp-plan-list-card .smp-upgrade-scroll { margin: 0; }

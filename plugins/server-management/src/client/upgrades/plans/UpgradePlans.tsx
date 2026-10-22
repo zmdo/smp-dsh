@@ -15,6 +15,7 @@ export function UpgradePlans(props: { active: string; onPlan: (id: string) => vo
           {displayError(active, error)}
         </p>
       )}
+      <section className="smp-table-card smp-plan-list-card" aria-label={c.plans}>
       <div className="smp-upgrade-scroll">
         <table className="smp-table">
           <thead>
@@ -53,6 +54,7 @@ export function UpgradePlans(props: { active: string; onPlan: (id: string) => vo
           </tbody>
         </table>
       </div>
+      </section>
     </>
   )
 }
