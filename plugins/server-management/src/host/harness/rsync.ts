@@ -168,8 +168,8 @@ export async function executeHarnessRsync(
     if (deps.secrets === undefined) throw toolError('secrets_unavailable', 'Server credentials are unavailable.')
     await writeFile(keyFile, deps.secrets.decrypt(secret.secret_ciphertext), { mode: 0o600 })
     await chmod(keyFile, 0o600)
-    await writeKnownHost(target.host, secret.ssh_port, secret.host_fingerprint, knownHosts)
-    const rsh = `ssh -i ${quote(keyFile)} -p ${secret.ssh_port} -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${quote(knownHosts)} -o GlobalKnownHostsFile=/dev/null`
+    const hostKeyType = await writeKnownHost(target.host, secret.ssh_port, secret.host_fingerprint, knownHosts)
+    const rsh = `ssh -i ${quote(keyFile)} -p ${secret.ssh_port} -o HostKeyAlgorithms=${hostKeyType} -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${quote(knownHosts)} -o GlobalKnownHostsFile=/dev/null`
     const result = await runRsync(parsed.argv.slice(1), workspace ?? process.cwd(), { ...process.env, RSYNC_RSH: rsh }, timeoutMs, exec.signal, limits?.maxOutputBytes ?? 1024 * 1024)
     const durationMs = Date.now() - started
     const status = result.code === 0 ? 'succeeded' : 'failed'
@@ -309,12 +309,13 @@ function normalizeTimeout(value: number | undefined): number {
   return timeout
 }
 
-async function writeKnownHost(host: string, port: number, fingerprint: string | null, destination: string): Promise<void> {
+async function writeKnownHost(host: string, port: number, fingerprint: string | null, destination: string): Promise<string> {
   const output = await capture('ssh-keyscan', ['-T', '10', '-p', String(port), host], 15_000)
   const lines = output.split('\n').filter((line) => line.trim() !== '' && !line.startsWith('#'))
   const match = fingerprint === null ? lines[0] : lines.find((line) => fingerprintOf(line) === fingerprint)
   if (match === undefined) throw toolError('rsync/fingerprint-mismatch', 'SSH host key verification failed.')
   await writeFile(destination, `${match}\n`, { mode: 0o600 })
+  return match.trim().split(/\s+/)[1]!
 }
 
 function fingerprintOf(line: string): string {
