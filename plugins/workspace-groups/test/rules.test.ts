@@ -52,7 +52,7 @@ test('a new workspace joins the current group and an existing one is not reassig
   if (!kept.ok) assert.match(kept.detail, /临时工作区组/)
 })
 
-test('workspaces without a membership row join the general group only', () => {
+test('workspaces without a membership row are discoverable but not auto-assigned', () => {
   const members: MemberRow[] = [{ workspaceId: 'kept', groupId: 'sample', isDefault: false }]
   assert.deepEqual(ungroupedIds(['kept', 'loose'], members), ['loose'])
 })

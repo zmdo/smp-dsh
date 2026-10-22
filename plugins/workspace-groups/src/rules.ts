@@ -84,7 +84,7 @@ export function rememberAllow(allows: readonly AllowSpec[], spec: AllowSpec): Al
   return [...allows, spec]
 }
 
-/** Workspaces that have no membership row join the general group. Existing rows stay put. */
+/** Workspaces that have no membership row stay unassigned until explicitly claimed. */
 export function ungroupedIds(workspaceIds: readonly string[], members: readonly MemberRow[]): string[] {
   const known = new Set(members.map(row => row.workspaceId))
   return workspaceIds.filter(id => !known.has(id))

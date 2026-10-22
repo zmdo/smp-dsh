@@ -221,9 +221,11 @@ export class GroupRegistry {
     for (const item of items) {
       if (members.some(m => m.workspaceId === item.id)) continue
       const owner = await this.owner(item.path)
-      const groupId = owner?.group_id ?? GENERAL_GROUP_ID
-      await this.db.query("insert into workspace_group_directories (directory, group_id, state) values ($1, $2, 'ready') on conflict (directory) do nothing", [item.path, groupId])
-      await this.putMember(item, groupId)
+      // Only an explicitly claimed directory joins a group. Unclaimed workspaces stay
+      // unassigned; otherwise every workspace discovered on the host would appear in
+      // the default group, including a second default-workspace.
+      if (owner === undefined) continue
+      await this.putMember(item, owner.group_id)
     }
     for (const group of this.groups.values()) if (group.kind === 'normal') await this.ensureDefault(group.id)
   }
