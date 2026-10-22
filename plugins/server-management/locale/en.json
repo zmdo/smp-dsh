@@ -231,7 +231,14 @@
     "auditCommand": "Command",
     "auditStatus": "Status",
     "auditEmpty": "No audit records",
-    "auditPage": "Page 1 / 1"
+    "auditPage": "Page {page} / {pages}",
+    "auditTotal": "{count} audit records",
+    "auditPending": "Running",
+    "auditSucceeded": "Succeeded",
+    "auditFailed": "Failed",
+    "auditDenied": "Denied",
+    "auditTimeout": "Timed out",
+    "auditCancelled": "Cancelled"
   },
   "reach": {
     "online": "Online",

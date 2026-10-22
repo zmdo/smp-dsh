@@ -848,3 +848,13 @@ body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff
 
 /* FitAddon must measure the same box that contains the terminal screen. */
 .smp-console .smp-server-terminal-panel .terminal-host { padding: 0; }
+
+.smp-audit-table .smp-audit-command {
+  max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+}
+.smp-audit-status { font-size: 12px; color: var(--muted); }
+.smp-audit-status.is-succeeded { color: #15803d; }
+.smp-audit-status.is-failed,
+.smp-audit-status.is-timeout,
+.smp-audit-status.is-denied { color: #b91c1c; }

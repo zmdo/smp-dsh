@@ -3,6 +3,7 @@ import { ServerError } from '../../shared/errors.ts'
 import { errorPayload } from '../../shared/i18n.ts'
 import { type Deps } from '../dependencies.ts'
 import { HttpError } from '../errors.ts'
+import { routeAudits } from './audits.ts'
 import { routeComponents, routeTypes } from './catalog.ts'
 import { routeChanges } from './changes.ts'
 import { routeGroups } from './groups.ts'
@@ -104,6 +105,12 @@ export function* registerRoutes(host: HttpHost, deps: Deps): Generator<() => voi
       guard(host, request, response, () =>
         routeJobs(deps.db, request, response, suffix(request, '/console-api/server-jobs')),
       ),
+  })
+  yield host.webServer.register({
+    kind: 'prefix',
+    path: '/console-api/server-audits',
+    handler: (request, response) =>
+      guard(host, request, response, () => routeAudits(deps, request, response)),
   })
   yield host.webServer.register({
     kind: 'prefix',

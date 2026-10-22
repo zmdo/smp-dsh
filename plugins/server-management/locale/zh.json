@@ -231,7 +231,14 @@
     "auditCommand": "命令",
     "auditStatus": "状态",
     "auditEmpty": "暂无审计记录",
-    "auditPage": "第 1 / 1 页"
+    "auditPage": "第 {page} / {pages} 页",
+    "auditTotal": "共 {count} 条审计记录",
+    "auditPending": "执行中",
+    "auditSucceeded": "成功",
+    "auditFailed": "失败",
+    "auditDenied": "已拒绝",
+    "auditTimeout": "超时",
+    "auditCancelled": "已取消"
   },
   "reach": {
     "online": "在线",
