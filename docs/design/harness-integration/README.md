@@ -190,7 +190,8 @@ private_key
   query?: string
   group?: string
   status?: string
-  limit?: number
+  page?: number
+  page_size?: number
 }
 ```
 
@@ -198,12 +199,20 @@ private_key
 
 ```json
 {
+  "total": 42,
+  "page": 1,
+  "page_size": 20,
+  "pages": 3,
   "items": [
     {
       "id": "...",
       "name": "web-01",
       "host": "192.0.2.10",
-      "group": "生产",
+      "group": {
+        "id": "...",
+        "name": "生产",
+        "name_i18n": { "zh": "生产", "en": "Production" }
+      },
       "type": "容器服务器",
       "status": "normal",
       "software": {

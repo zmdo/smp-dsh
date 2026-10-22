@@ -26,7 +26,9 @@ export interface HarnessDeps {
 export interface ListInput {
   query?: string
   status?: ServerDisplayStatus
-  limit?: number
+  group?: string
+  page?: number
+  page_size?: number
 }
 
 interface ResolvedServer {
@@ -37,27 +39,32 @@ interface ResolvedServer {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function safeListQuery(input: ListInput): ServerListQuery {
+function safeListQuery(input: ListInput, groupId: string | null): ServerListQuery {
   return {
-    groupId: null,
+    groupId,
     query: input.query?.trim() ?? '',
     status: input.status ?? '',
     order: 'name',
-    page: 1,
-    pageSize: Math.max(1, Math.min(50, input.limit ?? 20)),
+    page: Math.max(1, input.page ?? 1),
+    pageSize: Math.max(1, Math.min(50, input.page_size ?? 20)),
   }
 }
 
 export async function listHarnessServers(deps: HarnessDeps, input: ListInput) {
-  const page = await serverList(deps, safeListQuery(input))
+  const groupId = await resolveGroup(deps, input.group)
+  const page = await serverList(deps, safeListQuery(input, groupId))
   return {
     total: page.total,
+    page: page.page,
+    page_size: page.page_size,
+    pages: Math.max(1, Math.ceil(page.total / page.page_size)),
     items: page.items.map((item) => ({
       id: item.id,
       name: item.name,
       host: item.address.host,
       port: item.address.port,
       region: item.region,
+      group: item.group,
       type: item.type.name,
       status: item.status,
       operatingSystem: item.operatingSystem,
@@ -65,6 +72,17 @@ export async function listHarnessServers(deps: HarnessDeps, input: ListInput) {
       lastCheckedAt: item.lastCheckedAt,
     })),
   }
+}
+
+async function resolveGroup(deps: HarnessDeps, group: string | undefined): Promise<string | null> {
+  const value = group?.trim()
+  if (value === undefined || value === '') return null
+  const page = await serverList(deps, { groupId: null, query: '', status: '', order: 'name', page: 1, pageSize: 1 })
+  const match = page.groups.find((item) =>
+    item.id === value || item.name === value || item.name_i18n?.zh === value || item.name_i18n?.en === value,
+  )
+  if (match === undefined) throw new Error(JSON.stringify({ code: 'group_not_found', message: `Group is not managed by this platform: ${value}` }))
+  return match.id
 }
 
 export async function getHarnessServer(deps: HarnessDeps, server: string) {

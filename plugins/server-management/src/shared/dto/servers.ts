@@ -59,6 +59,7 @@ export interface ServerListItem {
   upgradeCount: number
   address: { host: string; port: number }
   region: string
+  group: { id: string; name: string; name_i18n: LocalizedText | null } | null
   internal_host: string | null
   operatingSystem: { declared: DeclaredOs; label: string; verification: string }
   type: { key: string; name: LocalizedText; available: boolean }

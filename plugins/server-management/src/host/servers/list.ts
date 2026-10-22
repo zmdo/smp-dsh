@@ -314,6 +314,11 @@ function listItem(row: ReturnType<typeof enrich>): ServerListItem {
     upgradeCount: row.upgrade_count,
     address: { host: row.host, port: row.ssh_port },
     region: row.region,
+    group: row.group_id === null ? null : {
+      id: row.group_id,
+      name: row.group_name ?? '',
+      name_i18n: row.group_name_i18n ?? null,
+    },
     internal_host: row.internal_host,
     operatingSystem: {
       declared: row.declared_os,

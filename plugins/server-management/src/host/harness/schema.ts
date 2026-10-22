@@ -20,9 +20,17 @@ export const listParameters = {
     enum: SERVER_STATUSES,
     description: 'Optional platform display status filter.',
   },
-  limit: {
+  group: {
+    type: 'string',
+    description: 'Optional group id or exact group name.',
+  },
+  page: {
     type: 'integer',
-    description: 'Maximum number of servers to return, from 1 to 50. Defaults to 20.',
+    description: 'Page number, starting at 1. Defaults to 1.',
+  },
+  page_size: {
+    type: 'integer',
+    description: 'Number of servers per page, from 1 to 50. Defaults to 20.',
   },
 } as const
 
