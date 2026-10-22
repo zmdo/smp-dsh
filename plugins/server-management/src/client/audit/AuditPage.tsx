@@ -24,9 +24,10 @@ export function AuditPage(props: {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [kind, setKind] = useState('')
+  const [hours, setHours] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const { data, error } = usePollingResource<AuditPageDto>(
-    `/console-api/server-audits?page=${page}&page_size=${pageSize}&kind=${encodeURIComponent(kind)}`,
+    `/console-api/server-audits?page=${page}&page_size=${pageSize}&kind=${encodeURIComponent(kind)}&hours=${hours}`,
   )
   const total = data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / pageSize))
@@ -42,16 +43,28 @@ export function AuditPage(props: {
       className="smp-upgrade-page smp-list-panel smp-audit-page"
       title={c.auditTitle}
       extra={
-        <select
-          aria-label={c.auditKind}
-          value={kind}
-          onChange={(event) => { setKind(event.target.value); setPage(1); setOpenId(null) }}
-        >
-          <option value="">{c.auditAllKinds}</option>
-          <option value="command">{c.auditKindCommand}</option>
-          <option value="upload">{c.auditKindUpload}</option>
-          <option value="download">{c.auditKindDownload}</option>
-        </select>
+        <div className="row smp-records-tools">
+          <select
+            aria-label={c.auditKind}
+            value={kind}
+            onChange={(event) => { setKind(event.target.value); setPage(1); setOpenId(null) }}
+          >
+            <option value="">{c.auditAllKinds}</option>
+            <option value="command">{c.auditKindCommand}</option>
+            <option value="upload">{c.auditKindUpload}</option>
+            <option value="download">{c.auditKindDownload}</option>
+          </select>
+          <select
+            aria-label={c.auditTimeRange}
+            value={hours}
+            onChange={(event) => { setHours(event.target.value); setPage(1); setOpenId(null) }}
+          >
+            <option value="">{c.auditAllTime}</option>
+            <option value="24">{c.auditLast24h}</option>
+            <option value="168">{c.auditLast7d}</option>
+            <option value="720">{c.auditLast30d}</option>
+          </select>
+        </div>
       }
     >
       {error && (

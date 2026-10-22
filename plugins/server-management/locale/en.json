@@ -290,9 +290,14 @@
     "auditCurrentServer": "Current server",
     "auditSnapshotName": "Server name at execution",
     "auditHost": "Host",
-    "auditServerDeleted": "deleted"
-  },  "reach": {
-    "online": "Online",
+    "auditServerDeleted": "deleted",
+    "auditTimeRange": "Time range",
+    "auditAllTime": "All time",
+    "auditLast24h": "Last 24 hours",
+    "auditLast7d": "Last 7 days",
+    "auditLast30d": "Last 30 days"
+  },
+  "reach": {    "online": "Online",
     "offline": "Offline",
     "docker_unavailable": "Docker unavailable",
     "unknown": "Unknown"

@@ -290,9 +290,14 @@
     "auditCurrentServer": "当前服务器",
     "auditSnapshotName": "执行时服务器名",
     "auditHost": "地址",
-    "auditServerDeleted": "已删除"
-  },  "reach": {
-    "online": "在线",
+    "auditServerDeleted": "已删除",
+    "auditTimeRange": "时间段",
+    "auditAllTime": "全部时间",
+    "auditLast24h": "最近 24 小时",
+    "auditLast7d": "最近 7 天",
+    "auditLast30d": "最近 30 天"
+  },
+  "reach": {    "online": "在线",
     "offline": "离线",
     "docker_unavailable": "Docker 不可用",
     "unknown": "未知"
