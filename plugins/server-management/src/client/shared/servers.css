@@ -718,7 +718,7 @@
 
 /* The inline "view plan" page uses the same target-card metrics as the dialog. */
 .smp-console .smp-change-plan .smp-plan-target {
-  margin-bottom: 18px;
+  padding: 0; margin-bottom: 18px; border-radius: 4px; overflow: hidden;
 }
 .smp-console .smp-change-plan .smp-plan-target > h3 {
   padding: 14px 16px;
