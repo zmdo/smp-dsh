@@ -20,9 +20,6 @@
     "inspectFailed": "最近一次容器采集失败。",
     "lastSuccess": "上次成功采集",
     "stale": "当前显示上次成功的快照。",
-    "never": "暂无",
-    "range": "共 {count} 个容器，第 {from}–{to} 个",
-    "pageOf": "第 {page} / {pages} 页",
-    "perPage": "每页"
+    "never": "暂无"
   }
 }

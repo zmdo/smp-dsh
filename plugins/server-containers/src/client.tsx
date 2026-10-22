@@ -8,8 +8,6 @@ import css from './style.css'
 
 const owner = '@smp/console-server-containers'
 const copyFor = (active: string) => (active === 'zh' ? zh : en).ui
-const fill = (template: string, values: Record<string, string | number>) =>
-  template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''))
 
 function ContainersPanel(props: ExtensionSlotOwner) {
   const copy = copyFor(props.active)
@@ -20,7 +18,7 @@ function ContainersPanel(props: ExtensionSlotOwner) {
   const [loading, setLoading] = useState(true)
   const [refresh, setRefresh] = useState(0)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const pageSize = 10
   useEffect(() => {
     setSnapshot(undefined)
     setPage(1)
@@ -44,7 +42,7 @@ function ContainersPanel(props: ExtensionSlotOwner) {
       <style>{css}</style>
       <div className="panel-head">
         <h2>{copy.containers}</h2>
-        <button className="secondary" type="button" disabled={loading} onClick={() => { setPage(1); setRefresh((n) => n + 1) }}>{copy.refresh}</button>
+        <button className="secondary" type="button" disabled={loading} onClick={() => setRefresh((n) => n + 1)}>{copy.refresh}</button>
       </div>
       <div className="panel-body">
         {docker !== undefined && docker.state !== 'installed' && <p className="error">{docker.detail || copy.dockerUnavailable}</p>}
@@ -63,26 +61,11 @@ function ContainersPanel(props: ExtensionSlotOwner) {
           </table></div>
         )}
       </div>
-      {snapshot?.last_success_at && (
-        <footer className="smp-server-pager smp-container-pager">
-          <span>{fill(copy.range, { count: containers.length, from: (current - 1) * pageSize + 1, to: Math.min(current * pageSize, containers.length) })}</span>
-          <div className="row">
-            <label>
-              {copy.perPage}
-              <select
-                aria-label={copy.perPage}
-                value={pageSize}
-                onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }}
-              >
-                {[10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
-              </select>
-            </label>
-            <button className="secondary" type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>{copy.previous}</button>
-            <span>{fill(copy.pageOf, { page: current, pages })}</span>
-            <button className="secondary" type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>{copy.next}</button>
-          </div>
-        </footer>
-      )}
+      {containers.length > pageSize && <footer className="smp-container-pager">
+        <button className="secondary" type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>{copy.previous}</button>
+        <span>{copy.page} {current} / {pages}</span>
+        <button className="secondary" type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>{copy.next}</button>
+      </footer>}
     </section>
   )
 }

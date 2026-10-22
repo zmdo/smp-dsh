@@ -20,9 +20,6 @@
     "inspectFailed": "The latest container inspection failed.",
     "lastSuccess": "Last successful inspection",
     "stale": "Showing the last successful snapshot.",
-    "never": "Never",
-    "range": "{count} containers, showing {from}–{to}",
-    "pageOf": "Page {page} of {pages}",
-    "perPage": "Per page"
+    "never": "Never"
   }
 }
