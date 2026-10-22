@@ -789,3 +789,13 @@
 .smp-console .smp-checks-body .smp-detection-pager {
   flex: none; padding: 12px 16px; border-top: 1px solid var(--line);
 }
+
+/* Wider drawer and a table that fits it without a bottom horizontal scrollbar. */
+.smp-console .smp-checks-drawer { width: min(720px, 100%); }
+.smp-console .smp-checks-body .smp-detection-table {
+  min-width: 0; width: 100%; font-size: 12px;
+}
+.smp-console .smp-checks-body .smp-detection-table th,
+.smp-console .smp-checks-body .smp-detection-table td { padding: 10px 12px; }
+.smp-console .smp-checks-body .smp-detection-table td { overflow-wrap: anywhere; }
+.smp-console .smp-checks-body .smp-detection-reasons { padding-left: 14px; }
