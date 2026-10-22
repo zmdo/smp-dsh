@@ -50,3 +50,10 @@ html[data-ds-theme-source='dark'] .smp-container-panel .table-scroll thead th {
   position: sticky; bottom: 0; z-index: 3; background: var(--dsw-alias-bg-layer-1);
   padding: 12px 24px;
 }
+
+/* Keep the container pager exactly one task-report bar high. */
+.smp-container-panel > .smp-container-pager {
+  box-sizing: border-box; height: 57px; min-height: 57px; max-height: 57px;
+  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+}
+.smp-container-panel > .smp-container-pager > * { flex: none; }
