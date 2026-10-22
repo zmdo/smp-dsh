@@ -204,7 +204,7 @@ export function ServerList(props: ServerListProps) {
                 }}
               >
                 <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                  <path d="M13 6.5A5.5 5.5 0 1 1 11.7 3.2M13 2.5v4h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M13 5.2A5.5 5.5 0 0 0 3.5 4M13 2.5v3.2h-3.2M3 10.8A5.5 5.5 0 0 0 12.5 12M3 13.5v-3.2h3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
               <button className="primary" type="button" onClick={props.onCreate}>
