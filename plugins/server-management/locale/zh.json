@@ -550,7 +550,11 @@
     "checkUnavailable": "未获得可用的检测结果，请重新检测。",
     "checkAvailableHint": "存在符合版本要求的升级目标，可在升级建议中安排。",
     "selection": "选择需要安排升级的服务器",
-    "emptyPlans": "暂无升级计划。"
+    "emptyPlans": "暂无升级计划。",
+    "planPagination": "升级计划分页",
+    "planRange": "共 {count} 个计划，第 {from}–{to} 个",
+    "planTotal": "共 {count} 个计划",
+    "planPageSize": "每页计划数量"
   },
   "components": {
     "docker": {

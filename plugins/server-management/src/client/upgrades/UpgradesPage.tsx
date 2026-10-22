@@ -40,7 +40,7 @@ export function UpgradesPage(props: {
     )
   return (
     <Panel
-      className="smp-upgrade-page"
+      className={`smp-upgrade-page${tab === 'plans' ? ' smp-list-panel' : ''}`}
       title={c[tab]}
       extra={
         context?.serverId ? (

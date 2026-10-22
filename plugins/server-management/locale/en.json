@@ -550,7 +550,11 @@
     "checkUnavailable": "No usable check result is available. Run the check again.",
     "checkAvailableHint": "Eligible target versions are available. Schedule an upgrade from the suggestions.",
     "selection": "Select servers for an upgrade plan",
-    "emptyPlans": "No upgrade plans."
+    "emptyPlans": "No upgrade plans.",
+    "planPagination": "Plan pagination",
+    "planRange": "{count} plans, showing {from}–{to}",
+    "planTotal": "{count} plans",
+    "planPageSize": "Plans per page"
   },
   "components": {
     "docker": {
