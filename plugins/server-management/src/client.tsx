@@ -1,3 +1,4 @@
+import { AuditPage } from './client/audit/AuditPage.tsx'
 import { KeysPage } from './client/keys/KeysPage.tsx'
 import { ServersPage } from './client/servers/ServersPage.tsx'
 import { pageLabel } from './client/shared/page-label.ts'
@@ -45,6 +46,18 @@ export function apply(ctx: ClientCtx): void {
         inject: () => ({ locale: ctx.locale, pageState, slots: ctx.slots }),
       },
       ServersPage,
+    ),
+  )
+  ctx.slots.inject('console.page', () =>
+    ctx.slots.register(
+      {
+        name: 'console.page',
+        key: 'server-audit',
+        label: pageLabel(() => copy().auditTab, group),
+        order: 3,
+        inject: () => ({ locale: ctx.locale }),
+      },
+      AuditPage,
     ),
   )
   ctx.slots.inject('console.page', () =>

@@ -222,7 +222,16 @@
     "retryConnections": "Retry connections",
     "checkRange": "{count} checks, showing {from}–{to}",
     "checkPageSize": "Checks per page",
-    "retract": "Retract"
+    "retract": "Retract",
+    "auditTab": "Audit log",
+    "auditTitle": "Audit log",
+    "auditTime": "Time",
+    "auditActor": "Actor",
+    "auditServer": "Server",
+    "auditCommand": "Command",
+    "auditStatus": "Status",
+    "auditEmpty": "No audit records",
+    "auditPage": "Page 1 / 1"
   },
   "reach": {
     "online": "Online",

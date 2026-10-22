@@ -222,7 +222,16 @@
     "retryConnections": "重试连接",
     "checkRange": "共 {count} 条，第 {from}–{to} 条",
     "checkPageSize": "每页检测结果数量",
-    "retract": "收回"
+    "retract": "收回",
+    "auditTab": "审计记录",
+    "auditTitle": "审计记录",
+    "auditTime": "时间",
+    "auditActor": "操作者",
+    "auditServer": "服务器",
+    "auditCommand": "命令",
+    "auditStatus": "状态",
+    "auditEmpty": "暂无审计记录",
+    "auditPage": "第 1 / 1 页"
   },
   "reach": {
     "online": "在线",
