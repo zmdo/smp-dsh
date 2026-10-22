@@ -13,3 +13,13 @@ body[data-ds-dark-theme] .smp-container-panel .table-scroll thead th,
 html[data-ds-theme-source='dark'] .smp-container-panel .table-scroll thead th {
   background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary);
 }
+
+/* The container extension lives inside the workspace frame; don't draw a second card. */
+.smp-container-panel {
+  border: 0; border-radius: 0; background: transparent;
+}
+
+.smp-console .panel.smp-container-panel {
+  border: 0; border-radius: 0; background: transparent;
+}
+.smp-console .smp-server-workspace-panel:has(.smp-container-panel) { padding: 0; }
