@@ -21,7 +21,7 @@ export interface TaskViewState {
   pageSize: number
 }
 
-export const DEFAULT_TASK_PAGE_SIZE = 10
+export const DEFAULT_TASK_PAGE_SIZE = 20
 
 export function emptyTaskView(pageSize = DEFAULT_TASK_PAGE_SIZE): TaskViewState {
   return { query: '', action: '', status: '', from: '', to: '', page: 1, pageSize }

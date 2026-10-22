@@ -8,6 +8,8 @@ import css from './style.css'
 
 const owner = '@smp/console-server-containers'
 const copyFor = (active: string) => (active === 'zh' ? zh : en).ui
+const fill = (template: string, values: Record<string, string | number>) =>
+  template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''))
 
 function ContainersPanel(props: ExtensionSlotOwner) {
   const copy = copyFor(props.active)
@@ -18,7 +20,7 @@ function ContainersPanel(props: ExtensionSlotOwner) {
   const [loading, setLoading] = useState(true)
   const [refresh, setRefresh] = useState(0)
   const [page, setPage] = useState(1)
-  const pageSize = 10
+  const [pageSize, setPageSize] = useState(20)
   useEffect(() => {
     setSnapshot(undefined)
     setPage(1)
@@ -40,20 +42,23 @@ function ContainersPanel(props: ExtensionSlotOwner) {
   return (
     <section className="panel smp-container-panel">
       <style>{css}</style>
-      <div className="panel-head">
-        <h2>{copy.containers}</h2>
-        <button className="secondary" type="button" disabled={loading} onClick={() => setRefresh((n) => n + 1)}>{copy.refresh}</button>
+      <div className="smp-container-toolbar smp-task-top">
+        <span className="muted">{copy.lastSuccess}: {snapshot?.last_success_at ?? copy.never}</span>
+        <button className="secondary" type="button" disabled={loading} onClick={() => { setPage(1); setRefresh((n) => n + 1) }}>{copy.refresh}</button>
       </div>
+      {(docker !== undefined && docker.state !== 'installed') || error || snapshot?.status === 'failed' || (stale && snapshot?.last_success_at) ? (
+        <div className="smp-container-status">
+          {docker !== undefined && docker.state !== 'installed' && <p className="error">{docker.detail || copy.dockerUnavailable}</p>}
+          {error && <p className="banner error">{copy.loadFailed}</p>}
+          {snapshot?.status === 'failed' && <p className="banner error">{copy.inspectFailed} {snapshot.error?.params?.detail}</p>}
+          {stale && snapshot?.last_success_at && <p className="muted">{copy.stale}</p>}
+        </div>
+      ) : null}
       <div className="panel-body">
-        {docker !== undefined && docker.state !== 'installed' && <p className="error">{docker.detail || copy.dockerUnavailable}</p>}
-        <p className="muted">{copy.lastSuccess}: {snapshot?.last_success_at ?? copy.never}</p>
-        {error && <p className="banner error">{copy.loadFailed}</p>}
-        {snapshot?.status === 'failed' && <p className="banner error">{copy.inspectFailed} {snapshot.error?.params?.detail}</p>}
-        {stale && snapshot?.last_success_at && <p className="muted">{copy.stale}</p>}
-        {loading && !snapshot ? <p className="muted">{copy.loading}</p> : !snapshot?.last_success_at ? (
-          !error && <p className="empty">{copy.noObservation}</p>
-        ) : containers.length === 0 ? <p className="empty">{copy.noContainers}</p> : (
-          <div className="table-scroll"><table>
+        {loading && !snapshot ? <p className="container-empty">{copy.loading}</p> : !snapshot?.last_success_at ? (
+          !error && <p className="container-empty">{copy.noObservation}</p>
+        ) : containers.length === 0 ? <p className="container-empty">{copy.noContainers}</p> : (
+          <div className="table-scroll"><table className="smp-table">
             <thead><tr><th>{copy.name}</th><th>{copy.image}</th><th>{copy.status}</th><th>{copy.ports}</th></tr></thead>
             <tbody>{visible.map((item) => <tr key={item.container_id}>
               <td>{item.name}</td><td>{item.image}</td><td>{item.status}</td><td>{item.ports}</td>
@@ -61,11 +66,22 @@ function ContainersPanel(props: ExtensionSlotOwner) {
           </table></div>
         )}
       </div>
-      {containers.length > pageSize && <footer className="smp-container-pager">
-        <button className="secondary" type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>{copy.previous}</button>
-        <span>{copy.page} {current} / {pages}</span>
-        <button className="secondary" type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>{copy.next}</button>
-      </footer>}
+      {snapshot?.last_success_at && (
+        <footer className="smp-server-pager smp-container-pager smp-task-pager">
+          <span>{fill(copy.range, { count: containers.length, from: (current - 1) * pageSize + 1, to: Math.min(current * pageSize, containers.length) })}</span>
+          <div className="row">
+            <label>
+              {copy.perPage}
+              <select aria-label={copy.perPage} value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }}>
+                {[10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </label>
+            <button className="secondary" type="button" disabled={current <= 1} onClick={() => setPage(current - 1)}>{copy.previous}</button>
+            <span>{fill(copy.pageOf, { page: current, pages })}</span>
+            <button className="secondary" type="button" disabled={current >= pages} onClick={() => setPage(current + 1)}>{copy.next}</button>
+          </div>
+        </footer>
+      )}
     </section>
   )
 }

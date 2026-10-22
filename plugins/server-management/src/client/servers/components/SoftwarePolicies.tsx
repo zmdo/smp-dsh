@@ -1,4 +1,5 @@
 import type { SoftwareView } from '../../../shared/definitions.ts'
+import { TableCard } from '@smp/console-kit'
 import { localized, serverCopy, versionRequirement } from '../../../shared/i18n.ts'
 import type { SoftwarePolicy } from '../../../shared/policies.ts'
 import type { VersionRule } from '../../../shared/versions.ts'
@@ -25,11 +26,10 @@ export function SoftwarePolicies(props: {
     )
   }
   return (
-    <section className="smp-version-policies">
-      <h3>{c.policies}</h3>
-      <p className="muted">{c.policyHint}</p>
+    <>
+    <TableCard title={c.policies} ariaLabel={c.policies}>
       <div className="smp-upgrade-scroll">
-        <table>
+        <table className="smp-table">
           <thead>
             <tr>
               <th>{c.software}</th>
@@ -141,6 +141,8 @@ export function SoftwarePolicies(props: {
           </tbody>
         </table>
       </div>
-    </section>
+    </TableCard>
+    <p className="smp-section-hint">{c.policyHint}</p>
+    </>
   )
 }

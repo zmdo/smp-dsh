@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Panel } from '@smp/console-kit'
 import { pluginsCopy } from '../copy.ts'
-import { clampPage, globalRows, isPageSize, isStatusFilter, jumpTarget, pageCount, PAGE_SIZES, pageSlice, rowsByStatus, STATUS_FILTERS, type InventoryEntry, type PluginRow, type PluginStatus, type PresetGroup, type StatusFilter } from '../rows.ts'
+import { clampPage, globalRows, isPageSize, isStatusFilter, pageCount, PAGE_SIZES, pageSlice, rowsByStatus, STATUS_FILTERS, type InventoryEntry, type PluginRow, type PluginStatus, type PresetGroup, type StatusFilter } from '../rows.ts'
 
 interface LocaleFace {
   getSnapshot(): { active: string }
@@ -34,12 +34,10 @@ const PILL: Record<PluginStatus, string> = {
 }
 
 const PAGE_STYLE = `
-.smp-plugins-bar, .smp-plugins-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.smp-plugins-bar { margin-bottom: 12px; }
-.smp-plugins-pager { margin-top: 12px; }
-.smp-plugins-pager .row, .smp-plugins-bar .row { gap: 8px; }
+.smp-plugins-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.smp-plugins-pager .row { gap: 8px; }
+.smp-plugins-head-extra { gap: 8px; align-items: center; }
 .smp-console select.smp-page-size, .smp-console select.smp-status-filter { width: auto; }
-.smp-console input.smp-page-jump { width: 64px; }
 .smp-console table.smp-plugins tbody tr.smp-plugin-row { cursor: pointer; }
 .smp-console table.smp-plugins tbody tr.smp-plugin-row:hover td, .smp-console table.smp-plugins tbody tr.is-open td { background: #f7f9fc; }
 .smp-console .smp-plugin-detail { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px 16px; margin: 0; }
@@ -87,9 +85,8 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
   const [presets, setPresets] = useState<readonly PresetGroup[]>([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
-  const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0])
+  const [pageSize, setPageSize] = useState<number>(20)
   const [pageIndex, setPageIndex] = useState(1)
-  const [jumpText, setJumpText] = useState('1')
   const [openId, setOpenId] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -122,76 +119,48 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
   const pages = pageCount(rows.length, pageSize)
   const narrowed = query.trim() !== '' || status !== 'all'
 
-  useEffect(() => { setJumpText(String(page)) }, [page])
-
-  const goTo = (raw: string): void => {
-    const target = jumpTarget(raw, rows.length, pageSize)
-    if (target === undefined) {
-      setJumpText(String(page))
-      return
-    }
-    setPageIndex(target)
-    setOpenId('')
-  }
   return (
-    <Panel title={copy.title}>
+    <Panel
+      className="smp-list-panel"
+      title={copy.title}
+      extra={
+        <div className="row smp-plugins-head-extra">
+          <select
+            className="smp-status-filter"
+            aria-label={copy.status}
+            value={status}
+            onChange={event => {
+              if (!isStatusFilter(event.target.value)) return
+              setStatus(event.target.value)
+              setPageIndex(1)
+              setOpenId('')
+            }}
+          >
+            {STATUS_FILTERS.map(value => (
+              <option key={value} value={value}>{value === 'all' ? copy.all : statusLabel(value, copy)}</option>
+            ))}
+          </select>
+          <input
+            className="search"
+            type="search"
+            aria-label={copy.search}
+            placeholder={copy.search}
+            value={query}
+            onChange={event => {
+              setQuery(event.target.value)
+              setPageIndex(1)
+              setOpenId('')
+            }}
+          />
+        </div>
+      }
+    >
       {error !== '' && <p className="banner error">{error}</p>}
-      <div className="smp-plugins-bar">
-        <input
-          className="search"
-          type="search"
-          aria-label={copy.search}
-          placeholder={copy.search}
-          value={query}
-          onChange={event => {
-            setQuery(event.target.value)
-            setPageIndex(1)
-            setOpenId('')
-          }}
-        />
-        <span className="row">
-          <label className="row">
-            {copy.status}
-            <select
-              className="smp-status-filter"
-              aria-label={copy.status}
-              value={status}
-              onChange={event => {
-                if (!isStatusFilter(event.target.value)) return
-                setStatus(event.target.value)
-                setPageIndex(1)
-                setOpenId('')
-              }}
-            >
-              {STATUS_FILTERS.map(value => (
-                <option key={value} value={value}>{value === 'all' ? copy.all : statusLabel(value, copy)}</option>
-              ))}
-            </select>
-          </label>
-          <label className="row">
-            {copy.pageSize}
-            <select
-              className="smp-page-size"
-              aria-label={copy.pageSize}
-              value={pageSize}
-              onChange={event => {
-                const next = Number(event.target.value)
-                if (!isPageSize(next)) return
-                setPageSize(next)
-                setPageIndex(1)
-                setOpenId('')
-              }}
-            >
-              {PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}
-            </select>
-          </label>
-        </span>
-      </div>
       {loading ? <p className="muted">{copy.loading}</p>
         : rows.length === 0 ? <p className="empty">{narrowed ? copy.noMatch : copy.empty}</p>
           : (
-            <div className="table-wrap">
-              <table className="smp-plugins">
+            <div className="table-wrap smp-list-scroll">
+              <table className="smp-plugins smp-table">
                 <thead>
                   <tr>
                     <th>{copy.name}</th>
@@ -214,26 +183,30 @@ export function PluginsPage(props: { locale: LocaleFace; inventory: RemoteInvent
             </div>
           )}
       {rows.length > 0 && (
-        <div className="smp-plugins-pager">
+        <div className="smp-plugins-pager smp-list-pager">
           <span className="muted">{fill(copy.total, { count: rows.length })}</span>
-          <span className="row">
+          <div className="row">
+            <label>
+              {copy.pageSize}
+              <select
+                className="smp-page-size"
+                aria-label={copy.pageSize}
+                value={pageSize}
+                onChange={event => {
+                  const next = Number(event.target.value)
+                  if (!isPageSize(next)) return
+                  setPageSize(next)
+                  setPageIndex(1)
+                  setOpenId('')
+                }}
+              >
+                {PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}
+              </select>
+            </label>
             <button className="secondary" type="button" disabled={page <= 1} onClick={() => { setPageIndex(page - 1); setOpenId('') }}>{copy.prev}</button>
             <span>{fill(copy.pageOf, { page, pages })}</span>
             <button className="secondary" type="button" disabled={page >= pages} onClick={() => { setPageIndex(page + 1); setOpenId('') }}>{copy.next}</button>
-            <input
-              className="smp-page-jump"
-              aria-label={copy.jumpTo}
-              inputMode="numeric"
-              value={jumpText}
-              onChange={event => setJumpText(event.target.value)}
-              onKeyDown={event => {
-                if (event.key !== 'Enter') return
-                event.preventDefault()
-                goTo(jumpText)
-              }}
-            />
-            <button className="secondary" type="button" onClick={() => goTo(jumpText)}>{copy.jump}</button>
-          </span>
+          </div>
         </div>
       )}
       {error !== '' && <p><button className="secondary" type="button" onClick={() => setReloadKey(current => current + 1)}>{copy.retry}</button></p>}

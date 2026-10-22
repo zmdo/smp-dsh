@@ -10,7 +10,7 @@ export async function markConnected(db: Db, serverId: string, fingerprint: strin
     [serverId, fingerprint],
   )
   await db.query<never>(
-    "update server_runtime set connection_state='online', connection_error=null, connection_checked_at=now() where server_id=$1",
+    "update server_runtime set connection_state='online', connection_error=null, connection_checked_at=now(), auto_retry_at=null, auto_retry_attempts=0 where server_id=$1",
     [serverId],
   )
 }

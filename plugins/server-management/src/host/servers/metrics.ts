@@ -4,6 +4,8 @@ import { parseSample } from '../remote/parse.ts'
 import { connectSsh, type SshSession } from '../remote/ssh.ts'
 import { serverSecret } from './persistence/credential-repository.ts'
 import { saveMetrics, serverIds } from './persistence/metrics-repository.ts'
+import { cleanupMetrics, recordMetric, rollup1h, rollup5m } from './persistence/history-repository.ts'
+import { claimAutoRetry, releaseAutoRetry } from './persistence/auto-retry-repository.ts'
 
 const SAMPLE = `cores=$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo)
 read_cpu() { awk '/^cpu /{idle=$5+$6; t=0; for(i=2;i<=NF;i++) t+=$i; print t, idle}' /proc/stat; }
@@ -14,7 +16,9 @@ mem_total=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
 mem_avail=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
 disk_total=$(df -B1 -P / | awk 'NR==2 {print $2}')
 disk_used=$(df -B1 -P / | awk 'NR==2 {print $3}')
+cpu_model=$(awk -F': ' '/^model name/{print $2; exit}' /proc/cpuinfo 2>/dev/null || true)
 printf '%s %s %s %s %s %s %s\\n' "$cores" "$a" "$b" "$mem_total" "$mem_avail" "$disk_total" "$disk_used"
+printf '%s\\n' "$cpu_model"
 `
 
 const RETRY_MS = 3000
@@ -30,6 +34,7 @@ export function startMetrics(
   intervalSeconds: number,
   onError: (cause: unknown) => void,
   connect: typeof connectSsh = connectSsh,
+  enqueueTest?: (serverId: string) => Promise<unknown>,
 ): () => Promise<void> {
   const sessions = new Map<string, SshSession>()
   const revisions = new Map<string, string>()
@@ -37,6 +42,9 @@ export function startMetrics(
   const busy = new Set<string>()
   const tasks = new Set<Promise<void>>()
   let stopped = false
+  let lastRollup5m = 0
+  let lastRollup1h = 0
+  let lastCleanup = Date.now()
   const timer = setInterval(
     () => {
       const task = sampleAll()
@@ -51,9 +59,36 @@ export function startMetrics(
     Math.max(1, intervalSeconds) * 1000,
   )
 
+  const maintenance = setInterval(() => {
+    void maintain()
+  }, 60_000)
+  void maintain()
+
+  async function maintain(): Promise<void> {
+    if (stopped) return
+    const now = Date.now()
+    try {
+      if (lastRollup5m === 0 || now - lastRollup5m >= 5 * 60_000) {
+        await rollup5m(db, lastRollup5m === 0 ? 7 * 24 * 3600 : 2 * 3600)
+        lastRollup5m = now
+      }
+      if (lastRollup1h === 0 || now - lastRollup1h >= 60 * 60_000) {
+        await rollup1h(db, lastRollup1h === 0 ? 30 * 24 * 3600 : 2 * 24 * 3600)
+        lastRollup1h = now
+      }
+      if (now - lastCleanup >= 24 * 60 * 60_000) {
+        await cleanupMetrics(db)
+        lastCleanup = now
+      }
+    } catch (cause) {
+      onError(cause)
+    }
+  }
+
   return async () => {
     stopped = true
     clearInterval(timer)
+    clearInterval(maintenance)
     for (const session of sessions.values()) session.close()
     sessions.clear()
     await Promise.all(tasks)
@@ -117,7 +152,21 @@ export function startMetrics(
       const result = await session.exec(SAMPLE, 8000)
       if (stopped) return
       if (result.code !== 0) throw new Error(result.stderr || result.stdout || '采集失败')
-      await saveMetrics(db, id, parseSample(result.stdout), server.config_revision)
+      const sample = parseSample(result.stdout)
+      await saveMetrics(db, id, sample, server.config_revision)
+      try {
+        await recordMetric(db, id, sample)
+        if (enqueueTest !== undefined && await claimAutoRetry(db, id)) {
+          try {
+            await enqueueTest(id)
+          } catch (cause) {
+            await releaseAutoRetry(db, id)
+            onError(cause)
+          }
+        }
+      } catch (cause) {
+        onError(cause)
+      }
     } catch (cause) {
       void cause
       session?.close()

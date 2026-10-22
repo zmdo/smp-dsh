@@ -8,10 +8,11 @@ export async function saveMetrics(
   configRevision: string | number,
 ): Promise<void> {
   await db.query<never>(
-    `update server_runtime r set cpu_cores=$2,cpu_percent=$3,memory_total_bytes=$4,memory_used_bytes=$5,disk_total_bytes=$6,disk_used_bytes=$7,metrics_sampled_at=now(),metrics_error=null
-    from servers s where r.server_id=s.id and s.id=$1 and s.config_revision=$8`,
+    `update server_runtime r set cpu_model=$2,cpu_cores=$3,cpu_percent=$4,memory_total_bytes=$5,memory_used_bytes=$6,disk_total_bytes=$7,disk_used_bytes=$8,metrics_sampled_at=now(),metrics_error=null
+    from servers s where r.server_id=s.id and s.id=$1 and s.config_revision=$9`,
     [
       serverId,
+      sample.cpuModel,
       sample.cpuCores,
       sample.cpuPercent,
       sample.memTotalBytes,

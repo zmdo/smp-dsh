@@ -1,5 +1,5 @@
 import type { TaskDto, TaskPageDto, TaskResultDto } from '../../../shared/dto/tasks.ts'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { type ServerError } from '../../../shared/errors.ts'
 import {
   displayError,
@@ -39,6 +39,22 @@ export function TaskHistory(props: TaskHistoryProps) {
   const key = taskQuery(serverId, view)
   const data = loaded?.key === key ? loaded.data : undefined
 
+  // Filters are live; typing is debounced briefly so each keystroke does not hit the API.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onView({
+        ...view,
+        query: draft.query,
+        action: draft.action,
+        status: draft.status,
+        from: draft.from,
+        to: draft.to,
+        page: 1,
+      })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [draft.query, draft.action, draft.status, draft.from, draft.to])
+
   useEffect(() => {
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -68,11 +84,6 @@ export function TaskHistory(props: TaskHistoryProps) {
     }
   }, [key, props.refresh])
 
-  function search(event: FormEvent) {
-    event.preventDefault()
-    onView({ ...view, ...draft, page: 1 })
-  }
-
   function reset() {
     const next = emptyTaskView(view.pageSize)
     setDraft({ query: '', action: '', status: '', from: '', to: '' })
@@ -83,67 +94,57 @@ export function TaskHistory(props: TaskHistoryProps) {
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / view.pageSize))
   return (
     <section className="smp-task-history" aria-label={copy.taskReport}>
-      <p className="muted">{copy.inspectionHistoryHint}</p>
-      <form className="smp-task-filters" onSubmit={search}>
-        <label>
-          {copy.taskKeyword}
-          <input
-            type="search"
-            maxLength={200}
-            placeholder={copy.searchTasks}
-            value={draft.query}
-            onChange={(event) => setDraft({ ...draft, query: event.target.value })}
-          />
-        </label>
-        <label>
-          {copy.taskType}
-          <select
-            value={draft.action}
-            onChange={(event) => setDraft({ ...draft, action: event.target.value })}
-          >
-            <option value="">{copy.allTypes}</option>
-            {Object.entries(serverCopy(active).actions).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {copy.status}
-          <select
-            value={draft.status}
-            onChange={(event) => setDraft({ ...draft, status: event.target.value })}
-          >
-            <option value="">{copy.allStatuses}</option>
-            {Object.entries(serverCopy(active).jobStatus).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {copy.taskFrom}
+      <div className="smp-task-top">
+      <form className="smp-task-filters" onSubmit={(event) => event.preventDefault()}>
+        <input
+          type="search"
+          aria-label={copy.taskKeyword}
+          maxLength={200}
+          placeholder={copy.searchTasks}
+          value={draft.query}
+          onChange={(event) => setDraft({ ...draft, query: event.target.value })}
+        />
+        <select
+          aria-label={copy.taskType}
+          value={draft.action}
+          onChange={(event) => setDraft({ ...draft, action: event.target.value })}
+        >
+          <option value="">{copy.allTypes}</option>
+          {Object.entries(serverCopy(active).actions).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={copy.status}
+          value={draft.status}
+          onChange={(event) => setDraft({ ...draft, status: event.target.value })}
+        >
+          <option value="">{copy.allStatuses}</option>
+          {Object.entries(serverCopy(active).jobStatus).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <div className="smp-task-date-range" role="group" aria-label={`${copy.taskFrom} – ${copy.taskTo}`}>
           <input
             type="datetime-local"
+            aria-label={copy.taskFrom}
             value={draft.from}
             onChange={(event) => setDraft({ ...draft, from: event.target.value })}
           />
-        </label>
-        <label>
-          {copy.taskTo}
+          <span aria-hidden="true">–</span>
           <input
             type="datetime-local"
+            aria-label={copy.taskTo}
             min={draft.from || undefined}
             value={draft.to}
             onChange={(event) => setDraft({ ...draft, to: event.target.value })}
           />
-        </label>
-        <button className="secondary" type="submit">
-          {copy.search}
-        </button>
-        <button className="link" type="button" onClick={reset}>
+        </div>
+        <button className="secondary" type="button" onClick={reset}>
           {copy.reset}
         </button>
       </form>
@@ -152,8 +153,9 @@ export function TaskHistory(props: TaskHistoryProps) {
           {displayError(active, error)}
         </p>
       )}
+      </div>
       <div className="table-scroll" aria-busy={!data && !error}>
-        <table className="smp-task-table">
+        <table className="smp-task-table smp-table">
           <thead>
             <tr>
               <th>{copy.createdAt}</th>
@@ -187,7 +189,7 @@ export function TaskHistory(props: TaskHistoryProps) {
           data.items.length === 0 && <p className="empty">{copy.noTasks}</p>
         )}
       </div>
-      <footer className="smp-server-pager" aria-label={copy.taskPagination}>
+      <div className="smp-server-pager smp-task-pager" aria-label={copy.taskPagination}>
         <span>
           {format(data?.total ? copy.taskRange : copy.taskTotal, {
             count: data?.total ?? 0,
@@ -228,7 +230,7 @@ export function TaskHistory(props: TaskHistoryProps) {
             {copy.next}
           </button>
         </div>
-      </footer>
+      </div>
     </section>
   )
 }

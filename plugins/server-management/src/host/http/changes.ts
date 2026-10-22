@@ -19,7 +19,7 @@ import {
   listSuggestions,
 } from '../upgrades/service.ts'
 import { readJson, sendJson } from './reply.ts'
-import { parseSuggestionQuery, parseUpgradePage } from './upgrade-query.ts'
+import { parseRecordFilter, parseSuggestionQuery, parseUpgradePage, parseUpgradePageSize } from './upgrade-query.ts'
 
 const uuid = /^[a-f\d]{8}(-[a-f\d]{4}){3}-[a-f\d]{12}$/i
 export async function routeChanges(
@@ -66,6 +66,6 @@ export async function routeChanges(
   if (parts[0] === 'versions' && req.method === 'POST')
     return sendJson(res, 200, await commonVersions(deps, await readJson(req)))
   if (parts[0] === 'records' && req.method === 'GET')
-    return sendJson(res, 200, await executionRecords(deps, parseUpgradePage(params)))
+    return sendJson(res, 200, await executionRecords(deps, parseUpgradePage(params), parseUpgradePageSize(params), parseRecordFilter(params)))
   throw new HttpError(404, 'plan_not_ready')
 }

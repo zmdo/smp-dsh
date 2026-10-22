@@ -30,6 +30,14 @@ export function unbindMembers(db: Db, id: string) {
   )
 }
 
+export function renameGroup(db: Db, id: string, name: string) {
+  return db.query<GroupRow>(
+    `update server_groups g set name=$2 where g.id=$1 returning g.*,
+      (select count(*)::int from servers s where s.group_id = g.id) as server_count`,
+    [id, name],
+  )
+}
+
 export function deleteGroup(db: Db, id: string) {
   return db.query<never>('delete from server_groups where id = $1', [id])
 }

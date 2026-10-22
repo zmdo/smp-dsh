@@ -1,5 +1,5 @@
 import { Panel } from '@smp/console-kit'
-import { useSyncExternalStore } from 'react'
+import { useSyncExternalStore, type ReactNode } from 'react'
 import { serverCopy, type LocaleFace } from '../../shared/i18n.ts'
 import { ChangePlan } from '../changes/ChangePlan.tsx'
 import { useActiveLocale } from '../shared/locale.ts'
@@ -38,27 +38,32 @@ export function UpgradesPage(props: {
         />
       </Panel>
     )
-  return (
-    <Panel
-      className="smp-upgrade-page"
-      title={c[tab]}
-      extra={
-        context?.serverId ? (
-          <button
-            className="link"
-            onClick={() => {
-              props.pageState.update({ screen: 'detail', serverId: context.serverId! })
-              props.openConsole?.('servers')
-            }}
-          >
-            {c.back}
-          </button>
-        ) : undefined
-      }
+  const back: ReactNode = context?.serverId ? (
+    <button
+      className="link"
+      onClick={() => {
+        props.pageState.update({ screen: 'detail', serverId: context.serverId! })
+        props.openConsole?.('servers')
+      }}
     >
+      {c.back}
+    </button>
+  ) : undefined
+  if (tab === 'plans')
+    return <UpgradePlans active={active} onPlan={setPlan} back={back} />
+  if (tab === 'records')
+    return (
+      <UpgradeRecords
+        active={active}
+        page={page}
+        onPage={setPage}
+        onPlan={setPlan}
+        back={back}
+      />
+    )
+  return (
+    <Panel className={`smp-upgrade-page${tab === 'records' ? ' smp-list-panel' : ''}`} title={c[tab]} extra={back}>
       {tab === 'suggestions' && <UpgradeSuggestions model={suggestions} />}
-      {tab === 'plans' && <UpgradePlans active={active} onPlan={setPlan} />}
-      {tab === 'records' && <UpgradeRecords active={active} page={page} onPage={setPage} onPlan={setPlan} />}
     </Panel>
   )
 }

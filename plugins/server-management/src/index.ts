@@ -12,6 +12,8 @@ import { connectSsh } from './host/remote/ssh.ts'
 import { terminalRoute } from './host/remote/terminal.ts'
 import { Enrollment } from './host/servers/enrollment.ts'
 import { startMetrics } from './host/servers/metrics.ts'
+import { enqueueExisting } from './host/servers/service.ts'
+import { registerServerOpsGroup, type WorkspaceGroupsService } from './host/workspace-group.ts'
 
 export { ServerManagement } from './host/definitions/service.ts'
 export type { LocalizedText } from './shared/contracts/common.ts'
@@ -93,6 +95,9 @@ export const inject = ['webServer', 'database', 'secrets', 'consoleSession']
 export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() => void | Promise<void>> {
   const catalog = builtinCatalog()
   const db = ctx.database.pool
+  ctx.inject(['workspaceGroups'], (child: Context & { workspaceGroups: WorkspaceGroupsService }) => {
+    void registerServerOpsGroup(child.workspaceGroups).catch((cause: unknown) => ctx.logger.warn(cause))
+  })
   const definitions = new DefinitionRegistry(db, catalog)
   const extensions = new ServerExtensionRegistry(definitions)
   const connect: typeof connectSsh = (input) =>
@@ -120,6 +125,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
         ctx.logger.error(cause)
       },
       connect,
+      (serverId) => enqueueExisting(deps, serverId, 'test_connection', 'scheduled'),
     )
     yield () => enrollment.close()
     yield* registerRoutes(ctx, deps)

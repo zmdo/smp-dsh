@@ -70,8 +70,8 @@ test('switching extension settings isolates late loads and preserves each draft'
   assert.equal(input('a').props.value, 'draft-a')
   // A's save may finish after B is active; it must only update A's retained editor.
   await act(async () => {
-    const section = view.root.findByProps({ 'aria-label': 'a' })
-    section.findAllByType('button').find((button) => button.children[0] === 'Save')!.props.onClick()
+    const actions = view.root.findByProps({ 'data-extension-actions': '@test/a' })
+    actions.findAllByType('button').find((button) => button.children[0] === 'Save')!.props.onClick()
   })
   await select('b')
   await respond('a')

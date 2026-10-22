@@ -26,7 +26,7 @@ test('task history query keeps the server id, committed filters, page and page s
   const bare = new URLSearchParams(taskQuery('server-b', emptyTaskView()))
   assert.equal(bare.get('server_id'), 'server-b')
   assert.equal(bare.get('page'), '1')
-  assert.equal(bare.get('page_size'), '10')
+  assert.equal(bare.get('page_size'), '20')
   assert.equal(bare.get('from'), null)
   assert.equal(bare.get('to'), null)
 })

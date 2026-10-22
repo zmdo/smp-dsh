@@ -26,7 +26,7 @@ export function AuthenticationFields(props: { form: ServerFormModel }) {
     user,
   } = props.form
   return (
-    <section className="smp-server-form-section" aria-label={copy.authenticationInfo}>
+    <section className="smp-server-form-section smp-card" aria-label={copy.authenticationInfo}>
       <h2>{copy.authenticationInfo}</h2>
       <div className="smp-server-form-section-body">
         <div className="smp-server-address-row">

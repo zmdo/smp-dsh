@@ -9,6 +9,8 @@ import {
   serverCopy,
 } from '../../shared/i18n.ts'
 import { zonedTime } from '../../shared/schedule-time.ts'
+import { TableCard } from '@smp/console-kit'
+import { Dialog, DialogButton } from '@smp/console-kit/dialog'
 import { api, requestError } from '../shared/api.ts'
 const localDate = (value: Date) =>
   new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
@@ -17,6 +19,7 @@ export function ChangePlan(props: {
   id: string
   onClose: () => void
   onNewPlan?: (id: string) => void
+  dialog?: boolean
 }) {
   const { active } = props,
     c = serverCopy(active).upgrades
@@ -85,8 +88,32 @@ export function ChangePlan(props: {
   const needsReplacement = mutations.some((ch) => ch.action === 'replace'),
     needsMajor = plan?.targets.some((t) => t.target_snapshot.risks?.major) ?? false,
     needsService = mutations.some((ch) => ch.effects.length)
-  return (
-    <section className="smp-change-plan">
+  const dialogFooter = props.dialog === true && plan !== undefined ? (
+    <>
+      {plan.state === 'awaiting_confirmation' && (
+        <DialogButton
+          variant="primary"
+          disabled={busy || (needsReplacement && !replacement) || (needsMajor && !major) || (needsService && !service)}
+          onClick={() => void act('confirm')}
+        >
+          {c.confirm}
+        </DialogButton>
+      )}
+      {['scheduled', 'running'].includes(plan.state) && (
+        <DialogButton disabled={busy} onClick={() => void act('pause')}>{c.pause}</DialogButton>
+      )}
+      {['draft', 'awaiting_confirmation', 'scheduled', 'running', 'paused', 'blocked', 'partial_failure'].includes(plan.state) && (
+        <DialogButton disabled={busy} onClick={() => void act('cancel')}>{c.cancel}</DialogButton>
+      )}
+      {['paused', 'blocked', 'partial_failure', 'missed', 'cancelled'].includes(plan.state) && (
+        <DialogButton disabled={busy || plan.targets.some((t) => t.state === 'running')} onClick={() => void act('retry')}>
+          {c.retry}
+        </DialogButton>
+      )}
+    </>
+  ) : undefined
+  const body = (
+    <section className={`smp-change-plan${props.dialog === true ? ' smp-plan-dialog' : ''}`}>
       <div className="row">
         <h2>
           {c.planId} {props.id.slice(0, 8)}
@@ -108,15 +135,34 @@ export function ChangePlan(props: {
               {plan.targets.filter((t) => t.state === 'running').length})
             </b>
           </p>
-          <p className="muted">{c.executionHint}</p>
+          {plan.targets.length > 1 && <p className="muted">{c.executionHint}</p>}
           {plan.targets.map((t) => (
-            <section className="smp-plan-target" key={t.id}>
-              <h3>
-                {t.server_snapshot.name} <small>{t.server_snapshot.host}</small>
-              </h3>
-              <p>
-                {enumLabel(c, t.preflight_state)} · {enumLabel(c, t.state)}
-              </p>
+            <TableCard
+              className="smp-plan-target"
+              key={t.id}
+              title={
+                <span className="smp-plan-target-name">
+                  {t.server_snapshot.name} <small>{t.server_snapshot.host}</small>
+                </span>
+              }
+              extra={
+                <span
+                  className={`smp-plan-state ${
+                    t.preflight_state === 'failed'
+                      ? 'is-failed'
+                      : t.state === 'running'
+                        ? 'is-running'
+                        : t.state === 'pending'
+                          ? 'is-pending'
+                          : t.state === 'succeeded'
+                            ? 'is-success'
+                            : 'is-neutral'
+                  }`}
+                >
+                  {enumLabel(c, t.preflight_state)} · {enumLabel(c, t.state)}
+                </span>
+              }
+            >
               {!!t.preflight_error && (
                 <p className="banner error">
                   {displayJobError(
@@ -127,7 +173,7 @@ export function ChangePlan(props: {
               )}
               {(t.target_snapshot.changes ?? []).length ? (
                 <div className="smp-upgrade-scroll">
-                  <table>
+                  <table className="smp-table">
                     <thead>
                       <tr>
                         <th>{c.software}</th>
@@ -187,45 +233,45 @@ export function ChangePlan(props: {
                   <pre>{JSON.stringify(t.result, null, 2)}</pre>
                 </details>
               )}
-            </section>
+            </TableCard>
           ))}
           {plan.state === 'awaiting_confirmation' && (
             <div className="smp-plan-confirm">
               <p className="banner ok">{c.preflightReady}</p>
-              <p>{c.confirmHint}</p>
               <label>
                 <input type="checkbox" checked={immediate} onChange={(e) => setImmediate(e.target.checked)} />
                 {c.immediate}
               </label>
-              <div className="smp-upgrade-fields">
-                <label className="field">
-                  {c.start}
-                  <input
-                    type="datetime-local"
-                    disabled={immediate}
-                    value={start}
-                    onChange={(e) => setStart(e.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  {c.end}
-                  <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
-                </label>
-                <label className="field">
-                  {c.timezone}
-                  <input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
-                </label>
-                <label className="field">
-                  {c.concurrency}
-                  <input
-                    type="number"
-                    min="1"
-                    max="4"
-                    value={concurrency}
-                    onChange={(e) => setConcurrency(Number(e.target.value))}
-                  />
-                </label>
-              </div>
+              {!immediate && (
+                <div className="smp-upgrade-fields">
+                  <label className="field">
+                    {c.start}
+                    <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    {c.end}
+                    <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    {c.timezone}
+                    <input value={timezone} onChange={(e) => setTimezone(e.target.value)} />
+                  </label>
+                </div>
+              )}
+              {plan.targets.length > 1 && (
+                <div className="smp-upgrade-fields">
+                  <label className="field">
+                    {c.concurrency}
+                    <input
+                      type="number"
+                      min="1"
+                      max="4"
+                      value={concurrency}
+                      onChange={(e) => setConcurrency(Number(e.target.value))}
+                    />
+                  </label>
+                </div>
+              )}
               {needsReplacement && (
                 <label className="smp-upgrade-ack">
                   <input
@@ -248,6 +294,19 @@ export function ChangePlan(props: {
                   {c.ackService}
                 </label>
               )}
+            </div>
+          )}
+          {plan.state === 'awaiting_confirmation' && (
+            <p className="smp-section-hint">{c.confirmHint}</p>
+          )}
+          {plan.window_start && (
+            <p>
+              {formatDate(plan.window_start, active)} – {formatDate(plan.window_end, active)} ·{' '}
+              {plan.request_snapshot.execution?.timezone}
+            </p>
+          )}
+          <div className="row">
+            {plan.state === 'awaiting_confirmation' && props.dialog !== true && (
               <button
                 type="button"
                 className="primary"
@@ -261,15 +320,7 @@ export function ChangePlan(props: {
               >
                 {c.confirm}
               </button>
-            </div>
-          )}
-          {plan.window_start && (
-            <p>
-              {formatDate(plan.window_start, active)} – {formatDate(plan.window_end, active)} ·{' '}
-              {plan.request_snapshot.execution?.timezone}
-            </p>
-          )}
-          <div className="row">
+            )}
             {['scheduled', 'running'].includes(plan.state) && (
               <button className="secondary" disabled={busy} onClick={() => void act('pause')}>
                 {c.pause}
@@ -302,4 +353,18 @@ export function ChangePlan(props: {
       )}
     </section>
   )
+  if (props.dialog === true)
+    return (
+      <Dialog
+        open
+        title={`${c.planId} ${props.id.slice(0, 8)}`}
+        closeLabel={c.close}
+        onClose={props.onClose}
+        className="smp-dialog-plan"
+        footer={dialogFooter}
+      >
+        {body}
+      </Dialog>
+    )
+  return body
 }

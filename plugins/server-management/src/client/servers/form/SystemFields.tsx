@@ -3,7 +3,7 @@ import { OS_CATALOG } from '../../../shared/operating-systems.ts'
 import { RequiredSoftware } from '../components/RequiredSoftware.tsx'
 import { SoftwarePolicies } from '../components/SoftwarePolicies.tsx'
 import type { ServerFormModel } from './useServerForm.ts'
-export function SystemFields(props: { form: ServerFormModel; editing: boolean; showPolicies?: boolean }) {
+export function SystemFields(props: { form: ServerFormModel; editing: boolean; showPolicies?: boolean; showRequiredSoftware?: boolean }) {
   const {
     active,
     applicableTypes,
@@ -40,7 +40,7 @@ export function SystemFields(props: { form: ServerFormModel; editing: boolean; s
     typeKey,
   } = props.form
   return (
-    <section className="smp-server-form-section" aria-label={copy.systemInfo}>
+    <section className="smp-server-form-section smp-card" aria-label={copy.systemInfo}>
       <h2>{copy.systemInfo}</h2>
       <div className="smp-server-form-section-body">
         <label className="field">
@@ -153,7 +153,9 @@ export function SystemFields(props: { form: ServerFormModel; editing: boolean; s
           </p>
         )}
         {identified && !identified.software_available && <p className="muted">{copy.typeUnavailable}</p>}
-        <RequiredSoftware active={active} software={software} status={softwareStatus} />
+        {props.showRequiredSoftware !== false && (
+          <RequiredSoftware active={active} software={software} status={softwareStatus} />
+        )}
         {props.showPolicies !== false && (
           <>
             <SoftwarePolicies

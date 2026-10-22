@@ -1,12 +1,19 @@
+import { useState } from 'react'
 import { Panel } from '@smp/console-kit'
+import { Dialog as Modal, DialogButton as Button } from '@smp/console-kit/dialog'
 import { displayError, format, groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
 import { SERVER_STATES } from '../../../shared/server-status.ts'
 import type { ServerListView as ListView } from '../../shared/server-page-state.ts'
 import { ServerLine } from './ServerLine.tsx'
+import type { ServerListItem } from '../../../shared/dto/servers.ts'
 import type { ServerListProps } from './useServerList.ts'
 import { useServerList } from './useServerList.ts'
 export function ServerList(props: ServerListProps) {
   const model = useServerList(props)
+  const [removing, setRemoving] = useState<ServerListItem | null>(null)
+  const [removingBusy, setRemovingBusy] = useState(false)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const {
     actionError,
     active,
@@ -26,6 +33,10 @@ export function ServerList(props: ServerListProps) {
     page,
     pages,
     removeGroup,
+    removeServer,
+    renameGroup,
+    refreshing,
+    retryConnections,
     rows,
     selectGroup,
     setAddingGroup,
@@ -115,6 +126,12 @@ export function ServerList(props: ServerListProps) {
               count={group.server_count}
               selected={groupId === group.id}
               onSelect={() => selectGroup(group.id)}
+              renaming={renamingId === group.id}
+              renameValue={renameValue}
+              onRenameStart={group.kind === 'user' ? () => { setRenamingId(group.id); setRenameValue(localizedGroupName(active, group)) } : undefined}
+              onRenameChange={group.kind === 'user' ? setRenameValue : undefined}
+              onRenameCancel={group.kind === 'user' ? () => setRenamingId(null) : undefined}
+              onRenameSave={group.kind === 'user' ? () => { void renameGroup(group.id, renameValue).then((ok) => { if (ok) setRenamingId(null) }) } : undefined}
               onDelete={
                 group.kind === 'user'
                   ? () => {
@@ -134,19 +151,6 @@ export function ServerList(props: ServerListProps) {
         </nav>
       </aside>
       <div className="smp-server-main">
-        <div className="row">
-          <label>
-            <input
-              type="checkbox"
-              checked={view.needsUpgrade ?? false}
-              onChange={(e) => onView({ ...view, needsUpgrade: e.target.checked, page: 1 })}
-            />
-            {serverCopy(active).upgrades.needsUpgrade}
-          </label>
-          <button className="link" onClick={props.onUpgrades}>
-            {serverCopy(active).upgrades.openUpgrades}
-          </button>
-        </div>
         <Panel
           title={
             <>
@@ -189,6 +193,20 @@ export function ServerList(props: ServerListProps) {
                 <option value="name">{copy.orderByName}</option>
                 <option value="last_checked">{copy.orderByLastCheck}</option>
               </select>
+              <button
+                className={`smp-server-header-icon${refreshing ? ' is-busy' : ''}`}
+                type="button"
+                aria-label={copy.retryConnections}
+                title={copy.retryConnections}
+                disabled={refreshing || rows.length === 0}
+                onClick={() => {
+                  void retryConnections()
+                }}
+              >
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path d="M13 5.2A5.5 5.5 0 0 0 3.5 4M13 2.5v3.2h-3.2M3 10.8A5.5 5.5 0 0 0 12.5 12M3 13.5v-3.2h3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
               <button className="primary" type="button" onClick={props.onCreate}>
                 {copy.registerServer}
               </button>
@@ -206,17 +224,25 @@ export function ServerList(props: ServerListProps) {
                 <tr>
                   <th>{copy.name}</th>
                   <th>{copy.address}</th>
+                  <th>{copy.region}</th>
                   <th>{copy.operatingSystem}</th>
                   <th>{copy.serverType}</th>
                   <th>{copy.status}</th>
-                  <th>{copy.installRequiredSoftware}</th>
                   <th>{copy.resourceOverview}</th>
                   <th>{copy.lastCheck}</th>
+                  <th>{copy.actions}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((server) => (
-                  <ServerLine active={active} key={server.id} server={server} onOpen={props.onOpen} />
+                  <ServerLine
+                    active={active}
+                    key={server.id}
+                    server={server}
+                    onOpen={props.onOpen}
+                    onTerminal={props.onTerminal}
+                    onRemove={setRemoving}
+                  />
                 ))}
               </tbody>
             </table>
@@ -284,6 +310,36 @@ export function ServerList(props: ServerListProps) {
           </footer>
         </Panel>
       </div>
+      <Modal
+        open={removing !== null}
+        title={copy.removeServer}
+        closeLabel={serverCopy(active).upgrades.close}
+        onClose={() => setRemoving(null)}
+        footer={
+          <>
+            <Button disabled={removingBusy} onClick={() => setRemoving(null)}>
+              {copy.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={removingBusy}
+              onClick={() => {
+                if (removing === null) return
+                setRemovingBusy(true)
+                void removeServer(removing.id).then((ok) => {
+                  setRemovingBusy(false)
+                  if (ok) setRemoving(null)
+                })
+              }}
+            >
+              {copy.remove}
+            </Button>
+          </>
+        }
+      >
+        <p>{format(copy.removeServerHint, { name: removing?.name ?? '' })}</p>
+        {actionError !== null && <p className="banner error" role="alert">{displayError(active, actionError)}</p>}
+      </Modal>
     </div>
   )
 }
@@ -297,8 +353,54 @@ function GroupChoice(props: {
   source?: string
   onSelect: () => void
   onDelete?: () => void
+  renaming?: boolean
+  renameValue?: string
+  onRenameStart?: () => void
+  onRenameChange?: (value: string) => void
+  onRenameCancel?: () => void
+  onRenameSave?: () => void
 }) {
   const copy = serverCopy(props.active).ui
+  if (props.renaming)
+    return (
+      <form
+        className="smp-server-group smp-server-group-rename"
+        onSubmit={(event) => {
+          event.preventDefault()
+          props.onRenameSave?.()
+        }}
+      >
+        <input
+          aria-label={copy.groupName}
+          value={props.renameValue ?? ''}
+          maxLength={80}
+          autoFocus
+          onChange={(event) => props.onRenameChange?.(event.target.value)}
+        />
+        <button
+          className="smp-server-group-icon-button"
+          type="submit"
+          aria-label={copy.save}
+          title={copy.save}
+          disabled={(props.renameValue ?? '').trim() === ''}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="m3.2 8.2 3.1 3.1 6.5-6.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <button
+          className="smp-server-group-icon-button"
+          type="button"
+          aria-label={copy.cancel}
+          title={copy.cancel}
+          onClick={props.onRenameCancel}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="m4 4 8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+      </form>
+    )
   return (
     <div className={`smp-server-group${props.selected ? ' is-on' : ''}`}>
       <button
@@ -318,6 +420,19 @@ function GroupChoice(props: {
         </span>
         <span className="smp-server-group-count">{props.count}</span>
       </button>
+      {props.onRenameStart && (
+        <button
+          className="smp-server-group-rename-button"
+          type="button"
+          aria-label={format(copy.renameGroupNamed, { name: props.label })}
+          title={copy.renameGroup}
+          onClick={props.onRenameStart}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <path d="M10.5 2.8 13.2 5.5 6 12.7l-3.2.7.7-3.2z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
       {props.onDelete && (
         <button
           className="smp-server-group-delete"

@@ -104,10 +104,15 @@ export async function commonVersions(deps: UpgradeDeps, body: unknown) {
       )
   return { versions, blockers }
 }
-export async function executionRecords(deps: UpgradeDeps, page: number): Promise<RecordPage> {
+export async function executionRecords(
+  deps: UpgradeDeps,
+  page: number,
+  pageSize = 20,
+  filter: upgrades.RecordFilter = { query: '', state: '', since: null },
+): Promise<RecordPage> {
   const db = deps.db
-  const rows = (await upgrades.records(db, (page - 1) * 20)).rows
-  const total = (await upgrades.recordCount(db)).rows[0]!.count
+  const rows = (await upgrades.records(db, (page - 1) * pageSize, pageSize, filter)).rows
+  const total = (await upgrades.recordCount(db, filter)).rows[0]!.count
   return {
     items: rows.map((row) => ({
       ...row,
@@ -116,7 +121,7 @@ export async function executionRecords(deps: UpgradeDeps, page: number): Promise
     })),
     total: Number(total),
     page,
-    page_size: 20,
+    page_size: pageSize,
   }
 }
 export async function decideSuggestion(deps: UpgradeDeps, id: string, action: string, body: unknown) {

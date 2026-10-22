@@ -43,7 +43,7 @@ export function ServerSettings(props: {
     ...extensions.map((entry) => ({ key: `extension:${entry.key}`, label: localized(entry.name, active) })),
   ]
   return (
-    <Panel title={copy.configuration} className="smp-server-settings-panel">
+    <Panel className="smp-server-settings-panel">
       <nav className="smp-settings-tabs" aria-label={copy.configuration}>
         {tabs.map((tab) => (
           <button
@@ -68,7 +68,7 @@ export function ServerSettings(props: {
           <PolicySettings active={active} form={form} />
         ) : null}
         {extensions.filter((entry) => visited.has(`extension:${entry.key}`)).map((entry) => (
-          <div key={`${serverId}:${entry.key}`} hidden={section !== `extension:${entry.key}`}>
+          <div className="smp-settings-pane" key={`${serverId}:${entry.key}`} hidden={section !== `extension:${entry.key}`}>
             <ExtensionSettingsSection
               active={active}
               server={server}

@@ -11,6 +11,7 @@ test('a metric sample clamps cpu and disk', () => {
   assert.equal(sample.cpuPercent, 80)
   assert.equal(sample.memTotalBytes, 1024 * 1024)
   assert.equal(sample.diskUsedBytes, 1000)
+  assert.equal(parseSample('2 100 80 200 100 1024 512 1000 1200\nAMD EPYC').cpuModel, 'AMD EPYC')
 })
 
 test('a written region wins and a private address is local', () => {

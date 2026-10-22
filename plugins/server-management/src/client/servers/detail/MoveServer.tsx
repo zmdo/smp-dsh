@@ -11,6 +11,7 @@ import type { DeclaredOs } from '../../../shared/operating-systems.ts'
 import type { SoftwarePolicy } from '../../../shared/policies.ts'
 import { ChangePlan } from '../../changes/ChangePlan.tsx'
 import { api, requestError } from '../../shared/api.ts'
+import { Dialog as Modal, DialogButton as Button } from '@smp/console-kit/dialog'
 import { SoftwarePolicies } from '../components/SoftwarePolicies.tsx'
 export function MoveServer(props: {
   active: string
@@ -97,74 +98,76 @@ export function MoveServer(props: {
       setBusy(false)
     }
   }
+  if (plan !== '') {
+    return (
+      <ChangePlan key={plan} dialog active={active} id={plan} onNewPlan={setPlan} onClose={props.onClose} />
+    )
+  }
   return (
-    <div className="smp-upgrade-modal" role="dialog" aria-modal="true" aria-label={c.moveServer}>
-      <div className="smp-upgrade-dialog">
-        {plan ? (
-          <ChangePlan key={plan} active={active} id={plan} onNewPlan={setPlan} onClose={props.onClose} />
-        ) : (
-          <>
-            <div className="row">
-              <h2>{c.moveServer}</h2>
-              <button className="link" onClick={props.onClose}>
-                {c.close}
-              </button>
-            </div>
-            <p>{c.moveHint}</p>
-            {error && (
-              <p className="banner error" role="alert">
-                {error}
-              </p>
-            )}
-            <div className="smp-upgrade-fields">
-              <label className="field">
-                {c.destination}
-                <select value={group} onChange={(e) => changeGroup(e.target.value)}>
-                  <option value="">{ui.ungrouped}</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id} disabled={!g.available}>
-                      {groupName(active, g)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                {c.targetType}
-                <select value={type} onChange={(e) => setType(e.target.value)}>
-                  {!selected && <option value="">{ui.osChoose}</option>}
-                  {types.map((t) => (
-                    <option key={t.key} value={t.key}>
-                      {localized(t.name_i18n, active)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <SoftwarePolicies
-              active={active}
-              software={software}
-              value={policies.filter((p) => software.some((s) => s.software_key === p.software_key))}
-              onChange={setPolicies}
-            />
-            <label className="smp-upgrade-ack">
-              <input
-                type="checkbox"
-                checked={install}
-                disabled={!software.length}
-                onChange={(e) => setInstall(e.target.checked)}
-              />
-              {c.installMissing}
-            </label>
-            <button
-              className="primary"
-              disabled={busy || !selected || !choices?.available}
-              onClick={() => void preflight()}
-            >
-              {c.preflight}
-            </button>
-          </>
-        )}
+    <Modal
+      open
+      title={c.moveServer}
+      closeLabel={c.close}
+      onClose={props.onClose}
+      className="smp-dialog-wide smp-dialog-move"
+      footer={
+        <>
+          <Button onClick={props.onClose}>{c.close}</Button>
+          <Button
+            variant="primary"
+            disabled={busy || !selected || !choices?.available}
+            onClick={() => void preflight()}
+          >
+            {c.preflight}
+          </Button>
+        </>
+      }
+    >
+      <p>{c.moveHint}</p>
+      {error && (
+        <p className="banner error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="smp-upgrade-fields">
+        <label className="field">
+          {c.destination}
+          <select value={group} onChange={(e) => changeGroup(e.target.value)}>
+            <option value="">{ui.ungrouped}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id} disabled={!g.available}>
+                {groupName(active, g)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          {c.targetType}
+          <select value={type} onChange={(e) => setType(e.target.value)}>
+            {!selected && <option value="">{ui.osChoose}</option>}
+            {types.map((t) => (
+              <option key={t.key} value={t.key}>
+                {localized(t.name_i18n, active)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-    </div>
+      <SoftwarePolicies
+        active={active}
+        software={software}
+        value={policies.filter((p) => software.some((s) => s.software_key === p.software_key))}
+        onChange={setPolicies}
+      />
+      <label className="smp-upgrade-ack">
+        <input
+          type="checkbox"
+          checked={install}
+          disabled={!software.length}
+          onChange={(e) => setInstall(e.target.checked)}
+        />
+        {c.installMissing}
+      </label>
+    </Modal>
   )
 }

@@ -16,10 +16,10 @@ export function counts(db: Db) {
 export function servers(db: Db, { id, allGroups, groupId }: ServerScope) {
   return db.query<ServerFact>(
     `select s.id,s.name,s.host,s.ssh_port,s.ssh_user,s.auth_method,s.ssh_key_id,s.group_id,
-      s.region,s.install_required_software,s.type_key,s.type_snapshot,s.type_revision,s.config_revision,s.declared_os,s.host_fingerprint,s.created_at,
+      s.region,s.internal_host,s.install_required_software,s.type_key,s.type_snapshot,s.type_revision,s.config_revision,s.declared_os,s.host_fingerprint,s.created_at,
       r.connection_state as reachability,r.connection_error,r.connection_checked_at as last_checked_at,
       r.detected_os,r.os_probe_state,r.observed_config_revision,r.environment_revision,r.os_checked_at,r.os_error,
-      r.cpu_cores,r.cpu_percent,r.memory_total_bytes as mem_total_bytes,r.memory_used_bytes as mem_used_bytes,r.disk_total_bytes,r.disk_used_bytes,r.metrics_sampled_at as metrics_at
+      r.cpu_model,r.cpu_cores,r.cpu_percent,r.memory_total_bytes as mem_total_bytes,r.memory_used_bytes as mem_used_bytes,r.disk_total_bytes,r.disk_used_bytes,r.metrics_sampled_at as metrics_at
       from servers s join server_runtime r on r.server_id=s.id
       where ($1::uuid is null or s.id=$1) and ($2::boolean or s.group_id is not distinct from $3::uuid)`,
     [id, allGroups, groupId],

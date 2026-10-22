@@ -126,54 +126,8 @@ export function ExtensionSettingsSection(props: {
     }
   }
 
-  return (
-    <section className="smp-extension-settings" aria-label={localized(entry.name, active)}>
-      <div className="row smp-extension-settings-head">
-        <h3>{localized(entry.name, active)}</h3>
-        {saved && !dirty && <span className="muted">{copy.extensionSaved}</span>}
-      </div>
-      {loading ? (
-        <p className="muted">{copy.loading}</p>
-      ) : loaded ? (
-        <ExtensionHost
-          active={active}
-          slot={SETTINGS_SECTION_SLOT}
-          entry={entry.key}
-          owner={{
-            server,
-            active,
-            refresh: props.onSaved,
-            api: extensionApi,
-            settings: {
-              value: draft,
-              revision,
-              dirty,
-              saving,
-              error,
-              onChange: (value) => {
-                if (saving) return
-                setDraft(value)
-                setPlanned(undefined)
-              },
-            },
-          }}
-          renderSlot={props.renderSlot as never}
-          slots={props.slots}
-        />
-      ) : null}
-      {error !== null && <p className="banner error">
-        {displayError(active, error)}{' '}
-        {!loaded && <button className="link" type="button" onClick={() => { void load() }}>{copy.extensionReload}</button>}
-      </p>}
-      {conflict && (
-        <p className="banner error">
-          {copy.extensionConflictReload}{' '}
-          <button className="link" type="button" onClick={() => { void load() }}>
-            {copy.extensionReload}
-          </button>
-        </p>
-      )}
-      {entry.affectsExecution === true && <p className="muted">{copy.extensionRequiresPlan}</p>}
+  const actions = (
+    <>
       {entry.affectsExecution === true ? (
         <>
           {planned !== undefined && (
@@ -220,6 +174,64 @@ export function ExtensionSettingsSection(props: {
           {dirty && <span className="muted">{copy.unsavedChanges}</span>}
         </div>
       )}
+    </>
+  )
+
+  return (
+    <>
+    <div className="smp-extension-settings-pane">
+    <div className="smp-extension-settings-body smp-settings-scroll">
+    <section className="smp-extension-settings smp-card" aria-label={localized(entry.name, active)}>
+      <div className="row smp-extension-settings-head">
+        <h3>{localized(entry.name, active)}</h3>
+        {saved && !dirty && <span className="muted">{copy.extensionSaved}</span>}
+      </div>
+      {loading ? (
+        <p className="muted">{copy.loading}</p>
+      ) : loaded ? (
+        <ExtensionHost
+          active={active}
+          slot={SETTINGS_SECTION_SLOT}
+          entry={entry.key}
+          owner={{
+            server,
+            active,
+            refresh: props.onSaved,
+            api: extensionApi,
+            settings: {
+              value: draft,
+              revision,
+              dirty,
+              saving,
+              error,
+              onChange: (value) => {
+                if (saving) return
+                setDraft(value)
+                setPlanned(undefined)
+              },
+            },
+          }}
+          renderSlot={props.renderSlot as never}
+          slots={props.slots}
+        />
+      ) : null}
+      {error !== null && <p className="banner error">
+        {displayError(active, error)}{' '}
+        {!loaded && <button className="link" type="button" onClick={() => { void load() }}>{copy.extensionReload}</button>}
+      </p>}
+      {conflict && (
+        <p className="banner error">
+          {copy.extensionConflictReload}{' '}
+          <button className="link" type="button" onClick={() => { void load() }}>
+            {copy.extensionReload}
+          </button>
+        </p>
+      )}
+      {entry.affectsExecution === true && <p className="muted">{copy.extensionRequiresPlan}</p>}
     </section>
+    </div>
+    <div data-extension-actions={entry.key}>{actions}</div>
+    </div>
+    </>
   )
 }

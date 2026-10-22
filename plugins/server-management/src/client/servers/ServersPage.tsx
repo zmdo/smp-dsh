@@ -75,6 +75,9 @@ export function ServersPage(props: {
       onOpen={(id) => {
         props.pageState.openServer(id)
       }}
+      onTerminal={(id) => {
+        props.pageState.update({ screen: 'detail', serverId: id, editing: false, detailPanel: 'terminal' })
+      }}
       onCreate={() => {
         props.pageState.update({
           screen: 'form',

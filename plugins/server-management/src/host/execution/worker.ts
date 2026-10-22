@@ -12,6 +12,8 @@ import type { ServerExtensionRegistry } from '../extensions/registry.ts'
 import { probeOs } from '../remote/os-probe.ts'
 import { scrub, scrubValue } from '../remote/parse.ts'
 import { connectSsh, type SshSession } from '../remote/ssh.ts'
+import { probeInternalHost } from '../servers/internal-host.ts'
+import { saveInternalHost } from '../servers/persistence/repository.ts'
 import { serverSecret } from '../servers/persistence/credential-repository.ts'
 import { markConnected, saveOsProbe } from '../servers/persistence/observation-repository.ts'
 import { readPolicies } from '../servers/persistence/policy-repository.ts'
@@ -80,6 +82,17 @@ export async function executeJob(
     })
     connected = true
     await owned(db, job, (client) => markConnected(client, server!.id, session!.fingerprint))
+    if (job.purpose === 'test_connection' || server.internal_host === null) {
+      try {
+        const internalHost = await probeInternalHost(session)
+        if (internalHost !== null) {
+          await saveInternalHost(db, server.id, internalHost)
+          server.internal_host = internalHost
+        }
+      } catch {
+        // Internal address is advisory; a failed probe must not fail the connection.
+      }
+    }
     // Recovery must remain possible when a provider has unloaded. The remote journal contains the accepted scripts and result.
     if (job.purpose === 'apply_plan' && job.state === 'recovering' && state.mutation) {
       await recoverMutation(db, job, session, secret)

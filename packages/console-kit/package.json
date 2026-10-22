@@ -6,7 +6,8 @@
   "sideEffects": false,
   "description": "控制台面板",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./dialog": "./src/dialog.tsx"
   },
   "scripts": {
     "test": "node --test test/**/*.test.ts"

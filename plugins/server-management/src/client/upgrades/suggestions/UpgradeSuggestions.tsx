@@ -1,4 +1,6 @@
-import { format, formatDate } from '../../../shared/i18n.ts'
+import { TableCard } from '@smp/console-kit'
+import { useState } from 'react'
+import { format, formatDate, serverCopy } from '../../../shared/i18n.ts'
 import { Pager } from '../Pager.tsx'
 import { DeferUpgrade } from './DeferUpgrade.tsx'
 import { DetectionResults } from './DetectionResults.tsx'
@@ -29,6 +31,11 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
     shown,
     softwareName,
   } = model
+  const [checksOpen, setChecksOpen] = useState(false)
+  const copy = serverCopy(active).ui
+  const checks = (data?.checks ?? []).filter(
+    (check) => !context?.serverId || check.server_id === context.serverId,
+  )
   return (
     <>
       {error && (
@@ -44,9 +51,15 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
           <button
             className="secondary"
             disabled={busy || !filteredServers.length}
-            onClick={() => void commands.detect()}
+            onClick={() => {
+              setChecksOpen(true)
+              void commands.detect()
+            }}
           >
             {selected.length ? c.detect : c.detectAll}
+          </button>
+          <button className="link" type="button" onClick={() => setChecksOpen(true)}>
+            {c.checks}
           </button>
           {context?.serverId && (
             <button className="link" onClick={() => showAll()}>
@@ -73,8 +86,9 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
         </button>
         <span>{format(c.selected, { count: selected.length })}</span>
       </div>
-      <div className="smp-upgrade-scroll smp-upgrade-suggestions">
-        <table>
+      <TableCard className="smp-upgrade-results">
+      <div className="smp-upgrade-scroll">
+        <table className="smp-table">
           <thead>
             <tr>
               <th></th>
@@ -151,17 +165,42 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
           </tbody>
         </table>
       </div>
+      </TableCard>
       <Pager active={active} page={page} total={data?.total ?? 0} onPage={setPage} />
       <UpgradeBatch model={model} />
-      <DetectionResults
-        active={active}
-        checks={(data?.checks ?? []).filter(
-          (check) => !context?.serverId || check.server_id === context.serverId,
-        )}
-        loading={!data}
-        failuresOnly={decision === 'detection_failed'}
-        softwareName={softwareName}
-      />
+
+      {checksOpen && (
+        <div className="smp-checks-layer" role="presentation">
+          <div className="smp-checks-mask" aria-hidden="true" onClick={() => setChecksOpen(false)} />
+          <aside className="smp-checks-drawer" role="dialog" aria-modal="true" aria-label={c.checks}>
+            <header className="smp-checks-head">
+              <h2>{c.checks}</h2>
+              <span>{format(c.checkCount, { count: checks.length })}</span>
+              <button
+                className="smp-checks-retract"
+                type="button"
+                aria-label={copy.retract}
+                title={copy.retract}
+                onClick={() => setChecksOpen(false)}
+              >
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path d="M2 8h8M7 4.5 10.5 8 7 11.5M14 2.5v11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </header>
+            <div className="smp-checks-body">
+              <DetectionResults
+                active={active}
+                checks={checks}
+                loading={!data}
+                failuresOnly={decision === 'detection_failed'}
+                softwareName={softwareName}
+              />
+            </div>
+          </aside>
+        </div>
+      )}
+
       <DeferUpgrade model={model} />
     </>
   )

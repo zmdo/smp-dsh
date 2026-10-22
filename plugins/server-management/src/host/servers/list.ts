@@ -313,6 +313,8 @@ function listItem(row: ReturnType<typeof enrich>): ServerListItem {
     name: row.name,
     upgradeCount: row.upgrade_count,
     address: { host: row.host, port: row.ssh_port },
+    region: row.region,
+    internal_host: row.internal_host,
     operatingSystem: {
       declared: row.declared_os,
       label: osLabel(row.declared_os),
@@ -322,6 +324,8 @@ function listItem(row: ReturnType<typeof enrich>): ServerListItem {
     status: row.status,
     installRequiredSoftware: row.installation,
     resources: {
+      cpuModel: row.cpu_model,
+      cpuCores: row.cpu_cores,
       cpuPercent: row.cpu_percent === null ? null : Number(row.cpu_percent),
       memoryUsed: row.mem_used_bytes,
       memoryTotal: row.mem_total_bytes,

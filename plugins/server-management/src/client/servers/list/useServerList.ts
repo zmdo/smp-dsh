@@ -3,6 +3,7 @@ import type { GroupDto } from '../../../shared/dto/groups.ts'
 import { ServerError } from '../../../shared/errors.ts'
 import { groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
 import { type ServerGroupSummary, type ServerListPage } from '../../../shared/dto/servers.ts'
+import type { TaskDto } from '../../../shared/dto/tasks.ts'
 import { api, requestError } from '../../shared/api.ts'
 import type { ServerListView as ListView } from '../../shared/server-page-state.ts'
 export interface ServerListProps {
@@ -10,6 +11,7 @@ export interface ServerListProps {
   view: ListView
   onView: (view: ListView) => void
   onOpen: (id: string) => void
+  onTerminal: (id: string) => void
   onCreate: () => void
   onUpgrades: () => void
 }
@@ -27,6 +29,7 @@ export function useServerList(props: ServerListProps) {
   const [groupName, setGroupName] = useState('')
   const [addingGroup, setAddingGroup] = useState(false)
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [refresh, setRefresh] = useState(0)
   const dataVersion = useRef(0)
   const tableScroll = useRef<HTMLDivElement>(null)
@@ -127,6 +130,69 @@ export function useServerList(props: ServerListProps) {
     }
   }
 
+  async function renameGroup(id: string, name: string): Promise<boolean> {
+    setActionError(null)
+    try {
+      const group = await api<GroupDto>(`/console-api/server-groups/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      })
+      dataVersion.current += 1
+      setRefresh((value) => value + 1)
+      setGroups((current) => current.map((item) => (item.id === id ? { ...item, ...group } : item)))
+      return true
+    } catch (cause) {
+      setActionError(requestError(cause))
+      return false
+    }
+  }
+
+  async function retryConnections(): Promise<void> {
+    if (refreshing || rows.length === 0) return
+    setRefreshing(true)
+    setActionError(null)
+    const submitted = await Promise.allSettled(
+      rows.map((row) => api<TaskDto>(`/console-api/servers/${row.id}/test`, { method: 'POST' })),
+    )
+    const failed = submitted.find((result) => result.status === 'rejected')
+    if (failed?.status === 'rejected') setActionError(requestError(failed.reason))
+    const ids = submitted.flatMap((result) =>
+      result.status === 'fulfilled' && result.value.id ? [result.value.id] : [],
+    )
+    await waitForJobs(ids)
+    dataVersion.current += 1
+    setRefresh((value) => value + 1)
+    setRefreshing(false)
+  }
+
+  async function waitForJobs(ids: string[]): Promise<void> {
+    const terminal = new Set(['succeeded', 'failed', 'cancelled'])
+    let pending = ids
+    const deadline = Date.now() + 120_000
+    while (pending.length > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const states = await Promise.allSettled(
+        pending.map((id) => api<TaskDto>(`/console-api/server-jobs/${id}`)),
+      )
+      pending = states.flatMap((result, index) =>
+        result.status === 'fulfilled' && !terminal.has(result.value.status) ? [pending[index]!] : [],
+      )
+    }
+  }
+
+  async function removeServer(id: string): Promise<boolean> {
+    setActionError(null)
+    try {
+      await api(`/console-api/servers/${id}`, { method: 'DELETE' })
+      dataVersion.current += 1
+      setRefresh((value) => value + 1)
+      return true
+    } catch (cause) {
+      setActionError(requestError(cause))
+      return false
+    }
+  }
+
   async function removeGroup(id: string): Promise<void> {
     setActionError(null)
     try {
@@ -159,7 +225,11 @@ export function useServerList(props: ServerListProps) {
     onView,
     page,
     pages,
+    refreshing,
     removeGroup,
+    removeServer,
+    retryConnections,
+    renameGroup,
     rows,
     selectGroup,
     setAddingGroup,

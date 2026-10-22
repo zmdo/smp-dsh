@@ -74,7 +74,7 @@ export function obsoleteSuggestions(db: Db, id: string) {
 
 export function resetConnection(db: Db, id: string) {
   return db.query<never>(
-    "update server_runtime set connection_state='unknown', connection_error=null, connection_checked_at=null where server_id=$1",
+    "update server_runtime set connection_state='unknown', connection_error=null, connection_checked_at=null, auto_retry_at=null, auto_retry_attempts=0 where server_id=$1",
     [id],
   )
 }
@@ -133,4 +133,8 @@ export function updateServer(db: Db, id: string, patch: ServerPatch) {
     return `${column} = $${params.length}`
   })
   return db.query<never>(`update servers set ${sets.join(', ')}, updated_at = now() where id = $1`, params)
+}
+
+export function saveInternalHost(db: Db, serverId: string, host: string) {
+  return db.query<never>('update servers set internal_host=$2, updated_at=now() where id=$1', [serverId, host])
 }

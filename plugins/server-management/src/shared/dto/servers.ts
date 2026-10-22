@@ -5,6 +5,7 @@ import type { DisplayStatus } from '../server-status.ts'
 
 export interface ServerDto {
   id: string
+  created_at: string
   software_policies: SoftwarePolicy[]
   upgrade_count: number
   name: string
@@ -41,7 +42,10 @@ export interface ServerDto {
   host_fingerprint: string | null
   reachability: string
   status: DisplayStatus
+  cpu_model: string | null
+  cpu_cores: number | null
   cpu_percent: number | string | null
+  resources_fresh: boolean
   mem_total_bytes: number | string | null
   mem_used_bytes: number | string | null
   disk_total_bytes: number | string | null
@@ -54,6 +58,8 @@ export interface ServerListItem {
   name: string
   upgradeCount: number
   address: { host: string; port: number }
+  region: string
+  internal_host: string | null
   operatingSystem: { declared: DeclaredOs; label: string; verification: string }
   type: { key: string; name: LocalizedText; available: boolean }
   status: DisplayStatus
@@ -62,6 +68,8 @@ export interface ServerListItem {
     applicability: 'applicable' | 'not-applicable' | 'unavailable'
   }
   resources: {
+    cpuModel: string | null
+    cpuCores: number | null
     cpuPercent: number | null
     memoryUsed: string | null
     memoryTotal: string | null
