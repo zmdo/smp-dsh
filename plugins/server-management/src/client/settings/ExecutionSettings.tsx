@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ExecLimitsSettings } from '../../shared/dto/settings.ts'
 import { displayError, serverCopy, type LocaleFace } from '../../shared/i18n.ts'
 import { api, requestError } from '../shared/api.ts'
@@ -17,6 +17,8 @@ export function ExecutionSettings(props: { locale: LocaleFace }) {
   const [error, setError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const version = useRef(0)
   useEffect(() => {
     const controller = new AbortController()
     void api<ExecLimitsSettings>('/console-api/server-management-settings', { signal: controller.signal })
@@ -25,32 +27,42 @@ export function ExecutionSettings(props: { locale: LocaleFace }) {
     return () => controller.abort()
   }, [])
   const change = (key: keyof ExecLimitsSettings, value: number) => {
+    version.current += 1
     setSaved(false)
+    setDirty(true)
+    setError(null)
     setForm((current) => current === undefined ? current : { ...current, [key]: value })
   }
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (form === undefined) return
-    setSaving(true)
-    setError(null)
-    try {
-      const next = await api<ExecLimitsSettings>('/console-api/server-management-settings', {
+  useEffect(() => {
+    if (!dirty || form === undefined || saving) return
+    const versionAtSave = version.current
+    const timer = setTimeout(() => {
+      setSaving(true)
+      setError(null)
+      void api<ExecLimitsSettings>('/console-api/server-management-settings', {
         method: 'PUT',
         body: JSON.stringify(form),
       })
-      setForm(next)
-      setSaved(true)
-    } catch (cause) {
-      setError(cause)
-    } finally {
-      setSaving(false)
-    }
-  }
+        .then((next) => {
+          if (version.current === versionAtSave) {
+            setForm(next)
+            setDirty(false)
+            setSaved(true)
+          }
+        })
+        .catch((cause: unknown) => {
+          setDirty(false)
+          setError(cause)
+        })
+        .finally(() => setSaving(false))
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [dirty, form, saving])
   if (error !== null && form === undefined)
     return <p className="banner error" role="alert">{displayError(active, requestError(error))}</p>
   if (form === undefined) return <p className="muted">{c.settingsLoading}</p>
   return (
-    <form className="smp-server-exec-settings" onSubmit={submit}>
+    <form className="smp-server-exec-settings" onSubmit={(event) => event.preventDefault()}>
       <header>
         <h2>{c.settingsServer}</h2>
         <p className="muted">{c.settingsHint}</p>
@@ -79,10 +91,8 @@ export function ExecutionSettings(props: { locale: LocaleFace }) {
         </section>
       ))}
       {error !== null && <p className="banner error" role="alert">{displayError(active, requestError(error))}</p>}
-      {saved && <p className="banner success" role="status">{c.settingsSaved}</p>}
-      <footer>
-        <button className="primary" type="submit" disabled={saving}>{saving ? c.settingsSaving : c.settingsSave}</button>
-      </footer>
+      {saved && !dirty && <p className="banner success" role="status">{c.settingsSaved}</p>}
+      {saving && <p className="muted" role="status">{c.settingsSaving}</p>}
     </form>
   )
 }
