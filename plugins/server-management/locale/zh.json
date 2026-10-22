@@ -565,7 +565,9 @@
     "selectPlan": "选择计划",
     "selectAllPlans": "全选当前页",
     "noPlans": "暂无计划。",
-    "bulkCancelling": "正在取消"
+    "bulkCancelling": "正在取消",
+    "steps": "执行步骤",
+    "recordsTotal": "共 {count} 条记录"
   },
   "components": {
     "docker": {

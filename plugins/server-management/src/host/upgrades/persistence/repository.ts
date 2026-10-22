@@ -59,13 +59,13 @@ export function versionChecks(db: Db, ids: string[], software: string) {
   )
 }
 
-export function records(db: Db, offset: number) {
+export function records(db: Db, offset: number, limit: number) {
   return db.query<ExecutionRecordRow>(
     `select j.id,j.server_identity,j.state,j.phase,j.request_snapshot,j.result,j.output_excerpt,j.created_at,j.finished_at,t.server_snapshot,t.plan_id,
    coalesce((select jsonb_agg(st order by st.ordinal) from server_job_steps st where st.job_id=j.id),'[]'::jsonb) as steps
    from server_jobs j join server_change_targets t on t.id=j.target_id join server_change_plans p on p.id=t.plan_id
-   where j.purpose='apply_plan' and p.kind in ('upgrade','move') order by j.created_at desc limit 20 offset $1`,
-    [offset],
+   where j.purpose='apply_plan' and p.kind in ('upgrade','move') order by j.created_at desc limit $2 offset $1`,
+    [offset, limit],
   )
 }
 

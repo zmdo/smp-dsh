@@ -20,3 +20,9 @@ export function parseSuggestionQuery(params: URLSearchParams): SuggestionQuery {
     server: params.get('server_id'),
   }
 }
+
+export function parseUpgradePageSize(params: URLSearchParams): number {
+  const size = Number(params.get('page_size') ?? 20)
+  if (size !== 10 && size !== 20 && size !== 50) throw new HttpError(422, 'upgrade_invalid')
+  return size
+}

@@ -565,7 +565,9 @@
     "selectPlan": "Select plan",
     "selectAllPlans": "Select all on this page",
     "noPlans": "No plans.",
-    "bulkCancelling": "Cancelling"
+    "bulkCancelling": "Cancelling",
+    "steps": "Steps",
+    "recordsTotal": "{count} records"
   },
   "components": {
     "docker": {

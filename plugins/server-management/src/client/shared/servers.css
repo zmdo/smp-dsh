@@ -805,3 +805,17 @@
   border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer;
 }
 .smp-console .smp-checks-retract:hover { color: var(--primary); background: var(--dsw-specific-sidebar-nav-item-hover); }
+
+.smp-console .smp-records-table tbody tr.smp-record-row { cursor: pointer; }
+.smp-console .smp-records-table tbody tr.smp-record-row:hover td,
+.smp-console .smp-records-table tbody tr.smp-record-row.is-open td { background: #f7f9fc; }
+.smp-record-detail { padding: 16px !important; background: var(--dsw-alias-bg-layer-2); }
+.smp-record-section + .smp-record-section { margin-top: 14px; }
+.smp-record-section h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+.smp-record-actions { margin-top: 14px; }
+.smp-json-object { display: grid; gap: 4px; margin: 0; }
+.smp-json-row { display: grid; grid-template-columns: minmax(110px, 180px) minmax(0, 1fr); gap: 10px; }
+.smp-json-row > dt { color: var(--muted); overflow-wrap: anywhere; }
+.smp-json-row > dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.smp-json-list { margin: 0; padding-left: 18px; }
+.smp-json-scalar { white-space: pre-wrap; }
