@@ -337,6 +337,12 @@ server_management_settings
 
 这是平台级单例设置，不按服务器保存。
 
+文件上传/下载的独立方案：
+
+```text
+./file-transfer.md
+```
+
 ## 7. 权限模型
 
 ### 7.1 模式
