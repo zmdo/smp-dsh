@@ -1,8 +1,11 @@
 import type { Db } from '../database/connection.ts'
+import { readTransaction } from '../database/transaction.ts'
 import { auditCount, auditRecords, type AuditListQuery } from './persistence/repository.ts'
 
 export async function listAuditRecords(db: Db, query: AuditListQuery) {
-  const [rows, count] = await Promise.all([auditRecords(db, query), auditCount(db, query)])
+  const [rows, count] = await readTransaction(db, (client) =>
+    Promise.all([auditRecords(client, query), auditCount(client, query)]),
+  )
   return {
     items: rows.rows.map((row) => ({
       id: row.id,
