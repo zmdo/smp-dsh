@@ -15,6 +15,7 @@ test('audit queries validate pagination, status and time filters', () => {
     { page: '0' },
     { page_size: '25' },
     { status: 'online' },
+    { kind: 'delete' },
     { hours: '1' },
   ])
     assert.throws(() => parseAuditQuery(new URLSearchParams(query)), { status: 422 })

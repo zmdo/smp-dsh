@@ -454,26 +454,27 @@ ctx.on('tools/pre-execute', async (exec, next) => {
 
 ### 10.1 目标
 
-审计表不是任务表，也不是普通日志，而是一次命令执行的不可抵赖记录。它必须能回答：
+审计表不是任务表，也不是普通日志，而是一条按时间排列的操作流水。它必须能回答：
 
 - 谁发起的
 - 来自哪个 Harness 会话和 Agent
 - 是否经过审批
-- 在哪个服务器上执行了什么
+- 在哪个服务器上做了什么
 - 执行结果和耗时
 - 输出是否截断
 
-建议新增表：
+采用一张统一表，用 `kind` 区分命令和文件传输：
 
 ```text
-server_command_audit
+server_audit_log
 ```
 
 ### 10.2 完整结构
 
 ```sql
-create table server_command_audit (
+create table server_audit_log (
   id                  uuid primary key,
+  kind                text not null check (kind in ('command','upload','download')),
   server_id           uuid references servers(id) on delete set null,
   server_name         text not null,
   host                text not null,
@@ -482,8 +483,13 @@ create table server_command_audit (
   actor_kind          text not null,
   harness_session_id  text,
   agent_id            text,
+  harness_turn        integer,
+  harness_step        integer,
+  harness_event_seq   bigint,
   tool_call_id        text,
-  tool_name           text not null default 'platform_server_exec',
+  root_tool_call_id   text,
+  parent_tool_call_id text,
+  tool_name           text not null,
 
   permission_mode     text not null,
   approval_status     text not null,
@@ -492,12 +498,19 @@ create table server_command_audit (
   approved_at         timestamptz,
   approval_reason     text,
 
-  command             text not null,
-  command_digest      text not null,
-  command_length      integer not null,
+  command             text,
+  command_digest      text,
+  command_length      integer,
   command_truncated   boolean not null default false,
   redaction_applied   boolean not null default false,
   cwd                 text,
+
+  remote_path         text,
+  local_path          text,
+  bytes               bigint,
+  sha256              text,
+  mode                text,
+  overwrite           boolean not null default false,
 
   status              text not null,
   started_at          timestamptz not null default now(),
@@ -520,79 +533,93 @@ create table server_command_audit (
   stderr_digest       text,
 
   metadata            jsonb not null default '{}',
-  created_at          timestamptz not null default now()
+  created_at          timestamptz not null default now(),
+  check (
+    (kind = 'command' and command is not null and remote_path is null)
+    or (kind in ('upload','download') and remote_path is not null and command is null)
+  )
 );
 ```
 
-### 10.3 字段说明
+### 10.3 kind 与专属字段
+
+| kind | 必填专属字段 | 其他字段 |
+| --- | --- | --- |
+| `command` | `command` | `command_digest`, `exit_code`, stdout/stderr |
+| `upload` | `remote_path` | `bytes`, `sha256`, `mode`, `overwrite` |
+| `download` | `remote_path` | `bytes`, `sha256`, `local_path` |
+
+公共字段包括服务器快照、调用者、会话、审批、状态、时间、错误和 metadata。
+
+### 10.4 字段说明
 
 | 分组 | 字段 | 说明 |
 | --- | --- | --- |
-| 主键 | `id` | 审计记录 ID |
-| 服务器快照 | `server_id` | 服务器删除后置空，保留历史 |
-| 服务器快照 | `server_name`, `host` | 删除服务器后仍可追溯 |
+| 类型 | `kind` | `command` / `upload` / `download` |
+| 服务器快照 | `server_id`, `server_name`, `host` | 删除服务器后仍可追溯 |
 | 调用者 | `actor_id`, `actor_kind` | 用户／系统／Harness |
-| 调用者 | `harness_session_id`, `agent_id` | 回到具体 Harness 会话 |
-| 调用者 | `tool_call_id`, `tool_name` | 关联一次工具调用 |
+| 会话 | `harness_session_id`, `agent_id`, `harness_turn`, `harness_step` | 回到具体会话和轮次 |
+| 轨迹 | `harness_event_seq`, `tool_call_id`, `root_tool_call_id`, `parent_tool_call_id` | 工具调用和嵌套调用 |
 | 权限 | `permission_mode` | `read` / `exec` / `full` |
-| 审批 | `approval_status` | `not_required` / `approved` / `denied` |
-| 审批 | `approval_id`, `approved_by`, `approved_at` | 审批服务返回，不能由模型填写 |
-| 审批 | `approval_reason` | 审批原因或拒绝原因 |
-| 命令 | `command` | 脱敏后的命令，最多 8192 字符 |
-| 命令 | `command_digest` | 原始命令 SHA-256 |
-| 命令 | `command_length`, `command_truncated` | 长度和截断标记 |
-| 命令 | `redaction_applied` | 是否做过脱敏 |
-| 命令 | `cwd` | 可选工作目录 |
-| 结果 | `status` | `pending` / `succeeded` / `failed` / `denied` / `timeout` / `cancelled` |
-| 结果 | `started_at`, `finished_at`, `duration_ms` | 执行时间 |
-| 结果 | `exit_code`, `signal` | 退出码和信号 |
-| 结果 | `timed_out`, `cancelled` | 超时／取消标记 |
-| 结果 | `error_code`, `error_message` | 平台错误 |
-| 输出 | `stdout_excerpt`, `stderr_excerpt` | 脱敏后的摘要，最多 4 KiB |
-| 输出 | `stdout_bytes`, `stderr_bytes` | 完整输出字节数 |
-| 输出 | `stdout_truncated`, `stderr_truncated` | 是否截断 |
-| 输出 | `stdout_digest`, `stderr_digest` | 完整输出 SHA-256 |
-| 其他 | `metadata` | 非敏感上下文 |
-| 其他 | `created_at` | 记录创建时间 |
+| 审批 | `approval_status`, `approval_id`, `approved_by`, `approved_at`, `approval_reason` | 审批服务返回 |
+| 命令 | `command`, `command_digest`, `command_length`, `command_truncated` | 脱敏命令和原始摘要 |
+| 文件 | `remote_path`, `local_path`, `bytes`, `sha256`, `mode`, `overwrite` | 文件传输信息 |
+| 结果 | `status`, `started_at`, `finished_at`, `duration_ms` | 执行状态和耗时 |
+| 结果 | `exit_code`, `signal`, `timed_out`, `cancelled` | 命令退出和取消 |
+| 输出 | `stdout_excerpt`, `stderr_excerpt`, `stdout_bytes`, `stderr_bytes` | 摘要和字节数 |
+| 输出 | `stdout_truncated`, `stderr_truncated`, `stdout_digest`, `stderr_digest` | 截断标记和摘要 |
+| 其他 | `metadata`, `created_at` | 非敏感上下文和创建时间 |
 
-### 10.4 索引
+### 10.5 索引
 
 ```sql
-create index server_command_audit_server_time
-  on server_command_audit (server_id, created_at desc);
-
-create index server_command_audit_actor_time
-  on server_command_audit (actor_id, created_at desc);
-
-create index server_command_audit_session
-  on server_command_audit (harness_session_id);
-
-create unique index server_command_audit_tool_call
-  on server_command_audit (harness_session_id, tool_call_id)
-  where tool_call_id is not null;
+create index server_audit_log_created
+  on server_audit_log (created_at desc, id desc);
+create index server_audit_log_kind_time
+  on server_audit_log (kind, created_at desc);
+create index server_audit_log_server_time
+  on server_audit_log (server_id, created_at desc);
+create index server_audit_log_actor_time
+  on server_audit_log (actor_id, created_at desc);
+create index server_audit_log_session
+  on server_audit_log (harness_session_id);
+create unique index server_audit_log_tool_call
+  on server_audit_log (harness_session_id, tool_call_id)
+  where harness_session_id is not null and tool_call_id is not null;
 ```
 
-### 10.5 写入流程
+### 10.6 写入流程
+
+命令执行：
 
 ```text
 解析服务器
 → 权限检查
 → 审批
-→ 写 pending 审计
+→ 写 pending 审计（kind=command）
 → SSH 执行
-→ 更新结果和输出摘要
+→ 更新结果
+```
+
+文件传输：
+
+```text
+解析服务器
+→ 路径和大小校验
+→ 审批
+→ 写 pending 审计（kind=upload/download）
+→ SFTP 传输
+→ 更新结果
 ```
 
 审批被拒绝时：
 
 ```text
 写 denied 审计
-→ 不建立 SSH 连接
+→ 不建立 SSH/SFTP 连接
 ```
 
-进程异常退出时保留 `pending` 记录，由后续清理任务标记为失败，不能假装成功。
-
-### 10.6 隐私与保留
+### 10.7 隐私与保留
 
 不记录：
 
@@ -603,8 +630,8 @@ create unique index server_command_audit_tool_call
 
 约束：
 
-- `command` 和 stdout/stderr 摘要写入前必须脱敏
-- 完整输出不落库，只保存摘要、字节数和摘要值
+- 命令和输出摘要写入前必须脱敏
+- 文件内容不落审计，只记录路径、大小和 SHA-256
 - 删除服务器不删除历史审计
 - 审计只追加，不通过业务接口删除
 - 审批信息必须来自审批服务，不能由模型填写

@@ -78,6 +78,7 @@ export async function executeHarnessCommand(
   const redacted = redact(command)
   const auditBase: Omit<AuditStart, 'approvalStatus' | 'approvalId' | 'approvedBy' | 'approvedAt' | 'approvalReason' | 'status' | 'startedAt' | 'finishedAt' | 'durationMs' | 'exitCode' | 'signal' | 'timedOut' | 'cancelled' | 'errorCode' | 'errorMessage' | 'stdoutExcerpt' | 'stderrExcerpt' | 'stdoutBytes' | 'stderrBytes' | 'stdoutTruncated' | 'stderrTruncated' | 'stdoutDigest' | 'stderrDigest'> = {
     id: auditId,
+    kind: 'command',
     serverId: target.id,
     serverName: target.name,
     host: target.host,
@@ -99,6 +100,12 @@ export async function executeHarnessCommand(
     commandTruncated: false,
     redactionApplied: redacted !== command,
     cwd: null,
+    remotePath: null,
+    localPath: null,
+    bytes: null,
+    sha256: null,
+    mode: null,
+    overwrite: false,
     metadata: {},
   }
 

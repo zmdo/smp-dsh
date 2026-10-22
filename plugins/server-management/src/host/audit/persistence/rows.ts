@@ -1,5 +1,6 @@
 export interface AuditRecordRow {
   id: string
+  kind: 'command' | 'upload' | 'download'
   server_id: string | null
   server_name: string
   host: string
@@ -26,6 +27,12 @@ export interface AuditRecordRow {
   command_truncated: boolean
   redaction_applied: boolean
   cwd: string | null
+  remote_path: string | null
+  local_path: string | null
+  bytes: string | null
+  sha256: string | null
+  mode: string | null
+  overwrite: boolean
   status: string
   started_at: Date
   finished_at: Date | null

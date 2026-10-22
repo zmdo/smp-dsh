@@ -249,7 +249,13 @@
     "settingsLoading": "加载设置…",
     "defaultTimeoutMsLabel": "命令超时（毫秒）",
     "defaultCommandBytesLabel": "命令大小（字节）",
-    "defaultOutputBytesLabel": "捕获输出（字节）"
+    "defaultOutputBytesLabel": "捕获输出（字节）",
+    "auditKind": "类型",
+    "auditAllKinds": "全部类型",
+    "auditKindCommand": "命令",
+    "auditKindUpload": "上传",
+    "auditKindDownload": "下载",
+    "auditTarget": "目标"
   },
   "reach": {
     "online": "在线",

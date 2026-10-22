@@ -9,6 +9,7 @@ export async function listAuditRecords(db: Db, query: AuditListQuery) {
   return {
     items: rows.rows.map((row) => ({
       id: row.id,
+      kind: row.kind,
       server_id: row.server_id,
       server_name: row.server_name,
       host: row.host,
@@ -35,6 +36,12 @@ export async function listAuditRecords(db: Db, query: AuditListQuery) {
       command_truncated: row.command_truncated,
       redaction_applied: row.redaction_applied,
       cwd: row.cwd,
+      remote_path: row.remote_path,
+      local_path: row.local_path,
+      bytes: row.bytes === null ? null : Number(row.bytes),
+      sha256: row.sha256,
+      mode: row.mode,
+      overwrite: row.overwrite,
       status: row.status,
       started_at: row.started_at.toISOString(),
       finished_at: row.finished_at?.toISOString() ?? null,

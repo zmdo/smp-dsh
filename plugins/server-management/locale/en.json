@@ -249,7 +249,13 @@
     "settingsLoading": "Loading settings…",
     "defaultTimeoutMsLabel": "Command timeout (ms)",
     "defaultCommandBytesLabel": "Command size (bytes)",
-    "defaultOutputBytesLabel": "Captured output (bytes)"
+    "defaultOutputBytesLabel": "Captured output (bytes)",
+    "auditKind": "Type",
+    "auditAllKinds": "All types",
+    "auditKindCommand": "Command",
+    "auditKindUpload": "Upload",
+    "auditKindDownload": "Download",
+    "auditTarget": "Target"
   },
   "reach": {
     "online": "Online",

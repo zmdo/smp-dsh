@@ -206,26 +206,27 @@ ssh2-sftp-client
 
 ## 6. 审计
 
-建议新增：
+文件传输复用统一审计表：
 
 ```text
-server_file_transfer_audit
+server_audit_log
 ```
 
-字段：
+通过 `kind` 区分：
 
 ```text
-id
-server_id
-server_name
-host
-direction          upload / download
-actor_id
-actor_kind
-harness_session_id
-agent_id
-tool_call_id
-root_tool_call_id
+kind = upload
+kind = download
+```
+
+文件传输写入：
+
+```text
+kind
+server_id / server_name / host
+actor_id / actor_kind
+harness_session_id / agent_id
+tool_call_id / root_tool_call_id
 remote_path
 local_path
 bytes
@@ -234,11 +235,8 @@ mode
 overwrite
 approval_status
 status
-error_code
-error_message
-started_at
-finished_at
-created_at
+error_code / error_message
+started_at / finished_at
 ```
 
 不记录：
@@ -248,7 +246,14 @@ created_at
 - 密码
 - 完整 secret
 
-审计记录与 Harness 工具调用 ID 关联。
+命令审计和文件传输审计共用：
+
+- 分页
+- 时间筛选
+- 类型筛选
+- 会话关联
+- 审批状态
+- 状态和错误模型
 
 ## 7. 代码结构
 

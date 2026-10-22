@@ -1,5 +1,6 @@
-create table if not exists server_command_audit (
+create table if not exists server_audit_log (
   id uuid primary key,
+  kind text not null check (kind in ('command','upload','download')),
   server_id uuid references servers(id) on delete set null,
   server_name text not null,
   host text not null,
@@ -23,12 +24,19 @@ create table if not exists server_command_audit (
   approved_at timestamptz,
   approval_reason text,
 
-  command text not null,
-  command_digest text not null,
-  command_length integer not null check (command_length >= 0),
+  command text,
+  command_digest text,
+  command_length integer check (command_length is null or command_length >= 0),
   command_truncated boolean not null default false,
   redaction_applied boolean not null default false,
   cwd text,
+
+  remote_path text,
+  local_path text,
+  bytes bigint check (bytes is null or bytes >= 0),
+  sha256 text,
+  mode text,
+  overwrite boolean not null default false,
 
   status text not null,
   started_at timestamptz not null default now(),
@@ -51,18 +59,9 @@ create table if not exists server_command_audit (
   stderr_digest text,
 
   metadata jsonb not null default '{}',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  check (
+    (kind = 'command' and command is not null and remote_path is null)
+    or (kind in ('upload','download') and remote_path is not null and command is null)
+  )
 );
-
-create index if not exists server_command_audit_server_time
-  on server_command_audit (server_id, created_at desc);
-create index if not exists server_command_audit_actor_time
-  on server_command_audit (actor_id, created_at desc);
-create index if not exists server_command_audit_session
-  on server_command_audit (harness_session_id);
-create unique index if not exists server_command_audit_tool_call
-  on server_command_audit (harness_session_id, tool_call_id)
-  where harness_session_id is not null and tool_call_id is not null;
-create index if not exists server_command_audit_root_call
-  on server_command_audit (root_tool_call_id)
-  where root_tool_call_id is not null;
