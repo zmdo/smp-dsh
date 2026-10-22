@@ -42,17 +42,18 @@ function ContainersPanel(props: ExtensionSlotOwner) {
   return (
     <section className="panel smp-container-panel">
       <style>{css}</style>
-      <div className="panel-head">
-        <h2>{copy.containers}</h2>
+      <div className="smp-container-toolbar">
+        <span className="muted">{copy.lastSuccess}: {snapshot?.last_success_at ?? copy.never}</span>
         <button className="secondary" type="button" disabled={loading} onClick={() => { setPage(1); setRefresh((n) => n + 1) }}>{copy.refresh}</button>
       </div>
-      <div className="smp-container-top">
-        {docker !== undefined && docker.state !== 'installed' && <p className="error">{docker.detail || copy.dockerUnavailable}</p>}
-        <p className="muted">{copy.lastSuccess}: {snapshot?.last_success_at ?? copy.never}</p>
-        {error && <p className="banner error">{copy.loadFailed}</p>}
-        {snapshot?.status === 'failed' && <p className="banner error">{copy.inspectFailed} {snapshot.error?.params?.detail}</p>}
-        {stale && snapshot?.last_success_at && <p className="muted">{copy.stale}</p>}
-      </div>
+      {(docker !== undefined && docker.state !== 'installed') || error || snapshot?.status === 'failed' || (stale && snapshot?.last_success_at) ? (
+        <div className="smp-container-status">
+          {docker !== undefined && docker.state !== 'installed' && <p className="error">{docker.detail || copy.dockerUnavailable}</p>}
+          {error && <p className="banner error">{copy.loadFailed}</p>}
+          {snapshot?.status === 'failed' && <p className="banner error">{copy.inspectFailed} {snapshot.error?.params?.detail}</p>}
+          {stale && snapshot?.last_success_at && <p className="muted">{copy.stale}</p>}
+        </div>
+      ) : null}
       <div className="panel-body">
         {loading && !snapshot ? <p className="container-empty">{copy.loading}</p> : !snapshot?.last_success_at ? (
           !error && <p className="container-empty">{copy.noObservation}</p>

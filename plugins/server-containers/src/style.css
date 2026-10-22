@@ -23,3 +23,15 @@ html[data-ds-theme-source='dark'] .smp-container-panel .table-scroll thead th {
   border: 0; border-radius: 0; background: transparent;
 }
 .smp-console .smp-server-workspace-panel:has(.smp-container-panel) { padding: 0; }
+
+.smp-container-panel > .smp-container-toolbar {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 48px; padding: 8px 16px; border-bottom: 1px solid var(--line);
+}
+.smp-container-panel > .smp-container-toolbar .muted { margin: 0; font-size: 12px; }
+.smp-container-panel > .smp-container-status {
+  flex: none; display: grid; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--line);
+}
+.smp-container-panel > .smp-container-status p { margin: 0; }
+.smp-container-panel > .panel-head { display: none; }
+.smp-container-panel > .smp-container-pager { flex: none; }
