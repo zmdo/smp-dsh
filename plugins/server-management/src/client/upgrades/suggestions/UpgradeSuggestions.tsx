@@ -1,3 +1,4 @@
+import { TableCard } from '@smp/console-kit'
 import { format, formatDate } from '../../../shared/i18n.ts'
 import { Pager } from '../Pager.tsx'
 import { DeferUpgrade } from './DeferUpgrade.tsx'
@@ -73,7 +74,8 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
         </button>
         <span>{format(c.selected, { count: selected.length })}</span>
       </div>
-      <div className="smp-upgrade-scroll smp-upgrade-suggestions">
+      <TableCard className="smp-upgrade-results">
+      <div className="smp-upgrade-scroll">
         <table className="smp-table">
           <thead>
             <tr>
@@ -151,6 +153,7 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
           </tbody>
         </table>
       </div>
+      </TableCard>
       <Pager active={active} page={page} total={data?.total ?? 0} onPage={setPage} />
       <UpgradeBatch model={model} />
       <DetectionResults

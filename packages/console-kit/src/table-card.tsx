@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 export function TableCard(props: {
-  title: ReactNode
+  title?: ReactNode
   extra?: ReactNode
   children: ReactNode
   ariaLabel?: string
@@ -12,10 +12,12 @@ export function TableCard(props: {
       className={`smp-table-card${props.className ? ` ${props.className}` : ''}`}
       aria-label={props.ariaLabel}
     >
-      <header>
-        <h2>{props.title}</h2>
-        {props.extra !== undefined && <span>{props.extra}</span>}
-      </header>
+      {props.title !== undefined && (
+        <header>
+          <h2>{props.title}</h2>
+          {props.extra !== undefined && <span>{props.extra}</span>}
+        </header>
+      )}
       {props.children}
     </section>
   )

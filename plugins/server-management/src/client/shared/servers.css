@@ -753,3 +753,7 @@
 .smp-console .smp-server-header-icon:disabled { opacity: 0.45; cursor: not-allowed; }
 .smp-console .smp-server-header-icon.is-busy svg { animation: smp-spin 0.8s linear infinite; }
 @keyframes smp-spin { to { transform: rotate(360deg); } }
+
+/* Suggestion results use the shared table-card frame. */
+.smp-console .smp-upgrade-results { margin: 0; }
+.smp-console .smp-upgrade-results .smp-upgrade-scroll { margin: 0; }
