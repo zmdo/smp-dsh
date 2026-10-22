@@ -382,34 +382,164 @@ ctx.on('tools/pre-execute', async (exec, next) => {
 
 ## 10. 审计
 
+### 10.1 目标
+
+审计表不是任务表，也不是普通日志，而是一次命令执行的不可抵赖记录。它必须能回答：
+
+- 谁发起的
+- 来自哪个 Harness 会话和 Agent
+- 是否经过审批
+- 在哪个服务器上执行了什么
+- 执行结果和耗时
+- 输出是否截断
+
 建议新增表：
 
 ```text
 server_command_audit
 ```
 
-字段：
+### 10.2 完整结构
 
-- id
-- server_id
-- actor
-- command
-- command_digest
-- approval_mode
-- approved
-- exit_code
-- stdout_excerpt
-- stderr_excerpt
-- started_at
-- finished_at
+```sql
+create table server_command_audit (
+  id                  uuid primary key,
+  server_id           uuid references servers(id) on delete set null,
+  server_name         text not null,
+  host                text not null,
+
+  actor_id            text not null,
+  actor_kind          text not null,
+  harness_session_id  text,
+  agent_id            text,
+  tool_call_id        text,
+  tool_name           text not null default 'platform_server_exec',
+
+  permission_mode     text not null,
+  approval_status     text not null,
+  approval_id         text,
+  approved_by         text,
+  approved_at         timestamptz,
+  approval_reason     text,
+
+  command             text not null,
+  command_digest      text not null,
+  command_length      integer not null,
+  command_truncated   boolean not null default false,
+  redaction_applied   boolean not null default false,
+  cwd                 text,
+
+  status              text not null,
+  started_at          timestamptz not null default now(),
+  finished_at         timestamptz,
+  duration_ms         integer,
+  exit_code           integer,
+  signal              text,
+  timed_out           boolean not null default false,
+  cancelled           boolean not null default false,
+  error_code          text,
+  error_message       text,
+
+  stdout_excerpt      text,
+  stderr_excerpt      text,
+  stdout_bytes        bigint,
+  stderr_bytes        bigint,
+  stdout_truncated    boolean not null default false,
+  stderr_truncated    boolean not null default false,
+  stdout_digest       text,
+  stderr_digest       text,
+
+  metadata            jsonb not null default '{}',
+  created_at          timestamptz not null default now()
+);
+```
+
+### 10.3 字段说明
+
+| 分组 | 字段 | 说明 |
+| --- | --- | --- |
+| 主键 | `id` | 审计记录 ID |
+| 服务器快照 | `server_id` | 服务器删除后置空，保留历史 |
+| 服务器快照 | `server_name`, `host` | 删除服务器后仍可追溯 |
+| 调用者 | `actor_id`, `actor_kind` | 用户／系统／Harness |
+| 调用者 | `harness_session_id`, `agent_id` | 回到具体 Harness 会话 |
+| 调用者 | `tool_call_id`, `tool_name` | 关联一次工具调用 |
+| 权限 | `permission_mode` | `read` / `exec` / `full` |
+| 审批 | `approval_status` | `not_required` / `approved` / `denied` |
+| 审批 | `approval_id`, `approved_by`, `approved_at` | 审批服务返回，不能由模型填写 |
+| 审批 | `approval_reason` | 审批原因或拒绝原因 |
+| 命令 | `command` | 脱敏后的命令，最多 8192 字符 |
+| 命令 | `command_digest` | 原始命令 SHA-256 |
+| 命令 | `command_length`, `command_truncated` | 长度和截断标记 |
+| 命令 | `redaction_applied` | 是否做过脱敏 |
+| 命令 | `cwd` | 可选工作目录 |
+| 结果 | `status` | `pending` / `succeeded` / `failed` / `denied` / `timeout` / `cancelled` |
+| 结果 | `started_at`, `finished_at`, `duration_ms` | 执行时间 |
+| 结果 | `exit_code`, `signal` | 退出码和信号 |
+| 结果 | `timed_out`, `cancelled` | 超时／取消标记 |
+| 结果 | `error_code`, `error_message` | 平台错误 |
+| 输出 | `stdout_excerpt`, `stderr_excerpt` | 脱敏后的摘要，最多 4 KiB |
+| 输出 | `stdout_bytes`, `stderr_bytes` | 完整输出字节数 |
+| 输出 | `stdout_truncated`, `stderr_truncated` | 是否截断 |
+| 输出 | `stdout_digest`, `stderr_digest` | 完整输出 SHA-256 |
+| 其他 | `metadata` | 非敏感上下文 |
+| 其他 | `created_at` | 记录创建时间 |
+
+### 10.4 索引
+
+```sql
+create index server_command_audit_server_time
+  on server_command_audit (server_id, created_at desc);
+
+create index server_command_audit_actor_time
+  on server_command_audit (actor_id, created_at desc);
+
+create index server_command_audit_session
+  on server_command_audit (harness_session_id);
+
+create unique index server_command_audit_tool_call
+  on server_command_audit (harness_session_id, tool_call_id)
+  where tool_call_id is not null;
+```
+
+### 10.5 写入流程
+
+```text
+解析服务器
+→ 权限检查
+→ 审批
+→ 写 pending 审计
+→ SSH 执行
+→ 更新结果和输出摘要
+```
+
+审批被拒绝时：
+
+```text
+写 denied 审计
+→ 不建立 SSH 连接
+```
+
+进程异常退出时保留 `pending` 记录，由后续清理任务标记为失败，不能假装成功。
+
+### 10.6 隐私与保留
 
 不记录：
 
 - 私钥
 - 密码
 - 完整 secret
+- 完整环境变量
 
-审计记录与工具调用 ID 关联，便于从 Harness 会话回到服务器历史。
+约束：
+
+- `command` 和 stdout/stderr 摘要写入前必须脱敏
+- 完整输出不落库，只保存摘要、字节数和摘要值
+- 删除服务器不删除历史审计
+- 审计只追加，不通过业务接口删除
+- 审批信息必须来自审批服务，不能由模型填写
+- 审计记录与工具调用 ID 关联，便于从 Harness 会话回到服务器历史
+- 后续可增加保留期限和归档策略，初版不自动清理
 
 ## 11. 系统提示
 
