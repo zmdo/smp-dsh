@@ -550,3 +550,16 @@
 .smp-console .smp-list-scroll table thead th {
   position: sticky; top: 0; z-index: 2; background: #fafafa;
 }
+
+/* Dark theme: table headers and hover states must follow the panel surface. */
+html[data-ds-theme-source='dark'] .smp-console th,
+body[data-ds-dark-theme] .smp-console th {
+  background: var(--dsw-alias-bg-layer-2) !important;
+  color: var(--dsw-alias-label-secondary) !important;
+}
+html[data-ds-theme-source='dark'] .smp-console table tbody tr:hover td,
+body[data-ds-dark-theme] .smp-console table tbody tr:hover td,
+html[data-ds-theme-source='dark'] .smp-console table tbody tr.is-open td,
+body[data-ds-dark-theme] .smp-console table tbody tr.is-open td {
+  background: var(--dsw-specific-sidebar-nav-item-hover) !important;
+}
