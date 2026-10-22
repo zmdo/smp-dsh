@@ -554,7 +554,14 @@
     "planPagination": "升级计划分页",
     "planRange": "共 {count} 个计划，第 {from}–{to} 个",
     "planTotal": "共 {count} 个计划",
-    "planPageSize": "每页计划数量"
+    "planPageSize": "每页计划数量",
+    "planAllStates": "全部状态",
+    "bulkCancel": "批量取消",
+    "bulkCancelFailed": "取消失败，请重试。",
+    "selectPlan": "选择计划",
+    "selectAllPlans": "全选当前页",
+    "noPlans": "暂无计划。",
+    "bulkCancelling": "正在取消"
   },
   "components": {
     "docker": {

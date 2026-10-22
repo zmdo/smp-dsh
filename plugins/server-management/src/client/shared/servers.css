@@ -736,3 +736,8 @@
   margin: 12px 0 18px; padding: 0; border-radius: 4px; overflow: hidden;
 }
 .smp-console .smp-plan-target > header > span { color: inherit; }
+
+.smp-plan-head-extra { gap: 8px; align-items: center; }
+.smp-console select.smp-plan-status-filter { width: auto; }
+.smp-console .smp-plans-table .smp-select-col { width: 36px; padding-right: 0; }
+.smp-console .smp-plans-table .smp-select-col input { width: auto; margin: 0; }

@@ -554,7 +554,14 @@
     "planPagination": "Plan pagination",
     "planRange": "{count} plans, showing {from}–{to}",
     "planTotal": "{count} plans",
-    "planPageSize": "Plans per page"
+    "planPageSize": "Plans per page",
+    "planAllStates": "All statuses",
+    "bulkCancel": "Cancel selected",
+    "bulkCancelFailed": "Could not cancel the selected plans.",
+    "selectPlan": "Select plan",
+    "selectAllPlans": "Select all on this page",
+    "noPlans": "No plans.",
+    "bulkCancelling": "Cancelling"
   },
   "components": {
     "docker": {
