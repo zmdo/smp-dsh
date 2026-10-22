@@ -100,7 +100,10 @@ export function AuditPage(props: { locale: LocaleFace; openConsole?: (key: strin
                       </button>
                     )}
                   </td>
-                  <td>{record.server_name}</td>
+                  <td title={`${c.auditSnapshotName}: ${record.server_name}`}>
+                    {record.current_server_name ?? record.server_name}
+                    {record.server_deleted && <span className="smp-audit-deleted"> {c.auditServerDeleted}</span>}
+                  </td>
                   <td className="smp-audit-command" title={target(record) ?? ''}>{target(record)}</td>
                   <td>
                     <span className={`smp-audit-status is-${record.status}`}>{statusLabel(record.status)}</span>
@@ -167,6 +170,9 @@ function AuditDetail(props: { record: AuditPageDto['items'][number]; active: str
       <section className="smp-record-section">
         <h3>{c.auditBasic}</h3>
         <dl className="smp-json-object">
+          <div className="smp-json-row"><dt>{c.auditCurrentServer}</dt><dd>{value(r.current_server_name ?? r.server_name)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditSnapshotName}</dt><dd>{value(r.server_name)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditHost}</dt><dd>{value(r.host)}</dd></div>
           <div className="smp-json-row"><dt>{c.auditSessionId}</dt><dd>{value(r.harness_session_id)}</dd></div>
           <div className="smp-json-row"><dt>{c.auditAgent}</dt><dd>{value(r.agent_id)}</dd></div>
           <div className="smp-json-row"><dt>{c.auditTool}</dt><dd>{value(r.tool_name)}</dd></div>

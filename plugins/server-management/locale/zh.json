@@ -286,8 +286,12 @@
     "auditTimedOut": "超时",
     "auditError": "错误",
     "auditYes": "是",
-    "auditNo": "否"  },
-  "reach": {
+    "auditNo": "否",
+    "auditCurrentServer": "当前服务器",
+    "auditSnapshotName": "执行时服务器名",
+    "auditHost": "地址",
+    "auditServerDeleted": "已删除"
+  },  "reach": {
     "online": "在线",
     "offline": "离线",
     "docker_unavailable": "Docker 不可用",

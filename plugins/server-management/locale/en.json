@@ -286,8 +286,12 @@
     "auditTimedOut": "Timed out",
     "auditError": "Error",
     "auditYes": "Yes",
-    "auditNo": "No"  },
-  "reach": {
+    "auditNo": "No",
+    "auditCurrentServer": "Current server",
+    "auditSnapshotName": "Server name at execution",
+    "auditHost": "Host",
+    "auditServerDeleted": "deleted"
+  },  "reach": {
     "online": "Online",
     "offline": "Offline",
     "docker_unavailable": "Docker unavailable",

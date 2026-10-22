@@ -12,6 +12,8 @@ export async function listAuditRecords(db: Db, query: AuditListQuery) {
       kind: row.kind,
       server_id: row.server_id,
       server_name: row.server_name,
+      current_server_name: row.current_server_name,
+      server_deleted: row.server_id === null,
       host: row.host,
       actor_id: row.actor_id,
       actor_kind: row.actor_kind,

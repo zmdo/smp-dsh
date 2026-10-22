@@ -3,6 +3,7 @@ export interface AuditRecordRow {
   kind: 'command' | 'upload' | 'download'
   server_id: string | null
   server_name: string
+  current_server_name: string | null
   host: string
   actor_id: string
   actor_kind: string

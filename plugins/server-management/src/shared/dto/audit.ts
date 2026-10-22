@@ -3,6 +3,8 @@ export interface AuditRecordDto {
   kind: 'command' | 'upload' | 'download'
   server_id: string | null
   server_name: string
+  current_server_name: string | null
+  server_deleted: boolean
   host: string
   actor_id: string
   actor_kind: string
