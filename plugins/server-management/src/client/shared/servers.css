@@ -688,3 +688,15 @@
 .smp-resource-panel-head .is-memory { color: var(--green); }
 .smp-resource-panel-head .is-disk { color: var(--warn); }
 .smp-resource-panel .smp-resource-chart { padding: 0; }
+
+.smp-resource-chart-wrap { position: relative; }
+.smp-chart-grid-vertical { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; opacity: 0.6; }
+.smp-chart-tooltip {
+  position: absolute; top: 2px; z-index: 2; transform: translateX(-50%);
+  display: grid; gap: 2px; padding: 5px 7px; border-radius: 4px;
+  background: var(--dsw-alias-bg-layer-3); border: 1px solid var(--line);
+  box-shadow: var(--dsw-elevation-prominent); color: var(--text); font-size: 11px;
+  pointer-events: none; white-space: nowrap;
+}
+.smp-chart-tooltip time { color: var(--muted); }
+.smp-chart-tooltip span { font-weight: 600; }

@@ -161,13 +161,26 @@ function MetricPanel(props: {
         <span className={`is-${props.metric}`}>{label}</span>
         <b>{selected === undefined ? '—' : `${Math.round(selected[props.metric])}%`}</b>
       </div>
-      <LineChart
-        points={props.points}
-        metric={props.metric}
-        hover={hover}
-        onHover={setHover}
-        long={props.long}
-      />
+      <div className="smp-resource-chart-wrap">
+        <LineChart
+          points={props.points}
+          metric={props.metric}
+          hover={hover}
+          onHover={setHover}
+          long={props.long}
+        />
+        {selected !== undefined && hover !== null && (
+          <div
+            className="smp-chart-tooltip"
+            style={{
+              left: `${props.points.length <= 1 ? 0 : (hover / (props.points.length - 1)) * 100}%`,
+            }}
+          >
+            <time>{formatFull(selected.t)}</time>
+            <span>{Math.round(selected[props.metric])}%</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -225,12 +238,22 @@ function LineChart(props: {
             <circle cx={x(props.hover)} cy={y(active[props.metric])} r="3" className={`smp-chart-dot is-${props.metric}`} />
           </>
         )}
-        <text x={left} y={height - 4} className="smp-chart-label">
-          {formatPoint(props.points[0]!.t, props.long)}
-        </text>
-        <text x={width - right} y={height - 4} textAnchor="end" className="smp-chart-label">
-          {formatPoint(props.points.at(-1)!.t, props.long)}
-        </text>
+        {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
+          const index = Math.round(fraction * (props.points.length - 1))
+          return (
+            <g key={fraction}>
+              <line x1={x(index)} x2={x(index)} y1={top} y2={height - bottom} className="smp-chart-grid-vertical" />
+              <text
+                x={x(index)}
+                y={height - 4}
+                textAnchor={fraction === 0 ? 'start' : fraction === 1 ? 'end' : 'middle'}
+                className="smp-chart-label"
+              >
+                {formatPoint(props.points[index]!.t, props.long)}
+              </text>
+            </g>
+          )
+        })}
       </svg>
     </div>
   )
@@ -242,6 +265,11 @@ function formatPoint(value: string, long: boolean): string {
   return long
     ? `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${time}`
     : time
+}
+
+function formatFull(value: string): string {
+  const date = new Date(value)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
 function toLocalInput(date: Date): string {
