@@ -34,7 +34,7 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
         'Every execution asks for approval and is audited.',
       parameters: execParameters,
       output: TEXT_OUTPUT,
-      timeoutMs: 125_000,
+      timeoutMs: 300_000,
       async execute(args, exec) {
         return executeHarnessCommand(
           deps,

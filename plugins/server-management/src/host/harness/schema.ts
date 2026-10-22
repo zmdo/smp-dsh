@@ -46,7 +46,15 @@ export const execParameters = {
   },
   timeout_ms: {
     type: 'integer',
-    description: 'Execution timeout in milliseconds, from 1 to 120000. Defaults to 30000.',
+    description: 'Execution timeout in milliseconds. Defaults to the platform limit; may not exceed the configured maximum.',
+  },
+  command_max_bytes: {
+    type: 'integer',
+    description: 'Optional command byte limit for this call. Defaults to the platform limit; may not exceed the configured maximum.',
+  },
+  output_limit_bytes: {
+    type: 'integer',
+    description: 'Optional captured-output byte limit for this call. Defaults to the platform limit; may not exceed the configured maximum.',
   },
 } as const
 

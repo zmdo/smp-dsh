@@ -81,6 +81,12 @@ export interface Config {
   metricsIntervalSeconds: number
   sshReadyTimeoutSeconds: number
   updateCheckIntervalSeconds: number
+  harnessExecDefaultTimeoutMs: number
+  harnessExecMaxTimeoutMs: number
+  harnessExecDefaultCommandBytes: number
+  harnessExecMaxCommandBytes: number
+  harnessExecDefaultOutputBytes: number
+  harnessExecMaxOutputBytes: number
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -88,6 +94,12 @@ export const Config: Schema<Config> = Schema.object({
   metricsIntervalSeconds: Schema.number().default(1),
   updateCheckIntervalSeconds: Schema.natural().min(60).max(604800).default(3600),
   sshReadyTimeoutSeconds: Schema.natural().min(1).max(300).default(30),
+  harnessExecDefaultTimeoutMs: Schema.natural().min(1000).max(120000).default(30000),
+  harnessExecMaxTimeoutMs: Schema.natural().min(1000).max(120000).default(120000),
+  harnessExecDefaultCommandBytes: Schema.natural().min(1024).max(65536).default(8192),
+  harnessExecMaxCommandBytes: Schema.natural().min(1024).max(65536).default(65536),
+  harnessExecDefaultOutputBytes: Schema.natural().min(1024).max(1048576).default(65536),
+  harnessExecMaxOutputBytes: Schema.natural().min(1024).max(1048576).default(1048576),
 })
 
 export const inject = ['webServer', 'database', 'secrets', 'consoleSession']
@@ -104,6 +116,16 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const connect: typeof connectSsh = (input) =>
     connectSsh({ ...input, readyTimeoutMs: config.sshReadyTimeoutSeconds * 1000 })
   const enrollment = new Enrollment({ db, secrets: ctx.secrets, definitions }, connect)
+  const execLimits = {
+    defaultTimeoutMs: config.harnessExecDefaultTimeoutMs,
+    maxTimeoutMs: config.harnessExecMaxTimeoutMs,
+    defaultCommandBytes: config.harnessExecDefaultCommandBytes,
+    maxCommandBytes: config.harnessExecMaxCommandBytes,
+    defaultOutputBytes: config.harnessExecDefaultOutputBytes,
+    maxOutputBytes: config.harnessExecMaxOutputBytes,
+  }
+  if (execLimits.defaultTimeoutMs > execLimits.maxTimeoutMs || execLimits.defaultCommandBytes > execLimits.maxCommandBytes || execLimits.defaultOutputBytes > execLimits.maxOutputBytes)
+    throw new Error('harness execution defaults exceed their maximum limits')
   const deps = {
     db,
     secrets: ctx.secrets,
@@ -113,6 +135,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     enrollment,
     updateCheckIntervalSeconds: config.updateCheckIntervalSeconds,
     connect,
+    execLimits,
     freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000,
   }
   ctx.inject(['tools'], (scope) => registerServerTools(scope, deps))

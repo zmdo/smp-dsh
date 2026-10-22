@@ -4,17 +4,32 @@ import { connectSsh, type SshSession } from '../remote/ssh.ts'
 import { finishAudit, insertAudit, type AuditFinish, type AuditStart } from '../audit/persistence/write-repository.ts'
 import { getHarnessServer, type HarnessDeps } from './service.ts'
 
-const MAX_COMMAND = 8 * 1024
-const MAX_TIMEOUT = 120_000
-const DEFAULT_TIMEOUT = 30_000
-const OUTPUT_LIMIT = 256 * 1024
 const AUDIT_EXCERPT = 4 * 1024
-const TOOL_EXCERPT = 64 * 1024
+
+export interface ExecLimits {
+  defaultTimeoutMs: number
+  maxTimeoutMs: number
+  defaultCommandBytes: number
+  maxCommandBytes: number
+  defaultOutputBytes: number
+  maxOutputBytes: number
+}
+
+export const DEFAULT_EXEC_LIMITS: ExecLimits = {
+  defaultTimeoutMs: 30_000,
+  maxTimeoutMs: 120_000,
+  defaultCommandBytes: 8 * 1024,
+  maxCommandBytes: 8 * 1024,
+  defaultOutputBytes: 64 * 1024,
+  maxOutputBytes: 1024 * 1024,
+}
 
 export interface ExecArgs {
   server: string
   command: string
   timeout_ms?: number
+  command_max_bytes?: number
+  output_limit_bytes?: number
 }
 
 export interface ExecContext {
@@ -41,10 +56,19 @@ export async function executeHarnessCommand(
   exec: ExecContext,
   approval: ApprovalRequester | undefined,
 ): Promise<string> {
+  const limits = deps.execLimits ?? DEFAULT_EXEC_LIMITS
   const command = args.command
-  if (command.length === 0) throw toolError('command_required', 'A command is required.')
-  if (command.length > MAX_COMMAND) throw toolError('command_too_long', `Command must be at most ${MAX_COMMAND} characters.`)
-  const timeoutMs = clampTimeout(args.timeout_ms)
+  const commandBytes = Buffer.byteLength(command, 'utf8')
+  if (commandBytes === 0) throw toolError('command_required', 'A command is required.')
+  const commandLimit = args.command_max_bytes ?? limits.defaultCommandBytes
+  if (!Number.isSafeInteger(commandLimit) || commandLimit < 1 || commandLimit > limits.maxCommandBytes)
+    throw toolError('invalid_command_limit', `command_max_bytes must be between 1 and ${limits.maxCommandBytes}.`)
+  if (commandBytes > commandLimit)
+    throw toolError('command_too_long', `Command must be at most ${commandLimit} bytes.`)
+  const timeoutMs = resolveTimeout(args.timeout_ms, limits)
+  const outputLimit = args.output_limit_bytes ?? limits.defaultOutputBytes
+  if (!Number.isSafeInteger(outputLimit) || outputLimit < 1 || outputLimit > limits.maxOutputBytes)
+    throw toolError('invalid_output_limit', `output_limit_bytes must be between 1 and ${limits.maxOutputBytes}.`)
   const target = await getHarnessServer(deps, args.server)
   const secret = await serverSecret(deps.db, target.id)
   if (secret === undefined) throw toolError('server_not_managed', 'The server is no longer managed by this platform.')
@@ -71,7 +95,7 @@ export async function executeHarnessCommand(
     permissionMode: 'exec',
     command: redacted,
     commandDigest: sha256(command),
-    commandLength: command.length,
+    commandLength: commandBytes,
     commandTruncated: false,
     redactionApplied: redacted !== command,
     cwd: null,
@@ -153,10 +177,10 @@ export async function executeHarnessCommand(
       expectedFingerprint: secret.host_fingerprint,
     })
     if (exec.signal.aborted) throw toolError('cancelled', 'The execution was cancelled.')
-    const result = await session.exec(command, timeoutMs, { outputLimitBytes: OUTPUT_LIMIT })
+    const result = await session.exec(command, timeoutMs, { outputLimitBytes: limits.maxOutputBytes })
     const durationMs = Date.now() - started
-    const stdout = excerpt(result.stdout, TOOL_EXCERPT)
-    const stderr = excerpt(result.stderr, TOOL_EXCERPT)
+    const stdout = excerpt(result.stdout, outputLimit)
+    const stderr = excerpt(result.stderr, outputLimit)
     const stdoutBytes = Buffer.byteLength(result.stdout)
     const stderrBytes = Buffer.byteLength(result.stderr)
     const status = result.code === 0 ? 'succeeded' : 'failed'
@@ -243,11 +267,11 @@ async function askApproval(
   }
 }
 
-function clampTimeout(value: number | undefined): number {
-  if (value === undefined) return DEFAULT_TIMEOUT
-  if (!Number.isSafeInteger(value) || value <= 0) throw toolError('invalid_timeout', 'timeout_ms must be a positive integer.')
-  if (value > MAX_TIMEOUT) throw toolError('invalid_timeout', `timeout_ms must be at most ${MAX_TIMEOUT}.`)
-  return value
+function resolveTimeout(value: number | undefined, limits: ExecLimits): number {
+  const timeout = value ?? limits.defaultTimeoutMs
+  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > limits.maxTimeoutMs)
+    throw toolError('invalid_timeout', `timeout_ms must be between 1 and ${limits.maxTimeoutMs}.`)
+  return timeout
 }
 
 function excerpt(value: string, limit: number): { text: string; truncated: boolean } {

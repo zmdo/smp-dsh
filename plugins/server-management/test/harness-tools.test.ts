@@ -14,7 +14,7 @@ test('server harness tools expose only managed-server arguments', () => {
   const list = definitions[0]!
   assert.deepEqual(Object.keys(list.parameters.properties ?? {}), ['query', 'status', 'limit'])
   const exec = definitions[1]!
-  assert.deepEqual(Object.keys(exec.parameters.properties ?? {}), ['server', 'command', 'timeout_ms'])
+  assert.deepEqual(Object.keys(exec.parameters.properties ?? {}), ['server', 'command', 'timeout_ms', 'command_max_bytes', 'output_limit_bytes'])
   const get = definitions[2]!
   assert.deepEqual(Object.keys(get.parameters.properties ?? {}), ['server'])
   for (const definition of definitions) assert.match(definition.description, /managed/i)

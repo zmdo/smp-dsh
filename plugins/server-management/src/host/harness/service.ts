@@ -1,6 +1,7 @@
 import type { DefinitionRegistry } from '../definitions/registry.ts'
 import type { Db } from '../database/connection.ts'
 import type { SshSession } from '../remote/ssh.ts'
+import type { ExecLimits } from './exec.ts'
 import { type ServerListQuery } from '../servers/query.ts'
 import { serverList, serverRead } from '../servers/list.ts'
 import type { ServerDisplayStatus } from '../../shared/server-status.ts'
@@ -10,6 +11,7 @@ export interface HarnessDeps {
   definitions: DefinitionRegistry
   freshnessMs?: number
   secrets?: { decrypt(ciphertext: string): string }
+  execLimits?: ExecLimits
   connect?: (input: {
     host: string
     port: number
