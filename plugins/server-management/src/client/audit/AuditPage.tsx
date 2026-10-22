@@ -35,9 +35,9 @@ export function AuditPage(props: {
   const statusLabel = (status: string) =>
     status in STATUS_KEYS ? c[STATUS_KEYS[status as keyof typeof STATUS_KEYS]] : status
   const kindLabel = (value: string) =>
-    value === 'command' ? c.auditKindCommand : value === 'upload' ? c.auditKindUpload : c.auditKindDownload
+    value === 'command' ? c.auditKindCommand : value === 'upload' ? c.auditKindUpload : value === 'transfer' ? c.auditKindTransfer : c.auditKindDownload
   const target = (record: AuditPageDto['items'][number]) =>
-    record.kind === 'command' ? record.command : record.remote_path
+    record.kind === 'command' || record.kind === 'transfer' ? record.command : record.remote_path
   return (
     <Panel
       className="smp-upgrade-page smp-list-panel smp-audit-page"
@@ -53,6 +53,7 @@ export function AuditPage(props: {
             <option value="command">{c.auditKindCommand}</option>
             <option value="upload">{c.auditKindUpload}</option>
             <option value="download">{c.auditKindDownload}</option>
+            <option value="transfer">{c.auditKindTransfer}</option>
           </select>
           <select
             aria-label={c.auditTimeRange}

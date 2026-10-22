@@ -1,6 +1,6 @@
 export interface AuditRecordDto {
   id: string
-  kind: 'command' | 'upload' | 'download'
+  kind: 'command' | 'upload' | 'download' | 'transfer'
   server_id: string | null
   server_name: string
   current_server_name: string | null

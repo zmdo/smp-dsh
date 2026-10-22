@@ -5,5 +5,6 @@ export interface ExecLimitsSettings {
   maxCommandBytes: number
   defaultOutputBytes: number
   maxOutputBytes: number
+  rsyncDeniedFlags: string[]
   updated_at: string | null
 }

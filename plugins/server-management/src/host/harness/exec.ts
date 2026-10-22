@@ -13,6 +13,7 @@ export interface ExecLimits {
   maxCommandBytes: number
   defaultOutputBytes: number
   maxOutputBytes: number
+  rsyncDeniedFlags: string[]
 }
 
 export const DEFAULT_EXEC_LIMITS: ExecLimits = {
@@ -22,6 +23,16 @@ export const DEFAULT_EXEC_LIMITS: ExecLimits = {
   maxCommandBytes: 8 * 1024,
   defaultOutputBytes: 64 * 1024,
   maxOutputBytes: 1024 * 1024,
+  rsyncDeniedFlags: [
+    '-e', '--rsh', '--rsync-path',
+    '--delete', '--delete-before', '--delete-after', '--delete-during',
+    '--delete-delay', '--delete-excluded', '--delete-missing-args',
+    '--remove-source-files', '--files-from', '--password-file',
+    '--write-batch', '--read-batch', '--daemon', '--server', '--sender',
+    '--config', '--temp-dir', '--log-file', '--backup-dir',
+    '--link-dest', '--copy-dest', '--compare-dest', '--filter',
+    '--exclude-from', '--include-from',
+  ],
 }
 
 export interface ExecArgs {
@@ -43,6 +54,7 @@ export interface ApprovalRequester {
   request(request: {
     agent: { id: string; session?: unknown }
     toolName: string
+    kind?: 'exec' | 'transfer'
     callId: string
     reason?: string
     displayReason?: { en: string; [locale: string]: string }

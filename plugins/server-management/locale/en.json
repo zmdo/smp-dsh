@@ -298,7 +298,10 @@
     "settingsBytesUnit": "bytes",
     "settingsTimeoutHint": "Default and maximum command timeout in milliseconds.",
     "settingsCommandHint": "Maximum command size in bytes for one execution.",
-    "settingsOutputHint": "Maximum captured output in bytes for one execution."
+    "settingsOutputHint": "Maximum captured output in bytes for one execution.",
+    "rsyncDeniedFlagsLabel": "Denied rsync flags",
+    "rsyncDeniedFlagsHint": "One flag per line. Empty means no flag-level filtering.",
+    "auditKindTransfer": "Transfer"
   },
   "reach": {
     "online": "Online",

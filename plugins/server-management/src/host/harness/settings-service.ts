@@ -23,6 +23,7 @@ export async function loadExecLimits(db: Db, fallback: ExecLimits): Promise<Exec
     maxCommandBytes: row.max_command_bytes,
     defaultOutputBytes: row.default_output_bytes,
     maxOutputBytes: row.max_output_bytes,
+    rsyncDeniedFlags: row.rsync_denied_flags,
     updated_at: row.updated_at.toISOString(),
   }
 }
@@ -37,6 +38,7 @@ export function validateExecLimits(input: unknown): ExecLimits {
     maxCommandBytes: integer(value.maxCommandBytes, 'maxCommandBytes'),
     defaultOutputBytes: integer(value.defaultOutputBytes, 'defaultOutputBytes'),
     maxOutputBytes: integer(value.maxOutputBytes, 'maxOutputBytes'),
+    rsyncDeniedFlags: strings(value.rsyncDeniedFlags, 'rsyncDeniedFlags'),
   }
   if (limits.maxTimeoutMs > HARD_MAX.timeoutMs || limits.maxCommandBytes > HARD_MAX.commandBytes || limits.maxOutputBytes > HARD_MAX.outputBytes)
     throw invalid()
@@ -49,6 +51,12 @@ export async function saveExecLimits(db: Db, input: unknown, updatedBy: string):
   const limits = validateExecLimits(input)
   const row = (await writeSettings(db, limits, updatedBy)).rows[0]
   return { ...limits, updated_at: row?.updated_at.toISOString() ?? null }
+}
+
+function strings(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.trim() === '' || item.trim() !== item || item.length > 128))
+    throw invalid(field)
+  return [...new Set(value)]
 }
 
 function integer(value: unknown, field: string): number {

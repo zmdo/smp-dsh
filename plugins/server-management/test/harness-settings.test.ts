@@ -9,6 +9,7 @@ const valid = {
   maxCommandBytes: 65536,
   defaultOutputBytes: 65536,
   maxOutputBytes: 1048576,
+  rsyncDeniedFlags: ['-e', '--delete'],
 }
 
 test('execution limits require positive integers and defaults within maxima', () => {

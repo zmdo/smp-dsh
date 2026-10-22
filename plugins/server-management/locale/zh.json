@@ -298,7 +298,10 @@
     "settingsBytesUnit": "字节",
     "settingsTimeoutHint": "默认超时和允许配置的最大超时，单位毫秒。",
     "settingsCommandHint": "单次命令的最大字节数。",
-    "settingsOutputHint": "单次执行捕获的最大输出字节数。"
+    "settingsOutputHint": "单次执行捕获的最大输出字节数。",
+    "rsyncDeniedFlagsLabel": "禁用的 rsync 参数",
+    "rsyncDeniedFlagsHint": "每行一个参数。留空表示不进行参数级过滤。",
+    "auditKindTransfer": "传输"
   },
   "reach": {
     "online": "在线",

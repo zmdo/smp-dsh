@@ -1,9 +1,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { execParameters, getParameters, groupListParameters, listParameters, TEXT_OUTPUT } from './schema.ts'
+import { execParameters, getParameters, groupListParameters, listParameters, rsyncParameters, TEXT_OUTPUT } from './schema.ts'
 import { DEFAULT_EXEC_LIMITS } from './exec.ts'
 import { executeHarnessCommand, type ApprovalRequester } from './exec.ts'
 import { getHarnessServer, listHarnessGroups, listHarnessServers, type HarnessDeps } from './service.ts'
+import { executeHarnessRsync } from './rsync.ts'
 
 const LIST_DESCRIPTION =
   'List servers managed by this platform. Only servers returned by this tool are managed. ' +
@@ -61,6 +62,31 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
             signal: exec.signal,
           },
           ctx.get('approval') as ApprovalRequester | undefined,
+        )
+      },
+    }),
+  )
+  ctx.tools.register(
+    defineTool({
+      name: 'platform_server_rsync',
+      description:
+        'Run a complete rsync command line against one managed server. ' +
+        'The command must begin with rsync, contain a remote host belonging to the selected server, and pass the configured denied-flag policy. ' +
+        'Every transfer asks for approval and is audited.',
+      parameters: rsyncParameters,
+      output: TEXT_OUTPUT,
+      timeoutMs: 600_000,
+      async execute(args, exec) {
+        const directories = ctx.get('workingDirectory') as { ensure(agent: unknown, signal?: AbortSignal): Promise<string> } | undefined
+        const workspace = directories === undefined || exec.agent === undefined
+          ? undefined
+          : await directories.ensure(exec.agent, exec.signal)
+        return executeHarnessRsync(
+          deps,
+          args,
+          { agent: exec.agent, callId: String(exec.callId), rootCallId: String(exec.rootCallId), signal: exec.signal },
+          ctx.get('approval') as ApprovalRequester | undefined,
+          workspace,
         )
       },
     }),

@@ -2,7 +2,7 @@ import type { Db } from '../../database/connection.ts'
 
 export interface AuditStart {
   id: string
-  kind: 'command' | 'upload' | 'download'
+  kind: 'command' | 'upload' | 'download' | 'transfer'
   serverId: string
   serverName: string
   host: string

@@ -15,6 +15,7 @@ import { startMetrics } from './host/servers/metrics.ts'
 import { enqueueExisting } from './host/servers/service.ts'
 import { registerServerTools } from './host/harness/tools.ts'
 import { loadExecLimits } from './host/harness/settings-service.ts'
+import { DEFAULT_EXEC_LIMITS } from './host/harness/exec.ts'
 import { registerServerOpsGroup, type WorkspaceGroupsService } from './host/workspace-group.ts'
 
 export { ServerManagement } from './host/definitions/service.ts'
@@ -124,6 +125,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     maxCommandBytes: config.harnessExecMaxCommandBytes,
     defaultOutputBytes: config.harnessExecDefaultOutputBytes,
     maxOutputBytes: config.harnessExecMaxOutputBytes,
+    rsyncDeniedFlags: DEFAULT_EXEC_LIMITS.rsyncDeniedFlags,
   }
   if (configuredExecLimits.defaultTimeoutMs > configuredExecLimits.maxTimeoutMs || configuredExecLimits.defaultCommandBytes > configuredExecLimits.maxCommandBytes || configuredExecLimits.defaultOutputBytes > configuredExecLimits.maxOutputBytes)
     throw new Error('harness execution defaults exceed their maximum limits')

@@ -84,6 +84,23 @@ export const groupListParameters = {
   },
 } as const
 
+export const rsyncParameters = {
+  server: {
+    type: 'string',
+    required: true,
+    description: 'Managed server id or exact server name.',
+  },
+  command: {
+    type: 'string',
+    required: true,
+    description: 'A complete rsync command line beginning with rsync. Shell operators, globs and substitutions are rejected.',
+  },
+  timeout_ms: {
+    type: 'integer',
+    description: 'Maximum execution time in milliseconds. Defaults to 600000 and may not exceed 600000.',
+  },
+} as const
+
 export const TEXT_OUTPUT = {
   schema: { type: 'string' as const },
   render: (_args: unknown, value: string) => [{ type: 'text' as const, text: value }],

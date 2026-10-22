@@ -29,7 +29,7 @@ export function ExecutionSettings(props: { locale: LocaleFace }) {
       .catch((cause: unknown) => { if (!controller.signal.aborted) setError(cause) })
     return () => controller.abort()
   }, [])
-  const change = (key: keyof ExecLimitsSettings, value: number) => {
+  const change = (key: keyof ExecLimitsSettings, value: number | string[]) => {
     version.current += 1
     setSaved(false)
     setDirty(true)
@@ -145,6 +145,16 @@ export function ExecutionSettings(props: { locale: LocaleFace }) {
           )
         })}
       </div>
+      <section className="smp-server-rsync-policy">
+        <div className="smp-server-exec-row-title">{c.rsyncDeniedFlagsLabel}</div>
+        <div className="smp-server-exec-row-desc">{c.rsyncDeniedFlagsHint}</div>
+        <textarea
+          className="smp-server-rsync-policy-input"
+          aria-label={c.rsyncDeniedFlagsLabel}
+          value={form.rsyncDeniedFlags.join('\n')}
+          onChange={(event) => change('rsyncDeniedFlags', event.target.value.split('\n').map((line) => line.trim()).filter((line) => line !== ''))}
+        />
+      </section>
       {error !== null && <p className="banner error" role="alert">{displayError(active, requestError(error))}</p>}
       {saved && !dirty && <p className="banner success" role="status">{c.settingsSaved}</p>}
       {saving && <p className="muted" role="status">{c.settingsSaving}</p>}
