@@ -1,4 +1,5 @@
 import type { ServerDisplayStatus } from '../../shared/server-status.ts'
+import type { ExecLimits } from './exec.ts'
 
 export const SERVER_STATUSES = [
   'unverified',
@@ -33,30 +34,32 @@ export const getParameters = {
   },
 } as const
 
-export const execParameters = {
-  server: {
-    type: 'string',
-    required: true,
-    description: 'Managed server id or exact server name.',
-  },
-  command: {
-    type: 'string',
-    required: true,
-    description: 'Shell command to run through the platform SSH credentials. Maximum 8192 characters.',
-  },
-  timeout_ms: {
-    type: 'integer',
-    description: 'Execution timeout in milliseconds. Defaults to the platform limit; may not exceed the configured maximum.',
-  },
-  command_max_bytes: {
-    type: 'integer',
-    description: 'Optional command byte limit for this call. Defaults to the platform limit; may not exceed the configured maximum.',
-  },
-  output_limit_bytes: {
-    type: 'integer',
-    description: 'Optional captured-output byte limit for this call. Defaults to the platform limit; may not exceed the configured maximum.',
-  },
-} as const
+export function execParameters(limits: ExecLimits) {
+  return {
+    server: {
+      type: 'string',
+      required: true,
+      description: 'Managed server id or exact server name.',
+    },
+    command: {
+      type: 'string',
+      required: true,
+      description: `Shell command to run through the platform SSH credentials. Maximum ${limits.maxCommandBytes} bytes.`,
+    },
+    timeout_ms: {
+      type: 'integer',
+      description: `Execution timeout in milliseconds. Defaults to ${limits.defaultTimeoutMs}; maximum ${limits.maxTimeoutMs}.`,
+    },
+    command_max_bytes: {
+      type: 'integer',
+      description: `Optional command byte limit for this call. Defaults to ${limits.defaultCommandBytes}; maximum ${limits.maxCommandBytes}.`,
+    },
+    output_limit_bytes: {
+      type: 'integer',
+      description: `Optional captured-output byte limit for this call. Defaults to ${limits.defaultOutputBytes}; maximum ${limits.maxOutputBytes}.`,
+    },
+  } as const
+}
 
 export const TEXT_OUTPUT = {
   schema: { type: 'string' as const },
