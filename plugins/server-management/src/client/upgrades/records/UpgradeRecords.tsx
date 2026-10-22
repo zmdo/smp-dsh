@@ -1,4 +1,5 @@
-import { Fragment, useState } from 'react'
+import { Panel } from '@smp/console-kit'
+import { Fragment, useState, type ReactNode } from 'react'
 import type { RecordPage } from '../../../shared/dto/upgrades.ts'
 import { displayError, enumLabel, format, formatDate, serverCopy } from '../../../shared/i18n.ts'
 import { usePollingResource } from '../../shared/usePollingResource.ts'
@@ -8,17 +9,69 @@ export function UpgradeRecords(props: {
   page: number
   onPage: (page: number) => void
   onPlan: (id: string) => void
+  back?: ReactNode
 }) {
   const { active, page, onPage: setPage, onPlan: setPlan } = props,
     c = serverCopy(active).upgrades,
     ui = serverCopy(active).ui
   const [pageSize, setPageSize] = useState(20)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('')
+  const [hours, setHours] = useState('')
   const { data: records, error } = usePollingResource<RecordPage>(
-    `/console-api/server-changes/records?page=${page}&page_size=${pageSize}`,
+    `/console-api/server-changes/records?page=${page}&page_size=${pageSize}&q=${encodeURIComponent(query)}&status=${encodeURIComponent(status)}&hours=${hours}`,
   )
   return (
-    <>
+    <Panel
+      className="smp-upgrade-page smp-list-panel"
+      title={c.records}
+      extra={
+        <div className="row smp-records-tools">
+          <input
+            className="search"
+            type="search"
+            aria-label={c.recordSearch}
+            placeholder={c.recordSearch}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+              setOpenId(null)
+            }}
+          />
+          <select
+            aria-label={c.status}
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value)
+              setPage(1)
+              setOpenId(null)
+            }}
+          >
+            <option value="">{c.recordAllStates}</option>
+            {['running', 'succeeded', 'failed', 'cancelled'].map((state) => (
+              <option key={state} value={state}>{enumLabel(c, state)}</option>
+            ))}
+          </select>
+          <select
+            aria-label={c.recordTime}
+            value={hours}
+            onChange={(event) => {
+              setHours(event.target.value)
+              setPage(1)
+              setOpenId(null)
+            }}
+          >
+            <option value="">{c.recordAllTime}</option>
+            <option value="24">{c.recordLast24h}</option>
+            <option value="168">{c.recordLast7d}</option>
+            <option value="720">{c.recordLast30d}</option>
+          </select>
+          {props.back}
+        </div>
+      }
+    >
       {error && (
         <p className="banner error" role="alert">
           {displayError(active, error)}
@@ -133,7 +186,7 @@ export function UpgradeRecords(props: {
           </button>
         </div>
       </footer>
-    </>
+    </Panel>
   )
 }
 

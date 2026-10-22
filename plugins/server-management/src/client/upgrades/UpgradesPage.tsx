@@ -51,10 +51,19 @@ export function UpgradesPage(props: {
   ) : undefined
   if (tab === 'plans')
     return <UpgradePlans active={active} onPlan={setPlan} back={back} />
+  if (tab === 'records')
+    return (
+      <UpgradeRecords
+        active={active}
+        page={page}
+        onPage={setPage}
+        onPlan={setPlan}
+        back={back}
+      />
+    )
   return (
     <Panel className={`smp-upgrade-page${tab === 'records' ? ' smp-list-panel' : ''}`} title={c[tab]} extra={back}>
       {tab === 'suggestions' && <UpgradeSuggestions model={suggestions} />}
-      {tab === 'records' && <UpgradeRecords active={active} page={page} onPage={setPage} onPlan={setPlan} />}
     </Panel>
   )
 }

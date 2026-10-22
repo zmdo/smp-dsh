@@ -819,3 +819,7 @@
 .smp-json-row > dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .smp-json-list { margin: 0; padding-left: 18px; }
 .smp-json-scalar { white-space: pre-wrap; }
+
+.smp-records-tools { gap: 8px; align-items: center; }
+.smp-console .smp-records-tools .search { width: 220px; }
+.smp-console .smp-records-tools select { width: auto; }

@@ -567,7 +567,14 @@
     "noPlans": "No plans.",
     "bulkCancelling": "Cancelling",
     "steps": "Steps",
-    "recordsTotal": "{count} records"
+    "recordsTotal": "{count} records",
+    "recordSearch": "Search server or plan",
+    "recordAllStates": "All statuses",
+    "recordTime": "Time range",
+    "recordAllTime": "All time",
+    "recordLast24h": "Last 24 hours",
+    "recordLast7d": "Last 7 days",
+    "recordLast30d": "Last 30 days"
   },
   "components": {
     "docker": {
