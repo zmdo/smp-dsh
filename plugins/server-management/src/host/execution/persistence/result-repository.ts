@@ -3,7 +3,7 @@ import type { SaveStepInput } from './inputs.ts'
 
 export function markDisconnected(db: Db, serverId: string, error: string) {
   return db.query<never>(
-    "update server_runtime set connection_state='offline',connection_checked_at=now(),connection_error=$2 where server_id=$1",
+    "update server_runtime set connection_state='offline',connection_checked_at=now(),connection_error=$2,auto_retry_at=now() where server_id=$1",
     [serverId, error],
   )
 }

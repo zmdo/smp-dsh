@@ -324,7 +324,12 @@ export async function updateServer(deps: ServerDeps, id: string, body: unknown):
   return serverDetail(deps, id)
 }
 
-export async function enqueueExisting(deps: ServerDeps, id: string, action: string): Promise<JobRecord> {
+export async function enqueueExisting(
+  deps: ServerDeps,
+  id: string,
+  action: string,
+  source: 'manual' | 'scheduled' = 'manual',
+): Promise<JobRecord> {
   let lease: TypeLease | undefined
   try {
     return await transaction(deps.db, async (client) => {
@@ -339,7 +344,7 @@ export async function enqueueExisting(deps: ServerDeps, id: string, action: stri
       const job = await enqueue(client, id, action, {
         configRevision: row.config_revision,
         typeSignature: lease?.signature ?? '',
-      }, false, 'manual')
+      }, false, source)
       return job
     })
   } finally {

@@ -5,6 +5,7 @@ import { connectSsh, type SshSession } from '../remote/ssh.ts'
 import { serverSecret } from './persistence/credential-repository.ts'
 import { saveMetrics, serverIds } from './persistence/metrics-repository.ts'
 import { cleanupMetrics, recordMetric, rollup1h, rollup5m } from './persistence/history-repository.ts'
+import { claimAutoRetry, releaseAutoRetry } from './persistence/auto-retry-repository.ts'
 
 const SAMPLE = `cores=$(nproc 2>/dev/null || grep -c '^processor' /proc/cpuinfo)
 read_cpu() { awk '/^cpu /{idle=$5+$6; t=0; for(i=2;i<=NF;i++) t+=$i; print t, idle}' /proc/stat; }
@@ -33,6 +34,7 @@ export function startMetrics(
   intervalSeconds: number,
   onError: (cause: unknown) => void,
   connect: typeof connectSsh = connectSsh,
+  enqueueTest?: (serverId: string) => Promise<unknown>,
 ): () => Promise<void> {
   const sessions = new Map<string, SshSession>()
   const revisions = new Map<string, string>()
@@ -154,6 +156,14 @@ export function startMetrics(
       await saveMetrics(db, id, sample, server.config_revision)
       try {
         await recordMetric(db, id, sample)
+        if (enqueueTest !== undefined && await claimAutoRetry(db, id)) {
+          try {
+            await enqueueTest(id)
+          } catch (cause) {
+            await releaseAutoRetry(db, id)
+            onError(cause)
+          }
+        }
       } catch (cause) {
         onError(cause)
       }
