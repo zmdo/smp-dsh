@@ -252,6 +252,8 @@ private_key
   server: string
   command: string
   timeout_ms?: number
+  command_max_bytes?: number
+  output_limit_bytes?: number
 }
 ```
 
@@ -262,16 +264,78 @@ private_key
   "exit_code": 0,
   "stdout": "...",
   "stderr": "",
+  "stdout_truncated": false,
+  "stderr_truncated": false,
   "duration_ms": 123
 }
 ```
 
 限制：
 
-- 命令最大长度：默认 8192
+- 命令最大长度：默认 8192 字节
 - 超时：默认 30 秒，最大 120 秒
-- 输出：默认 64 KiB，超出截断并标记
+- 捕获输出：默认 64 KiB，最大 1 MiB
+- 审计输出摘要：固定 4 KiB
 - 单服务器并发：1
+
+工具参数不传时使用平台默认值；传入时只能小于等于管理端配置的最大值。
+
+### 6.4 执行限制配置
+
+执行限制由管理员在：
+
+```text
+平台设置 → Harness → 服务器
+```
+
+配置，不允许 AI 直接修改全局限制。
+
+新增设置项：
+
+| 设置 | 默认值 | 可配置最大值 | 说明 |
+| --- | --- | --- | --- |
+| 默认命令超时 | 30 秒 | 120 秒 | 未传 `timeout_ms` 时使用 |
+| 最大命令超时 | 120 秒 | 120 秒 | AI 单次调用的硬上限 |
+| 默认命令字节数 | 8192 | 65536 | 未传 `command_max_bytes` 时使用 |
+| 最大命令字节数 | 65536 | 65536 | AI 单次调用的硬上限 |
+| 默认捕获输出 | 64 KiB | 1 MiB | 未传 `output_limit_bytes` 时使用 |
+| 最大捕获输出 | 1 MiB | 1 MiB | AI 单次调用的硬上限 |
+
+约束：
+
+- 默认值不能大于对应最大值
+- 所有值必须为正整数
+- AI 只能调整单次调用参数，不能修改平台设置
+- 修改设置后，新注册的工具 schema 使用新值
+- 运行中的调用不受影响
+- 审计输出摘要不参与 AI 调整，固定为 4 KiB
+
+工具 schema 的描述会由当前配置动态生成，例如：
+
+```text
+timeout_ms: Defaults to 30000; maximum 120000.
+command_max_bytes: Defaults to 8192; maximum 65536.
+output_limit_bytes: Defaults to 65536; maximum 1048576.
+```
+
+模型从工具 schema 读取这些值；如果配置被修改，需要重新加载插件或重启对应进程后，模型才会看到新的描述。
+
+存储建议：
+
+```text
+server_management_settings
+  id boolean primary key
+  default_timeout_ms integer not null
+  max_timeout_ms integer not null
+  default_command_bytes integer not null
+  max_command_bytes integer not null
+  default_output_bytes integer not null
+  max_output_bytes integer not null
+  updated_by text
+  updated_at timestamptz not null
+```
+
+这是平台级单例设置，不按服务器保存。
 
 ## 7. 权限模型
 
