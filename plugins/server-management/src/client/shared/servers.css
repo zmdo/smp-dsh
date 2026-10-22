@@ -887,3 +887,7 @@ body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff
 .smp-audit-session-link:hover { text-decoration: underline; }
 
 .smp-audit-deleted { color: var(--muted); font-size: 12px; }
+
+.smp-audit-server-link { padding: 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; text-align: left; }
+.smp-audit-server-link:hover { text-decoration: underline; }
+.smp-audit-server-deleted { color: var(--muted); }

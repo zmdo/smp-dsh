@@ -68,7 +68,7 @@ export function apply(ctx: ClientCtx): void {
         key: 'server-audit',
         label: pageLabel(() => copy().auditTab, group),
         order: 3,
-        inject: () => ({ locale: ctx.locale }),
+        inject: () => ({ locale: ctx.locale, pageState }),
       },
       AuditPage,
     ),

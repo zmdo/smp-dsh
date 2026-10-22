@@ -14,7 +14,11 @@ const STATUS_KEYS = {
   cancelled: 'auditCancelled',
 } as const
 
-export function AuditPage(props: { locale: LocaleFace; openConsole?: (key: string) => void }) {
+export function AuditPage(props: {
+  locale: LocaleFace
+  openConsole?: (key: string) => void
+  pageState?: { openServer(id: string): void }
+}) {
   const active = useActiveLocale(props.locale)
   const c = serverCopy(active).ui
   const [page, setPage] = useState(1)
@@ -101,8 +105,24 @@ export function AuditPage(props: { locale: LocaleFace; openConsole?: (key: strin
                     )}
                   </td>
                   <td title={`${c.auditSnapshotName}: ${record.server_name}`}>
-                    {record.current_server_name ?? record.server_name}
-                    {record.server_deleted && <span className="smp-audit-deleted"> {c.auditServerDeleted}</span>}
+                    {record.server_deleted ? (
+                      <span className="smp-audit-server-deleted">
+                        {record.server_name} <span className="smp-audit-deleted">{c.auditServerDeleted}</span>
+                      </span>
+                    ) : (
+                      <button
+                        className="smp-audit-server-link"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          if (record.server_id === null || props.pageState === undefined) return
+                          props.pageState.openServer(record.server_id)
+                          props.openConsole?.('servers')
+                        }}
+                      >
+                        {record.current_server_name ?? record.server_name}
+                      </button>
+                    )}
                   </td>
                   <td className="smp-audit-command" title={target(record) ?? ''}>{target(record)}</td>
                   <td>
