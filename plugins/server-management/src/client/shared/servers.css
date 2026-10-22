@@ -799,3 +799,9 @@
 .smp-console .smp-checks-body .smp-detection-table td { padding: 10px 12px; }
 .smp-console .smp-checks-body .smp-detection-table td { overflow-wrap: anywhere; }
 .smp-console .smp-checks-body .smp-detection-reasons { padding-left: 14px; }
+
+.smp-console .smp-checks-retract {
+  flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.smp-console .smp-checks-retract:hover { color: var(--primary); background: var(--dsw-specific-sidebar-nav-item-hover); }

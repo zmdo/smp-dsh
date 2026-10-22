@@ -176,8 +176,16 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
             <header className="smp-checks-head">
               <h2>{c.checks}</h2>
               <span>{format(c.checkCount, { count: checks.length })}</span>
-              <button className="secondary" type="button" onClick={() => setChecksOpen(false)}>
-                {copy.retract}
+              <button
+                className="smp-checks-retract"
+                type="button"
+                aria-label={copy.retract}
+                title={copy.retract}
+                onClick={() => setChecksOpen(false)}
+              >
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path d="M2 8h8M7 4.5 10.5 8 7 11.5M14 2.5v11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
             </header>
             <div className="smp-checks-body">
