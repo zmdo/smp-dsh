@@ -1,0 +1,149 @@
+import type { DefinitionRegistry } from '../definitions/registry.ts'
+import type { Db } from '../database/connection.ts'
+import { type ServerListQuery } from '../servers/query.ts'
+import { serverList, serverRead } from '../servers/list.ts'
+import type { ServerDisplayStatus } from '../../shared/server-status.ts'
+
+export interface HarnessDeps {
+  db: Db
+  definitions: DefinitionRegistry
+  freshnessMs?: number
+}
+
+export interface ListInput {
+  query?: string
+  status?: ServerDisplayStatus
+  limit?: number
+}
+
+interface ResolvedServer {
+  id: string
+  name: string
+  host: string
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function safeListQuery(input: ListInput): ServerListQuery {
+  return {
+    groupId: null,
+    query: input.query?.trim() ?? '',
+    status: input.status ?? '',
+    order: 'name',
+    page: 1,
+    pageSize: Math.max(1, Math.min(50, input.limit ?? 20)),
+  }
+}
+
+export async function listHarnessServers(deps: HarnessDeps, input: ListInput) {
+  const page = await serverList(deps, safeListQuery(input))
+  return {
+    total: page.total,
+    items: page.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      host: item.address.host,
+      port: item.address.port,
+      region: item.region,
+      type: item.type.name,
+      status: item.status,
+      operatingSystem: item.operatingSystem,
+      resources: item.resources,
+      lastCheckedAt: item.lastCheckedAt,
+    })),
+  }
+}
+
+export async function getHarnessServer(deps: HarnessDeps, server: string) {
+  const target = await resolveServer(deps, server)
+  const row = await serverRead(deps, target.id)
+  if (row === undefined) throw new Error(serverNotFound(server))
+  return detail(row)
+}
+
+async function resolveServer(deps: HarnessDeps, input: string): Promise<ResolvedServer> {
+  const value = input.trim()
+  if (value === '') throw new Error(serverNotFound(input))
+  if (UUID.test(value)) {
+    const row = await serverRead(deps, value)
+    if (row !== undefined) return { id: row.id, name: row.name, host: row.host }
+  }
+  const page = await serverList(deps, {
+    groupId: null,
+    query: value,
+    status: '',
+    order: 'name',
+    page: 1,
+    pageSize: 100,
+  })
+  const matches = page.items.filter((item) => item.name === value)
+  if (matches.length === 0) throw new Error(serverNotFound(value))
+  if (matches.length > 1)
+    throw new Error(
+      JSON.stringify({
+        code: 'server_ambiguous',
+        message: 'Server name matches more than one managed server.',
+        candidates: matches.map((item) => ({
+          id: item.id,
+          name: item.name,
+          host: item.address.host,
+        })),
+      }),
+    )
+  const match = matches[0]!
+  return { id: match.id, name: match.name, host: match.address.host }
+}
+
+function serverNotFound(value: string): string {
+  return JSON.stringify({
+    code: 'server_not_managed',
+    message: `Server is not managed by this platform: ${value}`,
+  })
+}
+
+function detail(row: NonNullable<Awaited<ReturnType<typeof serverRead>>>) {
+  return {
+    id: row.id,
+    name: row.name,
+    host: row.host,
+    port: row.ssh_port,
+    region: row.region,
+    group: row.group_name_i18n ?? row.group_name,
+    type: row.type_name_i18n,
+    status: row.status,
+    operatingSystem: {
+      declared: row.declared_os,
+      detected: row.detected_os,
+      verification: row.os_verification,
+      compatible: row.type_os_compatible,
+    },
+    connection: {
+      state: row.reachability,
+      error: row.connection_error,
+      lastCheckedAt: row.last_checked_at?.toISOString() ?? null,
+    },
+    resources: {
+      cpuModel: row.cpu_model,
+      cpuCores: row.cpu_cores,
+      cpuPercent: row.cpu_percent === null ? null : Number(row.cpu_percent),
+      memoryUsed: row.mem_used_bytes,
+      memoryTotal: row.mem_total_bytes,
+      diskUsed: row.disk_used_bytes,
+      diskTotal: row.disk_total_bytes,
+      sampledAt: row.metrics_at?.toISOString() ?? null,
+      fresh: row.resources_fresh,
+    },
+    software: row.required_software.map((item) => {
+      const status = row.software_status[item.id]
+      return {
+        key: item.software_key,
+        name: item.name_i18n,
+        state: status?.state ?? 'unknown',
+        version: status?.version ?? null,
+        lastKnownVersion: status?.last_known_version ?? null,
+        detail: status?.detail,
+      }
+    }),
+    lastCheckedAt: row.last_checked_at?.toISOString() ?? null,
+  }
+}

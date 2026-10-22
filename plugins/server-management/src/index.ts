@@ -13,6 +13,7 @@ import { terminalRoute } from './host/remote/terminal.ts'
 import { Enrollment } from './host/servers/enrollment.ts'
 import { startMetrics } from './host/servers/metrics.ts'
 import { enqueueExisting } from './host/servers/service.ts'
+import { registerServerTools } from './host/harness/tools.ts'
 import { registerServerOpsGroup, type WorkspaceGroupsService } from './host/workspace-group.ts'
 
 export { ServerManagement } from './host/definitions/service.ts'
@@ -113,6 +114,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     updateCheckIntervalSeconds: config.updateCheckIntervalSeconds,
     freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000,
   }
+  ctx.inject(['tools'], (scope) => registerServerTools(scope, deps))
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield () => extensions.close()
