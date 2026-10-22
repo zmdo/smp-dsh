@@ -214,7 +214,11 @@
     "keysTotal": "共 {count} 把",
     "keysPageSize": "每页密钥数量",
     "resourceHistory": "资源监控",
-    "resourceHistoryEmpty": "暂无资源历史，等待下一次采集。"
+    "resourceHistoryEmpty": "暂无资源历史，等待下一次采集。",
+    "resourceHistoryCustom": "自定义",
+    "resourceHistoryFrom": "开始时间",
+    "resourceHistoryTo": "结束时间",
+    "resourceHistoryApply": "查询"
   },
   "reach": {
     "online": "在线",

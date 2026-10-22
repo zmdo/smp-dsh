@@ -5,6 +5,7 @@ import type { DisplayStatus } from '../server-status.ts'
 
 export interface ServerDto {
   id: string
+  created_at: string
   software_policies: SoftwarePolicy[]
   upgrade_count: number
   name: string

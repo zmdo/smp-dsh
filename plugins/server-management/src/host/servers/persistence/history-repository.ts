@@ -109,15 +109,20 @@ export interface RollupMetricRow {
   samples: number
 }
 
-export async function readRawMetrics(db: Db, serverId: string, seconds: number): Promise<RawMetricRow[]> {
+export async function readRawMetrics(
+  db: Db,
+  serverId: string,
+  from: Date,
+  to: Date,
+): Promise<RawMetricRow[]> {
   const result = await db.query<RawMetricRow>(
     `select sampled_at as t, cpu_percent as cpu,
             100.0 * memory_used_bytes / nullif(memory_total_bytes, 0) as memory,
             100.0 * disk_used_bytes / nullif(disk_total_bytes, 0) as disk
      from server_metric_samples
-     where server_id=$1 and sampled_at >= now() - make_interval(secs => $2)
+     where server_id=$1 and sampled_at >= $2 and sampled_at <= $3
      order by sampled_at`,
-    [serverId, seconds],
+    [serverId, from, to],
   )
   return result.rows
 }
@@ -126,15 +131,16 @@ export async function readRollupMetrics(
   db: Db,
   serverId: string,
   source: '5m' | '1h',
-  seconds: number,
+  from: Date,
+  to: Date,
 ): Promise<RollupMetricRow[]> {
   const table = source === '5m' ? 'server_metric_rollups_5m' : 'server_metric_rollups_1h'
   const result = await db.query<RollupMetricRow>(
     `select bucket_start as t, cpu_avg, cpu_max, memory_avg, memory_max, disk_avg, disk_max, sample_count as samples
      from ${table}
-     where server_id=$1 and bucket_start >= now() - make_interval(secs => $2)
+     where server_id=$1 and bucket_start >= $2 and bucket_start <= $3
      order by bucket_start`,
-    [serverId, seconds],
+    [serverId, from, to],
   )
   return result.rows
 }

@@ -11,7 +11,7 @@ export interface MetricPoint {
 }
 
 export interface MetricHistoryDto {
-  range: MetricRange
+  range: MetricRange | 'custom'
   resolution: 'raw' | '5m' | '1h'
   points: MetricPoint[]
   summary: { cpu: number | null; memory: number | null; disk: number | null } | null

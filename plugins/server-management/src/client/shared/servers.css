@@ -664,3 +664,27 @@
 .smp-resource-legend { display: flex; gap: 16px; padding: 0 16px 12px; color: var(--muted); font-size: 12px; }
 .smp-resource-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; }
 .smp-resource-history > p { margin: 0; padding: 16px; }
+
+/* Custom range controls and one chart per resource. */
+.smp-resource-custom {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 10px;
+  padding: 12px 16px 0;
+}
+.smp-resource-custom label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
+.smp-resource-custom input {
+  height: 30px; box-sizing: border-box; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--dsw-alias-bg-layer-1); color: var(--text); font: inherit;
+}
+.smp-resource-custom button { height: 30px; }
+.smp-resource-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px; padding: 12px 16px 16px;
+}
+.smp-resource-panel { min-width: 0; border: 1px solid var(--line); border-radius: 4px; padding: 10px; }
+.smp-resource-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.smp-resource-panel-head b { font-variant-numeric: tabular-nums; }
+.smp-resource-panel-head .is-cpu { color: var(--primary); }
+.smp-resource-panel-head .is-memory { color: var(--green); }
+.smp-resource-panel-head .is-disk { color: var(--warn); }
+.smp-resource-panel .smp-resource-chart { padding: 0; }

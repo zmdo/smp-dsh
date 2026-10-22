@@ -10,6 +10,10 @@ const RANGES: Record<MetricRange, { seconds: number; step: number; source: 'raw'
   '30d': { seconds: 30 * 24 * 3600, step: 3600, source: '1h' },
 }
 
+interface WindowConfig {
+  step: number
+  source: 'raw' | '5m' | '1h'
+}
 interface Bucket {
   t: number
   cpu: number
@@ -31,11 +35,47 @@ export async function metricHistory(
   range: MetricRange,
 ): Promise<MetricHistoryDto> {
   const config = RANGES[range]
-  let rows = await readSource(db, serverId, config.source, config.seconds)
+  const to = new Date()
+  const from = new Date(to.getTime() - config.seconds * 1000)
+  return readHistory(db, serverId, range, from, to, config, true)
+}
+
+export async function metricHistoryCustom(
+  db: Db,
+  serverId: string,
+  from: Date,
+  to: Date,
+): Promise<MetricHistoryDto> {
+  const seconds = Math.max(1, Math.floor((to.getTime() - from.getTime()) / 1000))
+  const config =
+    seconds <= 6 * 3600
+      ? { step: 60, source: 'raw' as const }
+      : seconds <= 24 * 3600
+        ? { step: 300, source: 'raw' as const }
+        : seconds <= 7 * 24 * 3600
+          ? { step: 900, source: '5m' as const }
+          : seconds <= 30 * 24 * 3600
+            ? { step: 1800, source: '5m' as const }
+            : { step: 3600, source: '1h' as const }
+  return readHistory(db, serverId, 'custom', from, to, config, true)
+}
+
+async function readHistory(
+  db: Db,
+  serverId: string,
+  range: MetricRange | 'custom',
+  from: Date,
+  to: Date,
+  config: WindowConfig,
+  fallback: boolean,
+): Promise<MetricHistoryDto> {
+  let rows: (RawMetricRow | RollupMetricRow)[] =
+    config.source === 'raw'
+      ? await readRawMetrics(db, serverId, from, to)
+      : await readRollupMetrics(db, serverId, config.source, from, to)
   let resolution = config.source
-  // A freshly started process may not have rolled up yet; raw data is still useful for shorter windows.
-  if (rows.length === 0 && config.source !== 'raw') {
-    rows = await readRaw(db, serverId, config.seconds)
+  if (rows.length === 0 && fallback && config.source !== 'raw') {
+    rows = await readRawMetrics(db, serverId, from, to)
     resolution = 'raw'
   }
   const buckets = new Map<number, Bucket>()
@@ -89,20 +129,6 @@ export async function metricHistory(
     points,
     summary: last === undefined ? null : { cpu: last.cpu, memory: last.memory, disk: last.disk },
   }
-}
-
-async function readSource(
-  db: Db,
-  serverId: string,
-  source: 'raw' | '5m' | '1h',
-  seconds: number,
-): Promise<(RawMetricRow | RollupMetricRow)[]> {
-  if (source === 'raw') return readRawMetrics(db, serverId, seconds)
-  return readRollupMetrics(db, serverId, source, seconds)
-}
-
-async function readRaw(db: Db, serverId: string, seconds: number): Promise<RawMetricRow[]> {
-  return readRawMetrics(db, serverId, seconds)
 }
 
 function round(value: number): number {

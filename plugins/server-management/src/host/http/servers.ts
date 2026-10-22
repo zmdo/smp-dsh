@@ -16,7 +16,7 @@ import { extensionSettings, saveExtensionSettings } from '../extensions/settings
 import { readExtensionObservations } from '../extensions/observations.ts'
 import { applyExtensionSettingsPlan, planExtensionSettings } from '../extensions/settings-plan.ts'
 import { parseServerListQuery } from './server-query.ts'
-import { metricHistory, metricRange } from '../servers/metric-history.ts'
+import { metricHistory, metricHistoryCustom, metricRange } from '../servers/metric-history.ts'
 
 export async function routeServers(
   deps: Deps,
@@ -55,7 +55,24 @@ export async function routeServers(
   if (parts.length === 2 && parts[1] === 'metrics' && request.method === 'GET') {
     const server = await serverRead(deps, id)
     if (server === undefined) throw new HttpError(404, 'server_not_found')
-    const range = metricRange(new URL(request.url ?? '/', 'http://localhost').searchParams.get('range'))
+    const params = new URL(request.url ?? '/', 'http://localhost').searchParams
+    const fromText = params.get('from')
+    const toText = params.get('to')
+    if (fromText !== null || toText !== null) {
+      const from = fromText === null ? new Date(Number.NaN) : new Date(fromText)
+      const to = toText === null ? new Date(Number.NaN) : new Date(toText)
+      const earliest = new Date((server as { created_at?: string | Date }).created_at ?? 0).getTime()
+      if (
+        Number.isNaN(from.getTime()) ||
+        Number.isNaN(to.getTime()) ||
+        to <= from ||
+        from.getTime() < earliest ||
+        to.getTime() - from.getTime() > 366 * 24 * 3600 * 1000
+      )
+        throw new HttpError(422, 'metric_range_invalid')
+      return sendJson(response, 200, await metricHistoryCustom(deps.db, id, from, to))
+    }
+    const range = metricRange(params.get('range'))
     if (range === null) throw new HttpError(422, 'metric_range_invalid')
     return sendJson(response, 200, await metricHistory(deps.db, id, range))
   }

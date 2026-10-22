@@ -133,7 +133,7 @@ export function ServerDetail(props: ServerDetailProps) {
           </button>
         </div>
       </div>
-      <ResourceHistory active={active} serverId={server.id} />
+      <ResourceHistory active={active} serverId={server.id} createdAt={server.created_at} />
       <RequiredSoftware active={active} software={server.required_software} status={server.software_status} />
     </Panel>
   )

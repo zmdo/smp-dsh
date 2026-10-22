@@ -214,7 +214,11 @@
     "keysTotal": "{count} keys",
     "keysPageSize": "Keys per page",
     "resourceHistory": "Resource history",
-    "resourceHistoryEmpty": "No resource history yet."
+    "resourceHistoryEmpty": "No resource history yet.",
+    "resourceHistoryCustom": "Custom",
+    "resourceHistoryFrom": "From",
+    "resourceHistoryTo": "To",
+    "resourceHistoryApply": "Apply"
   },
   "reach": {
     "online": "Online",
