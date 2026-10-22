@@ -741,3 +741,6 @@
 .smp-console select.smp-plan-status-filter { width: auto; }
 .smp-console .smp-plans-table .smp-select-col { width: 36px; padding-right: 0; }
 .smp-console .smp-plans-table .smp-select-col input { width: auto; margin: 0; }
+
+.smp-console .smp-plans-table tbody tr.smp-plan-row { cursor: pointer; }
+.smp-console .smp-plans-table tbody tr.smp-plan-row:hover td { background: #f7f9fc; }

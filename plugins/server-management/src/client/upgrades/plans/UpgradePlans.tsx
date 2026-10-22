@@ -143,20 +143,33 @@ export function UpgradePlans(props: { active: string; onPlan: (id: string) => vo
               <th>{c.type}</th>
               <th>{c.status}</th>
               <th>{c.server}</th>
-              <th />
             </tr>
           </thead>
           <tbody>
             {rows.map((plan) => {
               const canCancel = CANCELLABLE.has(plan.state)
               return (
-                <tr key={plan.id}>
+                <tr
+                  key={plan.id}
+                  className="smp-plan-row"
+                  role="button"
+                  aria-label={`${plan.id.slice(0, 8)} ${enumLabel(c, plan.state)}`}
+                  tabIndex={0}
+                  onClick={() => props.onPlan(plan.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    if ((event.target as HTMLElement).closest('input, button, a, select')) return
+                    event.preventDefault()
+                    props.onPlan(plan.id)
+                  }}
+                >
                   <td className="smp-select-col">
                     <input
                       type="checkbox"
                       aria-label={c.selectPlan}
                       checked={selected.has(plan.id)}
                       disabled={!canCancel}
+                      onClick={(event) => event.stopPropagation()}
                       onChange={() => toggle(plan.id)}
                     />
                   </td>
@@ -172,17 +185,12 @@ export function UpgradePlans(props: { active: string; onPlan: (id: string) => vo
                       <small>{c.running} ({plan.running_count})</small>
                     )}
                   </td>
-                  <td>
-                    <button className="link" type="button" onClick={() => props.onPlan(plan.id)}>
-                      {c.details}
-                    </button>
-                  </td>
                 </tr>
               )
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="empty">{c.noPlans}</td>
+                <td colSpan={5} className="empty">{c.noPlans}</td>
               </tr>
             )}
           </tbody>
