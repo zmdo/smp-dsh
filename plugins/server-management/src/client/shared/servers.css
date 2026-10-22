@@ -845,3 +845,6 @@
 .smp-resource-text.is-filled { position: absolute; inset: 0; color: #fff; }
 body[data-ds-dark-theme] .smp-console .smp-resource-text,
 body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff; }
+
+/* FitAddon must measure the same box that contains the terminal screen. */
+.smp-console .smp-server-terminal-panel .terminal-host { padding: 0; }
