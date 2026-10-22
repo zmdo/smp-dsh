@@ -9,6 +9,7 @@ import {
   serverCopy,
 } from '../../shared/i18n.ts'
 import { zonedTime } from '../../shared/schedule-time.ts'
+import { TableCard } from '@smp/console-kit'
 import { Dialog, DialogButton } from '@smp/console-kit/dialog'
 import { api, requestError } from '../shared/api.ts'
 const localDate = (value: Date) =>
@@ -136,11 +137,15 @@ export function ChangePlan(props: {
           </p>
           {plan.targets.length > 1 && <p className="muted">{c.executionHint}</p>}
           {plan.targets.map((t) => (
-            <section className="smp-plan-target smp-card smp-table-card" key={t.id}>
-              <h3>
+            <TableCard
+              className="smp-plan-target"
+              key={t.id}
+              title={
                 <span className="smp-plan-target-name">
                   {t.server_snapshot.name} <small>{t.server_snapshot.host}</small>
                 </span>
+              }
+              extra={
                 <span
                   className={`smp-plan-state ${
                     t.preflight_state === 'failed'
@@ -156,7 +161,8 @@ export function ChangePlan(props: {
                 >
                   {enumLabel(c, t.preflight_state)} · {enumLabel(c, t.state)}
                 </span>
-              </h3>
+              }
+            >
               {!!t.preflight_error && (
                 <p className="banner error">
                   {displayJobError(
@@ -227,7 +233,7 @@ export function ChangePlan(props: {
                   <pre>{JSON.stringify(t.result, null, 2)}</pre>
                 </details>
               )}
-            </section>
+            </TableCard>
           ))}
           {plan.state === 'awaiting_confirmation' && (
             <div className="smp-plan-confirm">

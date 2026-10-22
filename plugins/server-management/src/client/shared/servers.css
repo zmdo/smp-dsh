@@ -730,3 +730,9 @@
 .smp-console .smp-change-plan .smp-plan-target table.smp-table th {
   background: #fafafa; color: #909399; font-size: 13px; font-weight: 500;
 }
+
+/* Plan targets are TableCard instances; remove the legacy section padding. */
+.smp-console .smp-plan-target.smp-table-card {
+  margin: 12px 0 18px; padding: 0; border-radius: 4px; overflow: hidden;
+}
+.smp-console .smp-plan-target > header > span { color: inherit; }
