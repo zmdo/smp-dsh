@@ -1,6 +1,6 @@
 import { TableCard } from '@smp/console-kit'
 import { useState } from 'react'
-import { format, formatDate } from '../../../shared/i18n.ts'
+import { format, formatDate, serverCopy } from '../../../shared/i18n.ts'
 import { Pager } from '../Pager.tsx'
 import { DeferUpgrade } from './DeferUpgrade.tsx'
 import { DetectionResults } from './DetectionResults.tsx'
@@ -32,6 +32,10 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
     softwareName,
   } = model
   const [checksOpen, setChecksOpen] = useState(false)
+  const copy = serverCopy(active).ui
+  const checks = (data?.checks ?? []).filter(
+    (check) => !context?.serverId || check.server_id === context.serverId,
+  )
   return (
     <>
       {error && (
@@ -169,22 +173,17 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
         <div className="smp-checks-layer" role="presentation">
           <div className="smp-checks-mask" aria-hidden="true" onClick={() => setChecksOpen(false)} />
           <aside className="smp-checks-drawer" role="dialog" aria-modal="true" aria-label={c.checks}>
-            <button
-              className="smp-dialog-close smp-checks-close"
-              type="button"
-              aria-label={c.close}
-              onClick={() => setChecksOpen(false)}
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                <path d="m4 4 8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
+            <header className="smp-checks-head">
+              <h2>{c.checks}</h2>
+              <span>{format(c.checkCount, { count: checks.length })}</span>
+              <button className="secondary" type="button" onClick={() => setChecksOpen(false)}>
+                {copy.retract}
+              </button>
+            </header>
             <div className="smp-checks-body">
               <DetectionResults
                 active={active}
-                checks={(data?.checks ?? []).filter(
-                  (check) => !context?.serverId || check.server_id === context.serverId,
-                )}
+                checks={checks}
                 loading={!data}
                 failuresOnly={decision === 'detection_failed'}
                 softwareName={softwareName}

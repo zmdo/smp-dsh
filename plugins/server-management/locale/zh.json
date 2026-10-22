@@ -219,7 +219,10 @@
     "resourceHistoryFrom": "开始时间",
     "resourceHistoryTo": "结束时间",
     "resourceHistoryApply": "查询",
-    "retryConnections": "重试连接"
+    "retryConnections": "重试连接",
+    "checkRange": "共 {count} 条，第 {from}–{to} 条",
+    "checkPageSize": "每页检测结果数量",
+    "retract": "收回"
   },
   "reach": {
     "online": "在线",

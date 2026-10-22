@@ -219,7 +219,10 @@
     "resourceHistoryFrom": "From",
     "resourceHistoryTo": "To",
     "resourceHistoryApply": "Apply",
-    "retryConnections": "Retry connections"
+    "retryConnections": "Retry connections",
+    "checkRange": "{count} checks, showing {from}–{to}",
+    "checkPageSize": "Checks per page",
+    "retract": "Retract"
   },
   "reach": {
     "online": "Online",
