@@ -14,7 +14,7 @@ const STATUS_KEYS = {
   cancelled: 'auditCancelled',
 } as const
 
-export function AuditPage(props: { locale: LocaleFace }) {
+export function AuditPage(props: { locale: LocaleFace; openConsole?: (key: string) => void }) {
   const active = useActiveLocale(props.locale)
   const c = serverCopy(active).ui
   const [page, setPage] = useState(1)
@@ -85,7 +85,21 @@ export function AuditPage(props: { locale: LocaleFace }) {
                 >
                   <td>{formatDate(record.started_at, active)}</td>
                   <td>{kindLabel(record.kind)}</td>
-                  <td className="smp-audit-session" title={record.harness_session_id ?? ''}>{record.harness_session_id ?? (record.actor_kind === 'system' ? 'system' : '—')}</td>
+                  <td className="smp-audit-session" title={record.harness_session_id ?? ''}>
+                    {record.harness_session_id === null ? (record.actor_kind === 'system' ? 'system' : '—') : (
+                      <button
+                        className="smp-audit-session-link"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          window.sessionStorage.setItem('smp.archive.search', JSON.stringify({ by: 'id', query: record.harness_session_id }))
+                          props.openConsole?.('archive')
+                        }}
+                      >
+                        {record.harness_session_id}
+                      </button>
+                    )}
+                  </td>
                   <td>{record.server_name}</td>
                   <td className="smp-audit-command" title={target(record) ?? ''}>{target(record)}</td>
                   <td>

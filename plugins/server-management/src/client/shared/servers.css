@@ -882,3 +882,6 @@ body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff
   margin: 0; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
 }
+
+.smp-audit-session-link { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; }
+.smp-audit-session-link:hover { text-decoration: underline; }
