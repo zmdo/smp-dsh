@@ -17,7 +17,7 @@ html[data-ds-theme-source='dark'] .smp-container-panel .table-scroll thead th {
 }
 
 .smp-console .panel.smp-container-panel {
-  border: 0; border-radius: 0; background: transparent;
+  margin: 0; border: 0; border-radius: 0; background: transparent;
 }
 .smp-console .smp-server-workspace-panel:has(.smp-container-panel) { padding: 0; }
 
