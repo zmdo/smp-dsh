@@ -239,7 +239,7 @@
     "auditDenied": "Denied",
     "auditTimeout": "Timed out",
     "auditCancelled": "Cancelled",
-    "settingsServer": "Servers",
+    "settingsServer": "Server management",
     "settingsHint": "Defaults and administrator ceilings for Harness command execution on managed servers.",
     "settingsDefault": "Default",
     "settingsMaximum": "Maximum",

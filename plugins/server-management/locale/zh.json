@@ -239,7 +239,7 @@
     "auditDenied": "已拒绝",
     "auditTimeout": "超时",
     "auditCancelled": "已取消",
-    "settingsServer": "服务器",
+    "settingsServer": "服务器管理",
     "settingsHint": "控制 Harness 在服务器上执行命令时的默认限制和管理端上限。",
     "settingsDefault": "默认值",
     "settingsMaximum": "最大值",
