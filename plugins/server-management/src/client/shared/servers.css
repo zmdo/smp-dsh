@@ -876,3 +876,9 @@ body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff
   max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
 }
+
+.smp-audit-detail { display: grid; gap: 14px; }
+.smp-audit-detail .smp-audit-pre {
+  margin: 0; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+}

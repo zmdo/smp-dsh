@@ -1,5 +1,5 @@
 import { Panel } from '@smp/console-kit'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import type { AuditPageDto } from '../../shared/dto/audit.ts'
 import { displayError, format, formatDate, serverCopy, type LocaleFace } from '../../shared/i18n.ts'
 import { useActiveLocale } from '../shared/locale.ts'
@@ -20,6 +20,7 @@ export function AuditPage(props: { locale: LocaleFace }) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [kind, setKind] = useState('')
+  const [openId, setOpenId] = useState<string | null>(null)
   const { data, error } = usePollingResource<AuditPageDto>(
     `/console-api/server-audits?page=${page}&page_size=${pageSize}&kind=${encodeURIComponent(kind)}`,
   )
@@ -40,7 +41,7 @@ export function AuditPage(props: { locale: LocaleFace }) {
         <select
           aria-label={c.auditKind}
           value={kind}
-          onChange={(event) => { setKind(event.target.value); setPage(1) }}
+          onChange={(event) => { setKind(event.target.value); setPage(1); setOpenId(null) }}
         >
           <option value="">{c.auditAllKinds}</option>
           <option value="command">{c.auditKindCommand}</option>
@@ -68,16 +69,37 @@ export function AuditPage(props: { locale: LocaleFace }) {
           </thead>
           <tbody>
             {data?.items.map((record) => (
-              <tr key={record.id}>
-                <td>{formatDate(record.started_at, active)}</td>
-                <td>{kindLabel(record.kind)}</td>
-                <td className="smp-audit-session" title={record.harness_session_id ?? ''}>{record.harness_session_id ?? (record.actor_kind === 'system' ? 'system' : '—')}</td>
-                <td>{record.server_name}</td>
-                <td className="smp-audit-command" title={target(record) ?? ''}>{target(record)}</td>
-                <td>
-                  <span className={`smp-audit-status is-${record.status}`}>{statusLabel(record.status)}</span>
-                </td>
-              </tr>
+              <Fragment key={record.id}>
+                <tr
+                  className={openId === record.id ? 'smp-record-row is-open' : 'smp-record-row'}
+                  role="button"
+                  aria-expanded={openId === record.id}
+                  tabIndex={0}
+                  onClick={() => setOpenId((current) => current === record.id ? null : record.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    if ((event.target as HTMLElement).closest('button, a, input, select')) return
+                    event.preventDefault()
+                    setOpenId((current) => current === record.id ? null : record.id)
+                  }}
+                >
+                  <td>{formatDate(record.started_at, active)}</td>
+                  <td>{kindLabel(record.kind)}</td>
+                  <td className="smp-audit-session" title={record.harness_session_id ?? ''}>{record.harness_session_id ?? (record.actor_kind === 'system' ? 'system' : '—')}</td>
+                  <td>{record.server_name}</td>
+                  <td className="smp-audit-command" title={target(record) ?? ''}>{target(record)}</td>
+                  <td>
+                    <span className={`smp-audit-status is-${record.status}`}>{statusLabel(record.status)}</span>
+                  </td>
+                </tr>
+                {openId === record.id && (
+                  <tr>
+                    <td className="smp-record-detail" colSpan={6}>
+                      <AuditDetail record={record} active={active} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {!data?.items.length && (
               <tr>
@@ -118,5 +140,72 @@ export function AuditPage(props: { locale: LocaleFace }) {
         </div>
       </footer>
     </Panel>
+  )
+}
+
+
+function AuditDetail(props: { record: AuditPageDto['items'][number]; active: string }) {
+  const { record: r, active } = props
+  const c = serverCopy(active).ui
+  const value = (v: string | number | null | undefined) => v === null || v === undefined || v === '' ? '—' : String(v)
+  return (
+    <div className="smp-audit-detail">
+      <section className="smp-record-section">
+        <h3>{c.auditBasic}</h3>
+        <dl className="smp-json-object">
+          <div className="smp-json-row"><dt>{c.auditSessionId}</dt><dd>{value(r.harness_session_id)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditAgent}</dt><dd>{value(r.agent_id)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditTool}</dt><dd>{value(r.tool_name)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditCall}</dt><dd>{value(r.tool_call_id)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditRootCall}</dt><dd>{value(r.root_tool_call_id)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditTurn}</dt><dd>{value(r.harness_turn)} / {value(r.harness_step)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditEventSeq}</dt><dd>{value(r.harness_event_seq)}</dd></div>
+        </dl>
+      </section>
+      <section className="smp-record-section">
+        <h3>{c.auditApproval}</h3>
+        <dl className="smp-json-object">
+          <div className="smp-json-row"><dt>{c.auditPermission}</dt><dd>{value(r.permission_mode)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditApprovalStatus}</dt><dd>{value(r.approval_status)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditApprovedBy}</dt><dd>{value(r.approved_by)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditApprovedAt}</dt><dd>{formatDate(r.approved_at, active)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditApprovalReason}</dt><dd>{value(r.approval_reason)}</dd></div>
+        </dl>
+      </section>
+      {r.kind === 'command' ? (
+        <section className="smp-record-section">
+          <h3>{c.auditCommandDetail}</h3>
+          <dl className="smp-json-object">
+            <div className="smp-json-row"><dt>{c.auditCommand}</dt><dd><pre className="smp-audit-pre">{value(r.command)}</pre></dd></div>
+            <div className="smp-json-row"><dt>{c.auditDigest}</dt><dd>{value(r.command_digest)}</dd></div>
+            <div className="smp-json-row"><dt>{c.auditExitCode}</dt><dd>{value(r.exit_code)}</dd></div>
+            <div className="smp-json-row"><dt>stdout</dt><dd><pre className="smp-audit-pre">{value(r.stdout_excerpt)}</pre></dd></div>
+            <div className="smp-json-row"><dt>stderr</dt><dd><pre className="smp-audit-pre">{value(r.stderr_excerpt)}</pre></dd></div>
+          </dl>
+        </section>
+      ) : (
+        <section className="smp-record-section">
+          <h3>{c.auditFileDetail}</h3>
+          <dl className="smp-json-object">
+            <div className="smp-json-row"><dt>{c.auditRemotePath}</dt><dd><code>{value(r.remote_path)}</code></dd></div>
+            <div className="smp-json-row"><dt>{c.auditLocalPath}</dt><dd><code>{value(r.local_path)}</code></dd></div>
+            <div className="smp-json-row"><dt>{c.auditBytes}</dt><dd>{value(r.bytes)}</dd></div>
+            <div className="smp-json-row"><dt>{c.auditSha256}</dt><dd><code>{value(r.sha256)}</code></dd></div>
+            <div className="smp-json-row"><dt>{c.auditMode}</dt><dd>{value(r.mode)}</dd></div>
+            <div className="smp-json-row"><dt>{c.auditOverwrite}</dt><dd>{r.overwrite ? c.auditYes : c.auditNo}</dd></div>
+          </dl>
+        </section>
+      )}
+      <section className="smp-record-section">
+        <h3>{c.auditResult}</h3>
+        <dl className="smp-json-object">
+          <div className="smp-json-row"><dt>{c.auditStatus}</dt><dd>{r.status}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditDuration}</dt><dd>{r.duration_ms === null ? '—' : `${r.duration_ms} ms`}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditTimedOut}</dt><dd>{r.timed_out ? c.auditYes : c.auditNo}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditCancelled}</dt><dd>{r.cancelled ? c.auditYes : c.auditNo}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditError}</dt><dd><pre className="smp-audit-pre">{value(r.error_message)}</pre></dd></div>
+        </dl>
+      </section>
+    </div>
   )
 }
