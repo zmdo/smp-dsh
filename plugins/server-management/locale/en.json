@@ -255,7 +255,8 @@
     "auditKindCommand": "Command",
     "auditKindUpload": "Upload",
     "auditKindDownload": "Download",
-    "auditTarget": "Target"
+    "auditTarget": "Target",
+    "auditSessionId": "Session ID"
   },
   "reach": {
     "online": "Online",

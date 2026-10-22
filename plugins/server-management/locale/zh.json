@@ -255,7 +255,8 @@
     "auditKindCommand": "命令",
     "auditKindUpload": "上传",
     "auditKindDownload": "下载",
-    "auditTarget": "目标"
+    "auditTarget": "目标",
+    "auditSessionId": "会话 ID"
   },
   "reach": {
     "online": "在线",

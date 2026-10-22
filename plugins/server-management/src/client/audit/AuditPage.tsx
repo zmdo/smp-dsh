@@ -60,7 +60,7 @@ export function AuditPage(props: { locale: LocaleFace }) {
             <tr>
               <th>{c.auditTime}</th>
               <th>{c.auditKind}</th>
-              <th>{c.auditActor}</th>
+              <th>{c.auditSessionId}</th>
               <th>{c.auditServer}</th>
               <th>{c.auditTarget}</th>
               <th>{c.auditStatus}</th>
@@ -71,7 +71,7 @@ export function AuditPage(props: { locale: LocaleFace }) {
               <tr key={record.id}>
                 <td>{formatDate(record.started_at, active)}</td>
                 <td>{kindLabel(record.kind)}</td>
-                <td>{record.actor_id}</td>
+                <td className="smp-audit-session" title={record.harness_session_id ?? ''}>{record.harness_session_id ?? (record.actor_kind === 'system' ? 'system' : '—')}</td>
                 <td>{record.server_name}</td>
                 <td className="smp-audit-command" title={target(record) ?? ''}>{target(record)}</td>
                 <td>

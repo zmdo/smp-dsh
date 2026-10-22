@@ -871,3 +871,8 @@ body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff
   .smp-server-exec-settings .smp-server-exec-limit { grid-template-columns: 1fr 1fr; }
   .smp-server-exec-settings .smp-server-exec-limit h3 { grid-column: 1 / -1; }
 }
+
+.smp-audit-table .smp-audit-session {
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+}
