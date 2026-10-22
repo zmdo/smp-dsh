@@ -42,7 +42,7 @@ function ContainersPanel(props: ExtensionSlotOwner) {
   return (
     <section className="panel smp-container-panel">
       <style>{css}</style>
-      <div className="smp-container-toolbar">
+      <div className="smp-container-toolbar smp-task-top">
         <span className="muted">{copy.lastSuccess}: {snapshot?.last_success_at ?? copy.never}</span>
         <button className="secondary" type="button" disabled={loading} onClick={() => { setPage(1); setRefresh((n) => n + 1) }}>{copy.refresh}</button>
       </div>
@@ -67,7 +67,7 @@ function ContainersPanel(props: ExtensionSlotOwner) {
         )}
       </div>
       {snapshot?.last_success_at && (
-        <footer className="smp-server-pager smp-container-pager">
+        <footer className="smp-server-pager smp-container-pager smp-task-pager">
           <span>{fill(copy.range, { count: containers.length, from: (current - 1) * pageSize + 1, to: Math.min(current * pageSize, containers.length) })}</span>
           <div className="row">
             <label>

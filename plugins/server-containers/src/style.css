@@ -26,7 +26,7 @@ html[data-ds-theme-source='dark'] .smp-container-panel .table-scroll thead th {
 
 .smp-container-panel > .smp-container-toolbar {
   flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 48px; padding: 8px 16px; border-bottom: 1px solid var(--line);
+  min-height: 0; padding: 12px 16px; border-bottom: 1px solid var(--line);
 }
 .smp-container-panel > .smp-container-toolbar .muted { margin: 0; font-size: 12px; }
 .smp-container-panel > .smp-container-status {
@@ -48,4 +48,5 @@ html[data-ds-theme-source='dark'] .smp-container-panel .table-scroll thead th {
 }
 .smp-container-panel > .smp-container-pager {
   position: sticky; bottom: 0; z-index: 3; background: var(--dsw-alias-bg-layer-1);
+  padding: 12px 24px;
 }
