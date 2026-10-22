@@ -1,4 +1,5 @@
 import { TableCard } from '@smp/console-kit'
+import { useState } from 'react'
 import { format, formatDate } from '../../../shared/i18n.ts'
 import { Pager } from '../Pager.tsx'
 import { DeferUpgrade } from './DeferUpgrade.tsx'
@@ -30,6 +31,7 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
     shown,
     softwareName,
   } = model
+  const [checksOpen, setChecksOpen] = useState(false)
   return (
     <>
       {error && (
@@ -45,9 +47,15 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
           <button
             className="secondary"
             disabled={busy || !filteredServers.length}
-            onClick={() => void commands.detect()}
+            onClick={() => {
+              setChecksOpen(true)
+              void commands.detect()
+            }}
           >
             {selected.length ? c.detect : c.detectAll}
+          </button>
+          <button className="link" type="button" onClick={() => setChecksOpen(true)}>
+            {c.checks}
           </button>
           {context?.serverId && (
             <button className="link" onClick={() => showAll()}>
@@ -156,15 +164,36 @@ export function UpgradeSuggestions({ model }: { model: UpgradeSuggestionsModel }
       </TableCard>
       <Pager active={active} page={page} total={data?.total ?? 0} onPage={setPage} />
       <UpgradeBatch model={model} />
-      <DetectionResults
-        active={active}
-        checks={(data?.checks ?? []).filter(
-          (check) => !context?.serverId || check.server_id === context.serverId,
-        )}
-        loading={!data}
-        failuresOnly={decision === 'detection_failed'}
-        softwareName={softwareName}
-      />
+
+      {checksOpen && (
+        <div className="smp-checks-layer" role="presentation">
+          <div className="smp-checks-mask" aria-hidden="true" onClick={() => setChecksOpen(false)} />
+          <aside className="smp-checks-drawer" role="dialog" aria-modal="true" aria-label={c.checks}>
+            <button
+              className="smp-dialog-close smp-checks-close"
+              type="button"
+              aria-label={c.close}
+              onClick={() => setChecksOpen(false)}
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path d="m4 4 8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+            <div className="smp-checks-body">
+              <DetectionResults
+                active={active}
+                checks={(data?.checks ?? []).filter(
+                  (check) => !context?.serverId || check.server_id === context.serverId,
+                )}
+                loading={!data}
+                failuresOnly={decision === 'detection_failed'}
+                softwareName={softwareName}
+              />
+            </div>
+          </aside>
+        </div>
+      )}
+
       <DeferUpgrade model={model} />
     </>
   )
