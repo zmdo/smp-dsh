@@ -294,21 +294,6 @@ export function ChangePlan(props: {
                   {c.ackService}
                 </label>
               )}
-              {props.dialog !== true && (
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={
-                    busy ||
-                    (needsReplacement && !replacement) ||
-                    (needsMajor && !major) ||
-                    (needsService && !service)
-                  }
-                  onClick={() => void act('confirm')}
-                >
-                  {c.confirm}
-                </button>
-              )}
             </div>
           )}
           {plan.state === 'awaiting_confirmation' && (
@@ -321,6 +306,21 @@ export function ChangePlan(props: {
             </p>
           )}
           <div className="row">
+            {plan.state === 'awaiting_confirmation' && props.dialog !== true && (
+              <button
+                type="button"
+                className="primary"
+                disabled={
+                  busy ||
+                  (needsReplacement && !replacement) ||
+                  (needsMajor && !major) ||
+                  (needsService && !service)
+                }
+                onClick={() => void act('confirm')}
+              >
+                {c.confirm}
+              </button>
+            )}
             {['scheduled', 'running'].includes(plan.state) && (
               <button className="secondary" disabled={busy} onClick={() => void act('pause')}>
                 {c.pause}
