@@ -3,6 +3,7 @@ import type { GroupDto } from '../../../shared/dto/groups.ts'
 import { ServerError } from '../../../shared/errors.ts'
 import { groupName as localizedGroupName, serverCopy } from '../../../shared/i18n.ts'
 import { type ServerGroupSummary, type ServerListPage } from '../../../shared/dto/servers.ts'
+import type { TaskDto } from '../../../shared/dto/tasks.ts'
 import { api, requestError } from '../../shared/api.ts'
 import type { ServerListView as ListView } from '../../shared/server-page-state.ts'
 export interface ServerListProps {
@@ -150,14 +151,33 @@ export function useServerList(props: ServerListProps) {
     if (refreshing || rows.length === 0) return
     setRefreshing(true)
     setActionError(null)
-    const results = await Promise.allSettled(
-      rows.map((row) => api(`/console-api/servers/${row.id}/test`, { method: 'POST' })),
+    const submitted = await Promise.allSettled(
+      rows.map((row) => api<TaskDto>(`/console-api/servers/${row.id}/test`, { method: 'POST' })),
     )
-    const failed = results.find((result) => result.status === 'rejected')
+    const failed = submitted.find((result) => result.status === 'rejected')
     if (failed?.status === 'rejected') setActionError(requestError(failed.reason))
+    const ids = submitted.flatMap((result) =>
+      result.status === 'fulfilled' && result.value.id ? [result.value.id] : [],
+    )
+    await waitForJobs(ids)
     dataVersion.current += 1
     setRefresh((value) => value + 1)
     setRefreshing(false)
+  }
+
+  async function waitForJobs(ids: string[]): Promise<void> {
+    const terminal = new Set(['succeeded', 'failed', 'cancelled'])
+    let pending = ids
+    const deadline = Date.now() + 120_000
+    while (pending.length > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const states = await Promise.allSettled(
+        pending.map((id) => api<TaskDto>(`/console-api/server-jobs/${id}`)),
+      )
+      pending = states.flatMap((result, index) =>
+        result.status === 'fulfilled' && !terminal.has(result.value.status) ? [pending[index]!] : [],
+      )
+    }
   }
 
   async function removeServer(id: string): Promise<boolean> {
