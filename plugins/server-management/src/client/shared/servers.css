@@ -823,3 +823,25 @@
 .smp-records-tools { gap: 8px; align-items: center; }
 .smp-console .smp-records-tools .search { width: 220px; }
 .smp-console .smp-records-tools select { width: auto; }
+
+/* Resource rows: text sits on a colored bar, with a clipped white copy inside the fill. */
+.smp-console .smp-server-resources { min-width: 220px; }
+.smp-console .smp-server-resources > .smp-resource-line {
+  position: relative; display: block; min-height: 21px; line-height: 21px;
+  border-radius: 3px; overflow: hidden; white-space: nowrap; margin: 1px 0;
+  background: var(--dsw-alias-bg-layer-2);
+}
+.smp-resource-track { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+.smp-resource-track > i { display: block; height: 100%; border-radius: inherit; }
+.smp-resource-track > i.cpu { background: var(--primary); }
+.smp-resource-track > i.memory { background: var(--green); }
+.smp-resource-track > i.disk { background: var(--warn); }
+.smp-resource-track > i.hot { background: #b91c1c; }
+.smp-resource-text {
+  position: relative; z-index: 1; display: block; padding: 0 6px;
+  color: var(--text); font-size: 11px; font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.smp-resource-text.is-filled { position: absolute; inset: 0; color: #fff; }
+body[data-ds-dark-theme] .smp-console .smp-resource-text,
+body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff; }

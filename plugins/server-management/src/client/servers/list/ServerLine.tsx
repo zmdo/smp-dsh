@@ -47,13 +47,25 @@ export function ServerLine(props: {
             : copy.resourcesUnknown
         }
       >
-        <span>
-          {resources.fresh
-            ? `${resources.cpuModel ?? 'CPU'}${resources.cpuCores === null ? '' : `*${resources.cpuCores}`} (${resources.cpuPercent === null ? '—' : Math.round(resources.cpuPercent)}%)`
-            : '—'}
-        </span>
-        <span>{resourceLine(copy.memory, resources.memoryUsed, resources.memoryTotal, resources.fresh)}</span>
-        <span>{resourceLine(copy.disk, resources.diskUsed, resources.diskTotal, resources.fresh)}</span>
+        <ResourceLine
+          kind="cpu"
+          percent={resources.fresh ? resources.cpuPercent : null}
+          text={
+            resources.fresh
+              ? `${resources.cpuModel ?? 'CPU'}${resources.cpuCores === null ? '' : `*${resources.cpuCores}`} (${resources.cpuPercent === null ? '—' : Math.round(resources.cpuPercent)}%)`
+              : '—'
+          }
+        />
+        <ResourceLine
+          kind="memory"
+          percent={resources.fresh ? ratio(resources.memoryUsed, resources.memoryTotal) : null}
+          text={resourceLine(copy.memory, resources.memoryUsed, resources.memoryTotal, resources.fresh)}
+        />
+        <ResourceLine
+          kind="disk"
+          percent={resources.fresh ? ratio(resources.diskUsed, resources.diskTotal) : null}
+          text={resourceLine(copy.disk, resources.diskUsed, resources.diskTotal, resources.fresh)}
+        />
         {resources.sampledAt && !resources.fresh && <small className="muted">{copy.resourcesStale}</small>}
       </td>
       <td>{formatDate(server.lastCheckedAt, active)}</td>
@@ -142,4 +154,24 @@ function resourceLine(label: string, used: string | null, total: string | null, 
   if (!fresh || used === null || total === null) return `${label} —`
   const ratioValue = ratio(used, total)
   return `${label} ${bytes(used)}/${bytes(total)} (${ratioValue === null ? '—' : Math.round(ratioValue)}%)`
+}
+
+function ResourceLine(props: { kind: 'cpu' | 'memory' | 'disk'; percent: number | null; text: string }) {
+  const value = props.percent === null ? 0 : Math.max(0, Math.min(100, props.percent))
+  const tone = props.percent !== null && value > 80 ? 'hot' : props.kind
+  return (
+    <span className="smp-resource-line">
+      <span className="smp-resource-track" aria-hidden="true">
+        <i className={tone} style={{ width: `${value}%` }} />
+      </span>
+      <span className="smp-resource-text">{props.text}</span>
+      <span
+        aria-hidden="true"
+        className="smp-resource-text is-filled"
+        style={{ clipPath: `inset(0 ${100 - value}% 0 0)` }}
+      >
+        {props.text}
+      </span>
+    </span>
+  )
 }
