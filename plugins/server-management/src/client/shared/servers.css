@@ -715,3 +715,18 @@
 /* Plan list is framed like the other table modules. */
 .smp-console .smp-plan-list-card { border-radius: 4px; overflow: hidden; }
 .smp-console .smp-plan-list-card .smp-upgrade-scroll { margin: 0; }
+
+/* The inline "view plan" page uses the same target-card metrics as the dialog. */
+.smp-console .smp-change-plan .smp-plan-target {
+  margin-bottom: 18px;
+}
+.smp-console .smp-change-plan .smp-plan-target > h3 {
+  padding: 14px 16px;
+}
+.smp-console .smp-change-plan .smp-plan-target table.smp-table th,
+.smp-console .smp-change-plan .smp-plan-target table.smp-table td {
+  padding: 11px 16px;
+}
+.smp-console .smp-change-plan .smp-plan-target table.smp-table th {
+  background: #fafafa; color: #909399; font-size: 13px; font-weight: 500;
+}
