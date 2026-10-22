@@ -22,7 +22,7 @@ export function UpgradeRecords(props: {
         </p>
       )}
       <>
-        <div className="smp-upgrade-scroll">
+        <div className="smp-list-scroll">
           <table className="smp-table">
             <thead>
               <tr>
@@ -63,7 +63,7 @@ export function UpgradeRecords(props: {
           </table>
           {!records?.items.length && <p>{c.emptyRecords}</p>}
         </div>
-        <Pager active={active} page={page} total={records?.total ?? 0} onPage={setPage} />
+        <Pager active={active} page={page} total={records?.total ?? 0} onPage={setPage} className="smp-list-pager" />
       </>
     </>
   )

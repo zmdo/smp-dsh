@@ -5,10 +5,11 @@ export function Pager(props: {
   page: number
   total: number
   onPage: (page: number) => void
+  className?: string
 }) {
   const c = serverCopy(props.active).upgrades
   return (
-    <footer className="smp-server-pager">
+    <footer className={`smp-server-pager${props.className ? ` ${props.className}` : ''}`}>
       <span>{format(c.page, { page: props.page, count: props.total })}</span>
       <div className="row">
         <button className="secondary" disabled={props.page <= 1} onClick={() => props.onPage(props.page - 1)}>
