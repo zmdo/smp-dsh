@@ -14,12 +14,16 @@
 .smp-server-group { position: relative; display: flex; align-items: center; min-width: 0; min-height: 36px; margin-bottom: 4px; border-radius: 4px; }
 .smp-server-group:hover, .smp-server-group:focus-within { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .smp-server-group.is-on { background: var(--primary-soft); color: var(--primary); }
-.smp-server-group-choice { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.smp-server-group-choice { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .smp-server-group:has(.smp-server-group-delete) .smp-server-group-choice { padding-right: 34px; }
 .smp-server-group:has(.smp-server-group-rename-button) .smp-server-group-choice { padding-right: 62px; }
-.smp-server-group-choice > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.smp-server-group-choice > span:first-child { min-width: 0; padding-right: 28px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .smp-server-group.is-on .smp-server-group-choice { font-weight: 600; }
-.smp-server-group-count { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.smp-server-group-count { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.smp-server-group:has(.smp-server-group-delete):hover .smp-server-group-count,
+.smp-server-group:has(.smp-server-group-delete):focus-within .smp-server-group-count,
+.smp-server-group:has(.smp-server-group-rename-button):hover .smp-server-group-count,
+.smp-server-group:has(.smp-server-group-rename-button):focus-within .smp-server-group-count { opacity: 0; }
 .smp-server-group-delete { position: absolute; right: 4px; display: grid; place-items: center; width: 26px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; }
 .smp-server-group:hover .smp-server-group-delete, .smp-server-group:focus-within .smp-server-group-delete { opacity: 1; }
 .smp-server-group-delete:hover { color: var(--red); background: var(--red-bg); }
