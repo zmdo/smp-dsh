@@ -848,3 +848,75 @@ body[data-ds-dark-theme] .smp-console .smp-resource-text.is-filled { color: #fff
 
 /* FitAddon must measure the same box that contains the terminal screen. */
 .smp-console .smp-server-terminal-panel .terminal-host { padding: 0; }
+
+.smp-audit-table .smp-audit-command {
+  max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+}
+.smp-audit-status { font-size: 12px; color: var(--muted); }
+.smp-audit-status.is-succeeded { color: #15803d; }
+.smp-audit-status.is-failed,
+.smp-audit-status.is-timeout,
+.smp-audit-status.is-denied { color: #b91c1c; }
+
+.smp-server-exec-settings { display: grid; gap: 16px; }
+.smp-server-exec-settings header h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.smp-server-exec-settings header p { margin: 0; }
+.smp-server-exec-rows { display: flex; flex-direction: column; }
+.smp-server-exec-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 16px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+.smp-server-exec-row:last-child { border-bottom: 0; }
+.smp-server-exec-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-right: 48px; }
+.smp-server-exec-row-title { font-size: 14px; line-height: 22px; color: var(--dsw-alias-label-primary); }
+.smp-server-exec-row-desc { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
+.smp-server-exec-control { display: inline-flex; align-items: center; gap: 8px; }
+.smp-server-exec-value {
+  width: 96px; height: 36px; box-sizing: border-box; padding: 0 10px;
+  border: 0.5px solid transparent; border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-module-platform); color: var(--dsw-alias-label-primary);
+  font-size: 14px; line-height: 22px; font-variant-numeric: tabular-nums; text-align: center;
+}
+.smp-server-exec-value:focus { border-color: var(--dsw-alias-border-l1); outline: none; }
+.smp-server-exec-unit { font-size: 14px; line-height: 22px; color: var(--dsw-alias-label-secondary); }
+.smp-server-exec-expander {
+  display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+  padding: 0; border: 0; border-radius: var(--dsw-radius-xs); background: transparent;
+  color: var(--dsw-alias-label-tertiary); cursor: pointer;
+}
+.smp-server-exec-expander:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.smp-server-exec-expander svg { transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out); }
+.smp-server-exec-expander[aria-expanded='true'] svg { transform: rotate(180deg); }
+.smp-server-exec-max {
+  flex-basis: 100%; display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 8px 0 0; color: var(--dsw-alias-label-tertiary); font-size: 12px;
+}
+.smp-server-exec-max label { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 720px) {
+  .smp-server-exec-row-text { padding-right: 0; flex-basis: 100%; }
+  .smp-server-exec-control { width: 100%; justify-content: flex-end; }
+}
+
+.smp-audit-table .smp-audit-session {
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+}
+
+.smp-audit-detail { display: grid; gap: 14px; }
+.smp-audit-detail .smp-audit-pre {
+  margin: 0; max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+}
+
+.smp-audit-session-link { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; }
+.smp-audit-session-link:hover { text-decoration: underline; }
+
+.smp-audit-deleted { color: var(--muted); font-size: 12px; }
+
+.smp-audit-server-link { padding: 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; text-align: left; }
+.smp-audit-server-link:hover { text-decoration: underline; }
+.smp-audit-server-deleted { color: var(--muted); }
+
+.smp-server-rsync-policy { display: grid; gap: 6px; padding-top: 16px; border-top: 0.5px solid var(--dsw-alias-border-l2); }
+.smp-server-rsync-policy-input { width: 100%; min-height: 150px; box-sizing: border-box; padding: 10px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-module-platform); color: var(--dsw-alias-label-primary); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }

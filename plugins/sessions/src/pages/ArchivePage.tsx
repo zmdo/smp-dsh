@@ -93,6 +93,20 @@ function groupName(groups: { members: readonly { workspaceId: string; groupId: s
   return labelOf(groupId)
 }
 
+function readPendingArchiveSearch(): { by: 'title' | 'id'; query: string } | undefined {
+  if (typeof window === 'undefined') return undefined
+  const raw = window.sessionStorage.getItem('smp.archive.search')
+  if (raw === null) return undefined
+  try {
+    const value = JSON.parse(raw) as { by?: unknown; query?: unknown }
+    return typeof value.query === 'string'
+      ? { by: value.by === 'id' ? 'id' : 'title', query: value.query }
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export function ArchivePage(props: ArchivePageProps) {
   const active = useSyncExternalStore(
     (listener) => props.locale.subscribe(listener),
@@ -111,13 +125,15 @@ export function ArchivePage(props: ArchivePageProps) {
     (listener) => props.workspaceGroups.subscribe(listener),
     () => props.workspaceGroups.getSnapshot(),
   )
-  const [by, setBy] = useState<SessionSearchBy>('title')
-  const [query, setQuery] = useState('')
+  const pendingSearch = readPendingArchiveSearch()
+  const [by, setBy] = useState<SessionSearchBy>(pendingSearch?.by === 'id' ? 'id' : 'title')
+  const [query, setQuery] = useState(pendingSearch?.query ?? '')
   const [status, setStatus] = useState<SessionStatusFilter>('all')
   const [workspacePath, setWorkspacePath] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [pageSize, setPageSize] = useState<number>(PAGE_SIZES[0])
+  useEffect(() => { window.sessionStorage.removeItem('smp.archive.search') }, [])
   const [pageIndex, setPageIndex] = useState(1)
   const [jumpText, setJumpText] = useState('1')
   const [copied, setCopied] = useState('')

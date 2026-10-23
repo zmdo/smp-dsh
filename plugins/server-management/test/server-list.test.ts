@@ -14,6 +14,7 @@ function operation(overrides: Partial<ActiveOperation> = {}): ActiveOperation {
 }
 test('server status requires fresh evidence and separates unavailable, missing and unknown facts', () => {
   assert.equal(displayStatus(base()).code, 'normal')
+  assert.equal(displayStatus({ ...base(), verification: 'custom', row: { ...base().row, os_checked_at: null } }).code, 'normal')
   assert.equal(displayStatus({ ...base(), row: { ...base().row, reachability: 'unknown' } }).code, 'unverified')
   assert.equal(displayStatus({ ...base(), row: { ...base().row, last_checked_at: new Date(now - 90_001) } }).code, 'unverified')
   assert.equal(displayStatus({ ...base(), row: { ...base().row, os_checked_at: null } }).code, 'unverified')

@@ -188,9 +188,10 @@ private_key
 ```ts
 {
   query?: string
-  group?: string
+  group?: string // group id or exact name from platform_server_group_list
   status?: string
-  limit?: number
+  page?: number
+  page_size?: number
 }
 ```
 
@@ -198,12 +199,20 @@ private_key
 
 ```json
 {
+  "total": 42,
+  "page": 1,
+  "page_size": 20,
+  "pages": 3,
   "items": [
     {
       "id": "...",
       "name": "web-01",
       "host": "192.0.2.10",
-      "group": "生产",
+      "group": {
+        "id": "...",
+        "name": "生产",
+        "name_i18n": { "zh": "生产", "en": "Production" }
+      },
       "type": "容器服务器",
       "status": "normal",
       "software": {
@@ -222,7 +231,46 @@ private_key
 - secret_ciphertext
 - 完整环境变量
 
-### 6.2 `platform_server_get`
+### 6.2 `platform_server_group_list`
+
+参数：
+
+```ts
+{
+  query?: string
+  page?: number
+  page_size?: number
+}
+```
+
+返回：
+
+```json
+{
+  "total": 2,
+  "page": 1,
+  "page_size": 20,
+  "pages": 1,
+  "ungrouped": 3,
+  "items": [
+    {
+      "id": "...",
+      "name": "生产",
+      "name_i18n": { "zh": "生产", "en": "Production" },
+      "kind": "user",
+      "server_count": 12
+    }
+  ]
+}
+```
+
+用途：
+
+- 让模型发现可用的分组名称和 ID
+- 再用 `platform_server_list.group` 筛选服务器
+- 不返回服务器凭据或服务器列表
+
+### 6.3 `platform_server_get`
 
 参数：
 
@@ -243,7 +291,7 @@ private_key
 - 容器摘要
 - 最近错误
 
-### 6.3 `platform_server_exec`
+### 6.4 `platform_server_exec`
 
 参数：
 
@@ -252,6 +300,8 @@ private_key
   server: string
   command: string
   timeout_ms?: number
+  command_max_bytes?: number
+  output_limit_bytes?: number
 }
 ```
 
@@ -262,16 +312,84 @@ private_key
   "exit_code": 0,
   "stdout": "...",
   "stderr": "",
+  "stdout_truncated": false,
+  "stderr_truncated": false,
   "duration_ms": 123
 }
 ```
 
 限制：
 
-- 命令最大长度：默认 8192
+- 命令最大长度：默认 8192 字节
 - 超时：默认 30 秒，最大 120 秒
-- 输出：默认 64 KiB，超出截断并标记
+- 捕获输出：默认 64 KiB，最大 1 MiB
+- 审计输出摘要：固定 4 KiB
 - 单服务器并发：1
+
+工具参数不传时使用平台默认值；传入时只能小于等于管理端配置的最大值。
+
+### 6.5 执行限制配置
+
+执行限制由管理员在：
+
+```text
+平台设置 → Harness → 服务器管理
+```
+
+配置，不允许 AI 直接修改全局限制。
+
+新增设置项：
+
+| 设置 | 默认值 | 可配置最大值 | 说明 |
+| --- | --- | --- | --- |
+| 默认命令超时 | 30 秒 | 120 秒 | 未传 `timeout_ms` 时使用 |
+| 最大命令超时 | 120 秒 | 120 秒 | AI 单次调用的硬上限 |
+| 默认命令字节数 | 8192 | 65536 | 未传 `command_max_bytes` 时使用 |
+| 最大命令字节数 | 65536 | 65536 | AI 单次调用的硬上限 |
+| 默认捕获输出 | 64 KiB | 1 MiB | 未传 `output_limit_bytes` 时使用 |
+| 最大捕获输出 | 1 MiB | 1 MiB | AI 单次调用的硬上限 |
+
+约束：
+
+- 默认值不能大于对应最大值
+- 所有值必须为正整数
+- AI 只能调整单次调用参数，不能修改平台设置
+- 修改设置后，新注册的工具 schema 使用新值
+- 运行中的调用不受影响
+- 审计输出摘要不参与 AI 调整，固定为 4 KiB
+
+工具 schema 的描述会由当前配置动态生成，例如：
+
+```text
+timeout_ms: Defaults to 30000; maximum 120000.
+command_max_bytes: Defaults to 8192; maximum 65536.
+output_limit_bytes: Defaults to 65536; maximum 1048576.
+```
+
+模型从工具 schema 读取这些值；如果配置被修改，需要重新加载插件或重启对应进程后，模型才会看到新的描述。
+
+存储建议：
+
+```text
+server_management_settings
+  id boolean primary key
+  default_timeout_ms integer not null
+  max_timeout_ms integer not null
+  default_command_bytes integer not null
+  max_command_bytes integer not null
+  default_output_bytes integer not null
+  max_output_bytes integer not null
+  updated_by text
+  updated_at timestamptz not null
+```
+
+这是平台级单例设置，不按服务器保存。
+
+文件上传/下载的独立方案：
+
+```text
+./file-transfer.md
+```
 
 ## 7. 权限模型
 
@@ -382,34 +500,191 @@ ctx.on('tools/pre-execute', async (exec, next) => {
 
 ## 10. 审计
 
-建议新增表：
+### 10.1 目标
+
+审计表不是任务表，也不是普通日志，而是一条按时间排列的操作流水。它必须能回答：
+
+- 谁发起的
+- 来自哪个 Harness 会话和 Agent
+- 是否经过审批
+- 在哪个服务器上做了什么
+- 执行结果和耗时
+- 输出是否截断
+
+采用一张统一表，用 `kind` 区分命令和文件传输：
 
 ```text
-server_command_audit
+server_audit_log
 ```
 
-字段：
+### 10.2 完整结构
 
-- id
-- server_id
-- actor
-- command
-- command_digest
-- approval_mode
-- approved
-- exit_code
-- stdout_excerpt
-- stderr_excerpt
-- started_at
-- finished_at
+```sql
+create table server_audit_log (
+  id                  uuid primary key,
+  kind                text not null check (kind in ('command','upload','download')),
+  server_id           uuid references servers(id) on delete set null,
+  server_name         text not null,
+  host                text not null,
+
+  actor_id            text not null,
+  actor_kind          text not null,
+  harness_session_id  text,
+  agent_id            text,
+  harness_turn        integer,
+  harness_step        integer,
+  harness_event_seq   bigint,
+  tool_call_id        text,
+  root_tool_call_id   text,
+  parent_tool_call_id text,
+  tool_name           text not null,
+
+  permission_mode     text not null,
+  approval_status     text not null,
+  approval_id         text,
+  approved_by         text,
+  approved_at         timestamptz,
+  approval_reason     text,
+
+  command             text,
+  command_digest      text,
+  command_length      integer,
+  command_truncated   boolean not null default false,
+  redaction_applied   boolean not null default false,
+  cwd                 text,
+
+  remote_path         text,
+  local_path          text,
+  bytes               bigint,
+  sha256              text,
+  mode                text,
+  overwrite           boolean not null default false,
+
+  status              text not null,
+  started_at          timestamptz not null default now(),
+  finished_at         timestamptz,
+  duration_ms         integer,
+  exit_code           integer,
+  signal              text,
+  timed_out           boolean not null default false,
+  cancelled           boolean not null default false,
+  error_code          text,
+  error_message       text,
+
+  stdout_excerpt      text,
+  stderr_excerpt      text,
+  stdout_bytes        bigint,
+  stderr_bytes        bigint,
+  stdout_truncated    boolean not null default false,
+  stderr_truncated    boolean not null default false,
+  stdout_digest       text,
+  stderr_digest       text,
+
+  metadata            jsonb not null default '{}',
+  created_at          timestamptz not null default now(),
+  check (
+    (kind = 'command' and command is not null and remote_path is null)
+    or (kind in ('upload','download') and remote_path is not null and command is null)
+  )
+);
+```
+
+### 10.3 kind 与专属字段
+
+| kind | 必填专属字段 | 其他字段 |
+| --- | --- | --- |
+| `command` | `command` | `command_digest`, `exit_code`, stdout/stderr |
+| `upload` | `remote_path` | `bytes`, `sha256`, `mode`, `overwrite` |
+| `download` | `remote_path` | `bytes`, `sha256`, `local_path` |
+
+公共字段包括服务器快照、调用者、会话、审批、状态、时间、错误和 metadata。
+
+### 10.4 字段说明
+
+| 分组 | 字段 | 说明 |
+| --- | --- | --- |
+| 类型 | `kind` | `command` / `upload` / `download` |
+| 服务器快照 | `server_id`, `server_name`, `host` | 删除服务器后仍可追溯 |
+| 调用者 | `actor_id`, `actor_kind` | 用户／系统／Harness |
+| 会话 | `harness_session_id`, `agent_id`, `harness_turn`, `harness_step` | 回到具体会话和轮次 |
+| 轨迹 | `harness_event_seq`, `tool_call_id`, `root_tool_call_id`, `parent_tool_call_id` | 工具调用和嵌套调用 |
+| 权限 | `permission_mode` | `read` / `exec` / `full` |
+| 审批 | `approval_status`, `approval_id`, `approved_by`, `approved_at`, `approval_reason` | 审批服务返回 |
+| 命令 | `command`, `command_digest`, `command_length`, `command_truncated` | 脱敏命令和原始摘要 |
+| 文件 | `remote_path`, `local_path`, `bytes`, `sha256`, `mode`, `overwrite` | 文件传输信息 |
+| 结果 | `status`, `started_at`, `finished_at`, `duration_ms` | 执行状态和耗时 |
+| 结果 | `exit_code`, `signal`, `timed_out`, `cancelled` | 命令退出和取消 |
+| 输出 | `stdout_excerpt`, `stderr_excerpt`, `stdout_bytes`, `stderr_bytes` | 摘要和字节数 |
+| 输出 | `stdout_truncated`, `stderr_truncated`, `stdout_digest`, `stderr_digest` | 截断标记和摘要 |
+| 其他 | `metadata`, `created_at` | 非敏感上下文和创建时间 |
+
+### 10.5 索引
+
+```sql
+create index server_audit_log_created
+  on server_audit_log (created_at desc, id desc);
+create index server_audit_log_kind_time
+  on server_audit_log (kind, created_at desc);
+create index server_audit_log_server_time
+  on server_audit_log (server_id, created_at desc);
+create index server_audit_log_actor_time
+  on server_audit_log (actor_id, created_at desc);
+create index server_audit_log_session
+  on server_audit_log (harness_session_id);
+create unique index server_audit_log_tool_call
+  on server_audit_log (harness_session_id, tool_call_id)
+  where harness_session_id is not null and tool_call_id is not null;
+```
+
+### 10.6 写入流程
+
+命令执行：
+
+```text
+解析服务器
+→ 权限检查
+→ 审批
+→ 写 pending 审计（kind=command）
+→ SSH 执行
+→ 更新结果
+```
+
+文件传输：
+
+```text
+解析服务器
+→ 路径和大小校验
+→ 审批
+→ 写 pending 审计（kind=upload/download）
+→ SFTP 传输
+→ 更新结果
+```
+
+审批被拒绝时：
+
+```text
+写 denied 审计
+→ 不建立 SSH/SFTP 连接
+```
+
+### 10.7 隐私与保留
 
 不记录：
 
 - 私钥
 - 密码
 - 完整 secret
+- 完整环境变量
 
-审计记录与工具调用 ID 关联，便于从 Harness 会话回到服务器历史。
+约束：
+
+- 命令和输出摘要写入前必须脱敏
+- 文件内容不落审计，只记录路径、大小和 SHA-256
+- 删除服务器不删除历史审计
+- 审计只追加，不通过业务接口删除
+- 审批信息必须来自审批服务，不能由模型填写
+- 审计记录与工具调用 ID 关联，便于从 Harness 会话回到服务器历史
+- 后续可增加保留期限和归档策略，初版不自动清理
 
 ## 11. 系统提示
 

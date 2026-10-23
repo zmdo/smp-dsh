@@ -20,9 +20,11 @@ test('catalog identities ignore forged version values, while custom names never 
 
 test('system family, version precision and numeric ranges are checked separately', () => {
   const debian=parseDeclaredOs({kind:'catalog',family:'builtin/debian',releaseKey:'12'})
+  const custom=parseDeclaredOs({kind:'custom',text:'Ubuntu 24.04'})
   assert.equal(osVerification(debian,{family:'builtin/debian',version:'12.10',architecture:'x86_64'},'detected'),'matched')
   assert.equal(osVerification(debian,{family:'builtin/ubuntu',version:'12',architecture:'x86_64'},'detected'),'mismatch')
   assert.equal(osVerification(debian,{family:'builtin/debian',version:'12',architecture:'x86_64'},'failed'),'unverified')
+  assert.equal(osVerification(custom,{family:'builtin/ubuntu',version:'24.04',architecture:'x86_64'},'detected'),'custom')
   const support:OsSupport={kind:'explicit',selectors:[{family:'builtin/debian',versions:{kind:'range',minimum:'12.9',maximum:'12.11'},architectures:['x86_64']}]}
   assert.equal(supportsOs(support,debian),true)
   assert.equal(supportsOs(support,{family:'builtin/debian',version:'12.10',architecture:'x86_64'}),true)
