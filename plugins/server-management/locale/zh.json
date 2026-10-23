@@ -300,10 +300,7 @@
     "settingsOutputHint": "单次执行捕获的最大输出字节数。",
     "rsyncDeniedFlagsLabel": "禁用的 rsync 参数",
     "rsyncDeniedFlagsHint": "每行一个参数。留空表示不进行参数级过滤。",
-    "auditKindTransfer": "传输",
-    "auditBytesScope": "大小范围",
-    "auditBytesFile": "单文件大小",
-    "auditBytesSourceTotal": "源侧总大小（目录或多个操作数）"
+    "auditKindTransfer": "传输"
   },
   "reach": {
     "online": "在线",

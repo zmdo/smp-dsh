@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { chmod, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse as parseShell } from 'shell-quote'
@@ -63,10 +63,7 @@ export async function executeHarnessRsync(
   const auditId = randomUUID()
   const commandBytes = Buffer.byteLength(args.command, 'utf8')
   const remote = parsed.remote[0]
-  const localOperands = parsed.operands.filter((operand) => !isRemoteSpec(operand))
-  const local = localOperands[0] ?? null
-  const localStat = local === null ? undefined : await stat(local).catch(() => undefined)
-  const singleLocalFile = localOperands.length === 1 && localStat?.isFile() === true
+  const local = parsed.operands.find((operand) => !isRemoteSpec(operand)) ?? null
   const base: Omit<AuditStart, 'approvalStatus' | 'approvalId' | 'approvedBy' | 'approvedAt' | 'approvalReason' | 'status' | 'startedAt' | 'finishedAt' | 'durationMs' | 'exitCode' | 'signal' | 'timedOut' | 'cancelled' | 'errorCode' | 'errorMessage' | 'stdoutExcerpt' | 'stderrExcerpt' | 'stdoutBytes' | 'stderrBytes' | 'stdoutTruncated' | 'stderrTruncated' | 'stdoutDigest' | 'stderrDigest'> = {
     id: auditId,
     kind: 'transfer',
@@ -101,7 +98,6 @@ export async function executeHarnessRsync(
       flags: parsed.flags,
       denied_flags: deniedFlags,
       remote: remote?.host ?? null,
-      bytes_scope: singleLocalFile ? 'file' : 'source-total',
     },
   }
   const outcome = await askApproval(approval, exec, target.name, args.command)
@@ -176,8 +172,7 @@ export async function executeHarnessRsync(
     const result = await runRsync(parsed.argv.slice(1), workspace ?? process.cwd(), { ...process.env, RSYNC_RSH: rsh }, timeoutMs, exec.signal, limits?.maxOutputBytes ?? 1024 * 1024)
     const durationMs = Date.now() - started
     const status = result.code === 0 ? 'succeeded' : 'failed'
-    const localInfo = status === 'succeeded' && singleLocalFile && local !== null ? await localFileInfo(local) : undefined
-    const bytes = status === 'succeeded' ? (localInfo?.bytes ?? parseTotalBytes(result.stdout)) : null
+    const bytes = status === 'succeeded' ? parseTotalBytes(result.stdout) : null
     await finishAudit(deps.db, auditId, {
       status,
       finishedAt: new Date(),
@@ -368,11 +363,6 @@ function capture(command: string, args: string[], timeoutMs: number): Promise<st
     child.on('error', (cause) => { clearTimeout(timer); reject(cause) })
     child.on('close', (code) => { clearTimeout(timer); if (code === 0 && stdout.trim() !== '') resolve(stdout); else reject(toolError('rsync/fingerprint-mismatch', `${command} failed: ${stderr.trim()}`)) })
   })
-}
-
-async function localFileInfo(path: string): Promise<{ bytes: number } | undefined> {
-  const info = await stat(path).catch(() => undefined)
-  return info?.isFile() === true ? { bytes: info.size } : undefined
 }
 
 function parseTotalBytes(stdout: string): number | null {

@@ -32,7 +32,6 @@ export interface AuditRecordDto {
   remote_path: string | null
   local_path: string | null
   bytes: number | null
-  bytes_scope: 'file' | 'source-total' | null
   mode: string | null
   overwrite: boolean
   status: string
