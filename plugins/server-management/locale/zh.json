@@ -134,7 +134,7 @@
     "operatingSystem": "操作系统",
     "osRelease": "系统版本",
     "osOther": "其他",
-    "osCustom": "自定义系统：已跳过自动校验",
+    "osCustom": "系统名称和版本",
     "osChoose": "请选择",
     "osDetected": "实际系统",
     "osUnverified": "未验证",
@@ -300,7 +300,8 @@
     "settingsOutputHint": "单次执行捕获的最大输出字节数。",
     "rsyncDeniedFlagsLabel": "禁用的 rsync 参数",
     "rsyncDeniedFlagsHint": "每行一个参数。留空表示不进行参数级过滤。",
-    "auditKindTransfer": "传输"
+    "auditKindTransfer": "传输",
+    "osCustomVerification": "自定义系统：已跳过自动校验"
   },
   "reach": {
     "online": "在线",

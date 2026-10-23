@@ -134,7 +134,7 @@
     "operatingSystem": "Operating system",
     "osRelease": "OS release",
     "osOther": "Other",
-    "osCustom": "Custom OS: automatic verification is skipped",
+    "osCustom": "System name and version",
     "osChoose": "Select…",
     "osDetected": "Detected OS",
     "osUnverified": "Unverified",
@@ -300,7 +300,8 @@
     "settingsOutputHint": "Maximum captured output in bytes for one execution.",
     "rsyncDeniedFlagsLabel": "Denied rsync flags",
     "rsyncDeniedFlagsHint": "One flag per line. Empty means no flag-level filtering.",
-    "auditKindTransfer": "Transfer"
+    "auditKindTransfer": "Transfer",
+    "osCustomVerification": "Custom OS: automatic verification is skipped"
   },
   "reach": {
     "online": "Online",
