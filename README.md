@@ -28,6 +28,8 @@ CES 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harn
 
 当前架构、插件、存储、运行方式、模块状态和后续任务从 [框架与业务交接文档](docs/framework/README.md) 进入。`docs/design` 保留历史需求和方案，使用前核对实现状态；[漂移对照](docs/framework/handoff/design-drift.md)列出了主要差异。
 
+[CES 自演进服务器与基础设施方案](docs/design/ces-self-evolution-infrastructure/README.md)确定采用 OneDev `16.9.7` 和三台服务器布局：正式服务器承担开发，构建测试与生产发布分别由独立服务器执行。该方案待实施。
+
 CES 当前还包含 `@smp/console-server-management`，负责服务器实例、密钥、软件计划和升级管理。独立容器插件与详情面板扩展仍处于已确认、待实施阶段，见 [服务器管理交接](docs/framework/modules/server-management/handoff.md)。
 
 ## 留在外面的
