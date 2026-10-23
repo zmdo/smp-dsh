@@ -412,10 +412,8 @@ function GroupChoice(props: {
       >
         <span>
           {props.label}
-          {props.system && (
-            <small className="smp-server-group-source">
-              {props.available === false ? copy.pluginUnavailable : copy.systemGroup}
-            </small>
+          {props.system && props.available === false && (
+            <small className="smp-server-group-source">{copy.pluginUnavailable}</small>
           )}
         </span>
         <span className="smp-server-group-count">{props.count}</span>
