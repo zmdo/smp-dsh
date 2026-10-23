@@ -277,7 +277,6 @@
     "auditRemotePath": "Remote path",
     "auditLocalPath": "Local path",
     "auditBytes": "Size (bytes)",
-    "auditSha256": "SHA-256",
     "auditMode": "Mode",
     "auditOverwrite": "Overwrite",
     "auditResult": "Result",

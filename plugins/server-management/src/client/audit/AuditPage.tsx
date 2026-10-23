@@ -244,7 +244,6 @@ function AuditDetail(props: { record: AuditPageDto['items'][number]; active: str
             <div className="smp-json-row"><dt>{c.auditRemotePath}</dt><dd><code>{value(r.remote_path)}</code></dd></div>
             <div className="smp-json-row"><dt>{c.auditLocalPath}</dt><dd><code>{value(r.local_path)}</code></dd></div>
             <div className="smp-json-row"><dt>{c.auditBytes}</dt><dd>{value(r.bytes)}</dd></div>
-            <div className="smp-json-row"><dt>{c.auditSha256}</dt><dd><code>{value(r.sha256)}</code></dd></div>
             <div className="smp-json-row"><dt>{c.auditMode}</dt><dd>{value(r.mode)}</dd></div>
             <div className="smp-json-row"><dt>{c.auditOverwrite}</dt><dd>{r.overwrite ? c.auditYes : c.auditNo}</dd></div>
           </dl>

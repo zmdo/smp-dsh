@@ -41,7 +41,6 @@ export async function listAuditRecords(db: Db, query: AuditListQuery) {
       remote_path: row.remote_path,
       local_path: row.local_path,
       bytes: row.bytes === null ? null : Number(row.bytes),
-      sha256: row.sha256,
       mode: row.mode,
       overwrite: row.overwrite,
       status: row.status,

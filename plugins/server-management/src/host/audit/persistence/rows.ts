@@ -31,7 +31,6 @@ export interface AuditRecordRow {
   remote_path: string | null
   local_path: string | null
   bytes: string | null
-  sha256: string | null
   mode: string | null
   overwrite: boolean
   status: string

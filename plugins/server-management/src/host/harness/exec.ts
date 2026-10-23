@@ -118,7 +118,6 @@ export async function executeHarnessCommand(
     remotePath: null,
     localPath: null,
     bytes: null,
-    sha256: null,
     mode: null,
     overwrite: false,
     metadata: {},
