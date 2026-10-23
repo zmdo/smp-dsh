@@ -3,6 +3,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import { execParameters, getParameters, groupListParameters, listParameters, rsyncParameters, TEXT_OUTPUT } from './schema.ts'
 import { DEFAULT_EXEC_LIMITS } from './exec.ts'
 import { executeHarnessCommand, type ApprovalRequester } from './exec.ts'
+import { harnessTrace } from './trace.ts'
 import { getHarnessServer, listHarnessGroups, listHarnessServers, type HarnessDeps } from './service.ts'
 import { executeHarnessRsync } from './rsync.ts'
 
@@ -52,6 +53,7 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
       output: TEXT_OUTPUT,
       timeoutMs: 300_000,
       async execute(args, exec) {
+        const trace = harnessTrace(exec.agent, String(exec.callId), ctx.get('sessionProjections') as never)
         return executeHarnessCommand(
           deps,
           args,
@@ -60,6 +62,9 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
             callId: String(exec.callId),
             rootCallId: String(exec.rootCallId),
             signal: exec.signal,
+            harnessTurn: trace.turn,
+            harnessStep: trace.step,
+            harnessEventSeq: trace.eventSeq,
           },
           ctx.get('approval') as ApprovalRequester | undefined,
         )
@@ -81,10 +86,11 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
         const workspace = directories === undefined || exec.agent === undefined
           ? undefined
           : await directories.ensure(exec.agent, exec.signal)
+        const trace = harnessTrace(exec.agent, String(exec.callId), ctx.get('sessionProjections') as never)
         return executeHarnessRsync(
           deps,
           args,
-          { agent: exec.agent, callId: String(exec.callId), rootCallId: String(exec.rootCallId), signal: exec.signal },
+          { agent: exec.agent, callId: String(exec.callId), rootCallId: String(exec.rootCallId), signal: exec.signal, harnessTurn: trace.turn, harnessStep: trace.step, harnessEventSeq: trace.eventSeq },
           ctx.get('approval') as ApprovalRequester | undefined,
           workspace,
         )

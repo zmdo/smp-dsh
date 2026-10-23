@@ -48,6 +48,9 @@ export interface ExecContext {
   callId: string
   rootCallId?: string
   signal: AbortSignal
+  harnessTurn?: number | null
+  harnessStep?: number | null
+  harnessEventSeq?: number | null
 }
 
 export interface ApprovalRequester {
@@ -98,9 +101,9 @@ export async function executeHarnessCommand(
     actorKind: 'harness',
     harnessSessionId: exec.agent?.id ?? null,
     agentId: exec.agent?.id ?? null,
-    harnessTurn: null,
-    harnessStep: null,
-    harnessEventSeq: null,
+    harnessTurn: exec.harnessTurn ?? null,
+    harnessStep: exec.harnessStep ?? null,
+    harnessEventSeq: exec.harnessEventSeq ?? null,
     toolCallId: exec.callId,
     rootToolCallId: exec.rootCallId ?? exec.callId,
     parentToolCallId: null,
