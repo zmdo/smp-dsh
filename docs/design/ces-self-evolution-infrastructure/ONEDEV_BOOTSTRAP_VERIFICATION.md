@@ -156,6 +156,10 @@ initial_server_url: http://onedev:6610
 
 ## 4. 实测结果
 
+### 4.0 执行说明
+
+首次执行脚本时，SSH 连接在拉取 Agent 镜像期间断开；容器继续启动。随后通过 OneDev API 和管理员凭据独立复核了 readiness、Agent Token 和 Agent 在线状态，验证结论不受影响。
+
 ### 4.1 OneDev 首次初始化
 
 ```text
