@@ -276,7 +276,7 @@
     "auditFileDetail": "File",
     "auditRemotePath": "Remote path",
     "auditLocalPath": "Local path",
-    "auditBytes": "Size (bytes)",
+    "auditBytes": "Source total size (bytes)",
     "auditMode": "Mode",
     "auditOverwrite": "Overwrite",
     "auditResult": "Result",

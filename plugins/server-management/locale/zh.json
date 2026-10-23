@@ -276,7 +276,7 @@
     "auditFileDetail": "文件",
     "auditRemotePath": "远程路径",
     "auditLocalPath": "本地路径",
-    "auditBytes": "大小（字节）",
+    "auditBytes": "源侧总大小（字节）",
     "auditMode": "权限模式",
     "auditOverwrite": "覆盖",
     "auditResult": "结果",
