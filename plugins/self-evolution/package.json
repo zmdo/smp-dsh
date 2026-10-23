@@ -30,6 +30,7 @@
     "test": "node --test test/**/*.test.ts"
   },
   "dependencies": {
-    "@smp/console-server-management": "file:../server-management"
+    "@smp/console-server-management": "file:../server-management",
+    "@smp/console-container-runtime": "file:../container-runtime"
   }
 }

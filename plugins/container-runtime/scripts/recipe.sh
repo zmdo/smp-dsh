@@ -3,7 +3,7 @@ import sys,json,subprocess,re,hashlib,tempfile,os,pwd,grp
 r=json.load(sys.stdin)
 op=r['\''operation'\'']
 software=r['\''software'\'']
-names=['\''docker-ce'\'','\''docker.io'\''] if software=='\''@smp/console-server-containers/docker-engine'\'' else ['\''docker-compose-plugin'\'','\''docker-compose-v2'\'']
+names=['\''docker-ce'\'','\''docker.io'\''] if software=='\''@smp/console-container-runtime/docker-engine'\'' else ['\''docker-compose-plugin'\'','\''docker-compose-v2'\'']
 def run(args):
  p=subprocess.run(args,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=dict(__import__('\''os'\'').environ,LC_ALL='\''C'\'',DEBIAN_FRONTEND='\''noninteractive'\''))
  if p.returncode: raise RuntimeError(p.stderr[-500:])
@@ -53,14 +53,14 @@ def detect():
   found=installed(name)
   if found:
    version,arch=found
-   if software=='\''@smp/console-server-containers/docker-engine'\'': reported=docker_read(['\''version'\'','\''--format'\'','\''{{.Server.Version}}'\'']).strip().lstrip('\''v'\'')
+   if software=='\''@smp/console-container-runtime/docker-engine'\'': reported=docker_read(['\''version'\'','\''--format'\'','\''{{.Server.Version}}'\'']).strip().lstrip('\''v'\'')
    else: reported=docker_read(['\''compose'\'','\''version'\'','\''--short'\'']).strip().lstrip('\''v'\'')
    if not matches_package(reported,version):raise RuntimeError('\''Running software differs from the installed package'\'')
    return dict(state='\''installed'\'',version=product(version),targetIdentity=name+'\''='\''+version,packages=[dict(manager='\''apt'\'',name=name,version=version,architecture=arch,source='\''installed'\'')],healthy=True)
  # Refuse to overwrite an unmanaged Docker/Compose installation.
  p=subprocess.run(['\''sh'\'','\''-c'\'','\''command -v docker'\''],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  if p.returncode==0:
-  if software=='\''@smp/console-server-containers/docker-engine'\'': return dict(state='\''unknown'\'',code='\''unmanaged_installation'\'')
+  if software=='\''@smp/console-container-runtime/docker-engine'\'': return dict(state='\''unknown'\'',code='\''unmanaged_installation'\'')
   p=subprocess.run(['\''docker'\'','\''compose'\'','\''version'\''],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
   if p.returncode==0: return dict(state='\''unknown'\'',code='\''unmanaged_installation'\'')
  return dict(state='\''missing'\'')
@@ -82,11 +82,11 @@ def resolve(target,action="install"):
  return result
 def planned_docker_user():
  # Resolve runs as the SSH user; execute runs as root in the remote supervisor.
- if software!='\''@smp/console-server-containers/docker-engine'\'':return None
+ if software!='\''@smp/console-container-runtime/docker-engine'\'':return None
  user=pwd.getpwuid(os.geteuid())
  return dict(name=user.pw_name,uid=user.pw_uid)
 def docker_user(change):
- if software!='\''@smp/console-server-containers/docker-engine'\'':return None
+ if software!='\''@smp/console-container-runtime/docker-engine'\'':return None
  target=change['\''payload'\''].get('\''dockerUser'\'')
  if not isinstance(target,dict) or not isinstance(target.get('\''name'\''),str) or type(target.get('\''uid'\'')) is not int:
   raise RuntimeError('\''Docker access user is missing from the plan; run preflight again'\'')

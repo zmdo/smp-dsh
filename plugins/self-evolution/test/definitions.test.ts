@@ -5,8 +5,9 @@ import { DefinitionRegistry } from '../../server-management/src/host/definitions
 import type { Db } from '../../server-management/src/host/database/connection.ts'
 import type { GroupRow } from '../../server-management/src/host/groups/persistence/rows.ts'
 import { selfEvolutionDefinitions } from '../src/index.ts'
+import { containerRuntimeDefinitions } from '../../container-runtime/src/index.ts'
 
-test('self-evolution defines one system group with exactly three empty server types', () => {
+test('self-evolution defines one system group with three dedicated server types', () => {
   assert.equal(selfEvolutionDefinitions.contractVersion, 2)
   assert.equal(selfEvolutionDefinitions.owner, '@smp/console-self-evolution')
   assert.deepEqual(
@@ -17,7 +18,8 @@ test('self-evolution defines one system group with exactly three empty server ty
     selfEvolutionDefinitions.types?.map((type) => type.name.zh),
     ['自演进基础设施服务器', '自演进测试服务器', '自演进宿主服务器'],
   )
-  assert.ok(selfEvolutionDefinitions.types?.every((type) => type.requirements.length === 0))
+  assert.equal(selfEvolutionDefinitions.types?.[0]?.requirements.length, 4)
+  assert.ok(selfEvolutionDefinitions.types?.slice(1).every((type) => type.requirements.length === 0))
   assert.deepEqual(selfEvolutionDefinitions.publicTypes, undefined)
   assert.equal(selfEvolutionDefinitions.groups?.length, 1)
   assert.deepEqual(selfEvolutionDefinitions.groups?.[0], {
@@ -60,6 +62,8 @@ function groupRow(id: string): GroupRow {
 
 test('the three special types are visible only in the self-evolution group', async () => {
   const definitions = new DefinitionRegistry(fakeDb(), builtinCatalog())
+  const runtimeRegistration = definitions.registerDefinitions(containerRuntimeDefinitions)
+  await runtimeRegistration.ready
   const registration = definitions.registerDefinitions(selfEvolutionDefinitions)
   await registration.ready
   const group = definitions.view(groupRow('group-1'))
@@ -77,5 +81,6 @@ test('the three special types are visible only in the self-evolution group', asy
     ['builtin/vacant'],
   )
   await registration.dispose()
+  await runtimeRegistration.dispose()
   await definitions.close()
 })

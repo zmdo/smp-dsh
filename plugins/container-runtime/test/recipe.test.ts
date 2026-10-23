@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test, { type TestContext } from 'node:test'
 
-const owner = '@smp/console-server-containers'
+const owner = '@smp/console-container-runtime'
 const recipe = fileURLToPath(new URL('../scripts/recipe.sh', import.meta.url))
 const fixture = new URL('./fixtures/recipe-env.py', import.meta.url)
 const pkg = (name = 'docker.io', version = '29.1.3-1') => ({
