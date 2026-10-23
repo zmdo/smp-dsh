@@ -346,14 +346,14 @@ delete single record
 
 ```text
 name
-group_id
 region
-type_key
 declared_os
 internal_host
 tags
 install_required_software
 ```
+
+`group_id` 和 `type_key` 不通过普通 `update` 直接修改，必须走 `rebind` 变更计划。
 
 ## 8.2 不允许直接修改
 
@@ -374,7 +374,158 @@ ssh_key_id
 
 修改后必须重新测试连接，不能只写数据库。
 
-## 8.4 并发控制
+## 8.4 移动分组和更改类型
+
+移动分组和更改类型会影响软件需求，不能直接更新 `servers.group_id/type_key`。
+
+统一使用：
+
+```ts
+platform_server_admin({
+  action: 'rebind',
+  server: string,
+  target_group: string | null,
+  target_type: string,
+  install_missing: boolean,
+  software_policies: SoftwarePolicy[],
+  expected_config_revision: number
+})
+```
+
+返回：
+
+```json
+{
+  "plan_id": "...",
+  "kind": "move",
+  "requires_approval": true
+}
+```
+
+`rebind` 只创建变更计划，不直接写服务器表。
+
+### 流程
+
+```text
+读取当前 group/type
+→ 校验目标分组
+→ 计算目标分组允许的类型
+→ 如果当前类型仍被允许，保持类型
+→ 如果当前类型不再允许，要求显式选择目标类型
+→ 计算软件需求差异
+→ 生成 kind=move 变更计划
+→ 审批
+→ 执行
+```
+
+### 移动分组
+
+- 目标分组必须是普通分组
+- `unassigned` 表示 `group_id = null`
+- 系统分组是否允许作为目标必须明确
+- 不允许因为移动分组而静默更改类型
+- 如果当前类型在新分组不可用，必须拒绝并提示选择类型
+
+只移动分组、类型不变时，不应产生软件安装变更。
+
+### 更改类型
+
+目标类型变化时，必须计算：
+
+```text
+新增软件
+已满足软件
+缺失软件
+不再需要的软件
+软件策略变化
+```
+
+`install_missing` 必须显式传入：
+
+```text
+true  → 计划包含缺失软件安装
+false → 不自动安装；计划需要明确阻塞或仅记录差距
+```
+
+不能默认静默安装。
+
+类型切换后，旧类型不再需要的软件：
+
+```text
+不自动卸载
+只标记为“不再受当前类型管理”
+```
+
+### 软件差异和审批
+
+变更计划必须展示：
+
+```text
+旧分组 → 新分组
+旧类型 → 新类型
+新增软件
+缺失软件
+不再需要的软件
+软件策略变化
+是否安装缺失软件
+```
+
+涉及软件安装或策略变化时，使用强审批。
+
+### 失败顺序
+
+不能先更新 `group_id/type_key` 再安装软件。
+
+正确顺序：
+
+```text
+预检
+→ 审批
+→ 软件变更
+→ 验证
+→ 更新服务器归属和类型
+```
+
+否则软件安装失败会留下：
+
+```text
+新类型
+旧软件
+```
+
+这种不一致状态。
+
+### 审计
+
+记录：
+
+```text
+server_id
+旧分组
+新分组
+旧类型
+新类型
+新增软件
+移除策略
+install_missing
+plan_id
+审批
+执行结果
+```
+
+### 计划执行
+
+`rebind` 创建的计划和升级计划统一通过变更计划执行：
+
+```text
+platform_server_upgrade_admin.show(plan_id)
+platform_server_upgrade_admin.apply(plan_id)
+platform_server_upgrade_admin.cancel(plan_id)
+```
+
+`apply` 只接受已经存在、未过期、已批准的计划，不直接接受服务器字段或软件列表。
+
+## 8.5 并发控制
 
 修改必须携带：
 
@@ -390,7 +541,7 @@ revision 不匹配时返回：
 }
 ```
 
-## 8.5 修改流程
+## 8.6 修改流程
 
 ```text
 读取当前值
@@ -401,7 +552,7 @@ revision 不匹配时返回：
 → 审计
 ```
 
-## 8.6 删除服务器
+## 8.7 删除服务器
 
 建议单独 action：
 
@@ -417,11 +568,12 @@ delete
 - 无关联升级计划
 - 审计保留服务器快照
 
-## 8.7 审批
+## 8.8 审批
 
 | 操作 | 审批 |
 |---|---|
 | update | 是 |
+| rebind | 是；涉及软件安装或策略变化时强审批 |
 | delete | 强审批 |
 
 ---
@@ -528,6 +680,9 @@ action=reveal
 有服务器的分组删除 → 拒绝
 有服务器引用的密钥删除 → 拒绝
 修改服务器 revision 冲突 → 拒绝
+移动分组导致当前类型不可用 → 要求显式选择类型
+rebind 未审批直接 apply → 拒绝
+rebind 不自动卸载旧类型软件
 升级未审批直接 apply → 拒绝
 审计单条删除 → 拒绝
 密钥 reveal 不出现在审计内容
