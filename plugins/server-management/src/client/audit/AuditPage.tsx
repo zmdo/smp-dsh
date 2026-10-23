@@ -35,9 +35,9 @@ export function AuditPage(props: {
   const statusLabel = (status: string) =>
     status in STATUS_KEYS ? c[STATUS_KEYS[status as keyof typeof STATUS_KEYS]] : status
   const kindLabel = (value: string) =>
-    value === 'command' ? c.auditKindCommand : value === 'upload' ? c.auditKindUpload : value === 'transfer' ? c.auditKindTransfer : c.auditKindDownload
+    value === 'admin' ? c.auditKindAdmin : value === 'command' ? c.auditKindCommand : value === 'upload' ? c.auditKindUpload : value === 'transfer' ? c.auditKindTransfer : c.auditKindDownload
   const target = (record: AuditPageDto['items'][number]) =>
-    record.kind === 'command' || record.kind === 'transfer' ? record.command : record.remote_path
+    record.kind === 'admin' ? String(record.metadata?.action ?? '') : record.kind === 'command' || record.kind === 'transfer' ? record.command : record.remote_path
   return (
     <Panel
       className="smp-upgrade-page smp-list-panel smp-audit-page"
@@ -54,6 +54,7 @@ export function AuditPage(props: {
             <option value="upload">{c.auditKindUpload}</option>
             <option value="download">{c.auditKindDownload}</option>
             <option value="transfer">{c.auditKindTransfer}</option>
+            <option value="admin">{c.auditKindAdmin}</option>
           </select>
           <select
             aria-label={c.auditTimeRange}
@@ -119,7 +120,7 @@ export function AuditPage(props: {
                     )}
                   </td>
                   <td title={`${c.auditSnapshotName}: ${record.server_name}`}>
-                    {record.server_deleted ? (
+                    {record.kind === 'admin' && record.server_name === null ? <span>{String(record.metadata?.target_id ?? '—')}</span> : record.server_deleted ? (
                       <span className="smp-audit-server-deleted">
                         {record.server_name} <span className="smp-audit-deleted">{c.auditServerDeleted}</span>
                       </span>
@@ -226,7 +227,7 @@ function AuditDetail(props: { record: AuditPageDto['items'][number]; active: str
           <div className="smp-json-row"><dt>{c.auditApprovalReason}</dt><dd>{value(r.approval_reason)}</dd></div>
         </dl>
       </section>
-      {r.kind === 'command' ? (
+      {r.kind === 'admin' ? <section className="smp-record-section"><h3>{c.auditKindAdmin}</h3><pre className="smp-audit-pre">{JSON.stringify(r.metadata,null,2)}</pre></section> : r.kind === 'command' ? (
         <section className="smp-record-section">
           <h3>{c.auditCommandDetail}</h3>
           <dl className="smp-json-object">

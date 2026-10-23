@@ -1,10 +1,10 @@
 export interface AuditRecordRow {
   id: string
-  kind: 'command' | 'upload' | 'download' | 'transfer'
+  kind: 'command' | 'upload' | 'download' | 'transfer' | 'admin'
   server_id: string | null
-  server_name: string
+  server_name: string | null
   current_server_name: string | null
-  host: string
+  host: string | null
   actor_id: string
   actor_kind: string
   harness_session_id: string | null

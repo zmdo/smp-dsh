@@ -300,6 +300,7 @@
     "settingsOutputHint": "Maximum captured output in bytes for one execution.",
     "rsyncDeniedFlagsLabel": "Denied rsync flags",
     "rsyncDeniedFlagsHint": "One flag per line. Empty means no flag-level filtering.",
+    "auditKindAdmin": "Administration",
     "auditKindTransfer": "Transfer",
     "osCustomVerification": "Custom OS: automatic verification is skipped"
   },

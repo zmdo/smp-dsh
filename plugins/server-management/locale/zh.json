@@ -300,6 +300,7 @@
     "settingsOutputHint": "单次执行捕获的最大输出字节数。",
     "rsyncDeniedFlagsLabel": "禁用的 rsync 参数",
     "rsyncDeniedFlagsHint": "每行一个参数。留空表示不进行参数级过滤。",
+    "auditKindAdmin": "管理操作",
     "auditKindTransfer": "传输",
     "osCustomVerification": "自定义系统：已跳过自动校验"
   },

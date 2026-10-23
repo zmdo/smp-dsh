@@ -1,3 +1,4 @@
+import { AdminRuntime } from './host/admin/runtime.ts'
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -142,7 +143,11 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     execLimits,
     freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000,
   }
-  ctx.inject(['tools'], (scope) => registerServerTools(scope, deps))
+  const admin = new AdminRuntime(deps)
+  ctx.inject(['tools'], (scope) => {
+    registerServerTools(scope, deps)
+    admin.register(scope)
+  })
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield () => extensions.close()
@@ -158,7 +163,9 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
       (serverId) => enqueueExisting(deps, serverId, 'test_connection', 'scheduled'),
     )
     yield () => enrollment.close()
-    yield* registerRoutes(ctx, deps)
+    admin.start((cause) => ctx.logger.error(cause))
+    yield () => admin.close()
+    yield* registerRoutes(ctx, { ...deps, adminRun: (work) => admin.run(work) })
     const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession, connect)
     yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
     yield () => terminal.close()
