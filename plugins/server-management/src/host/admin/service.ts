@@ -170,7 +170,7 @@ async function serverAction(deps: AdminDeps, ctx: AdminContext, action: string, 
           install_missing: input.install_missing,
           software_policies: input.software_policies,
         })
-        return draftResult(planId, 'move')
+        return draftResult(planId, 'move', ctx.authorization?.source === 'full-access')
       }
       const before = await serverSnapshot(db, id)
       const connectionChanged = ['host', 'ssh_port', 'ssh_user', 'ssh_key_id'].some(
@@ -243,6 +243,7 @@ async function planAction(deps: AdminDeps, ctx: AdminContext, action: string, in
             versions: input.versions,
           }),
           'upgrade',
+          ctx.authorization?.source === 'full-access',
         ),
       input,
     )

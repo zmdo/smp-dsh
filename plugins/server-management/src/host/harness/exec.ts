@@ -3,6 +3,7 @@ import { serverSecret } from '../servers/persistence/credential-repository.ts'
 import { connectSsh, type SshSession } from '../remote/ssh.ts'
 import { finishAudit, insertAudit, type AuditFinish, type AuditStart } from '../audit/persistence/write-repository.ts'
 import { getHarnessServer, type HarnessDeps } from './service.ts'
+import { authorizeOperation, type SessionPermission } from './authorization.ts'
 
 const AUDIT_EXCERPT = 4 * 1024
 
@@ -48,6 +49,7 @@ export interface ExecContext {
   callId: string
   rootCallId?: string
   signal: AbortSignal
+  permission?: () => SessionPermission
   harnessTurn?: number | null
   harnessStep?: number | null
   harnessEventSeq?: number | null
@@ -123,8 +125,16 @@ export async function executeHarnessCommand(
     metadata: {},
   }
 
-  const approvalOutcome = await askApproval(approval, exec, target.name, command)
-  if (approvalOutcome !== 'allowed-once') {
+  const decision = await authorizeOperation(exec, approval, () => ({
+    toolName: 'platform_server_exec',
+    reason: `Run a command on managed server ${target.name}: ${command.slice(0, 200)}`,
+    displayReason: {
+      en: `Allow this command to run on ${target.name}?`,
+      zh: `是否允许在服务器 ${target.name} 上执行这条命令？`,
+    },
+  }))
+  if (!decision.allowed) {
+    const approvalOutcome = decision.outcome
     const status = 'denied'
     await insertAudit(deps.db, {
       ...auditBase,
@@ -156,12 +166,16 @@ export async function executeHarnessCommand(
   }
 
   const startedAt = new Date()
+  const { authorization } = decision
+  const fullAccess = authorization.source === 'full-access'
   await insertAudit(deps.db, {
     ...auditBase,
-    approvalStatus: 'approved',
+    permissionMode: authorization.permissionMode ?? auditBase.permissionMode,
+    metadata: { ...auditBase.metadata, authorization_source: authorization.source },
+    approvalStatus: fullAccess ? 'not_required' : 'approved',
     approvalId: null,
     approvedBy: null,
-    approvedAt: startedAt,
+    approvedAt: fullAccess ? null : startedAt,
     approvalReason: null,
     status: 'pending',
     startedAt,
@@ -261,30 +275,6 @@ export async function executeHarnessCommand(
   } finally {
     exec.signal.removeEventListener('abort', onAbort)
     session?.close()
-  }
-}
-
-async function askApproval(
-  approval: ApprovalRequester | undefined,
-  exec: ExecContext,
-  serverName: string,
-  command: string,
-): Promise<string> {
-  if (approval === undefined || exec.agent === undefined) return 'unavailable'
-  try {
-    return await approval.request({
-      agent: exec.agent,
-      toolName: 'platform_server_exec',
-      callId: exec.callId,
-      reason: `Run a command on managed server ${serverName}: ${command.slice(0, 200)}`,
-      displayReason: {
-        en: `Allow this command to run on ${serverName}?`,
-        zh: `是否允许在服务器 ${serverName} 上执行这条命令？`,
-      },
-      signal: exec.signal,
-    })
-  } catch {
-    return 'unavailable'
   }
 }
 

@@ -5,14 +5,14 @@ const show = (id: string) => ({
   arguments: { action: 'show', input: { plan_id: id } },
 })
 
-export function draftResult(planId: string, kind: 'move' | 'upgrade') {
+export function draftResult(planId: string, kind: 'move' | 'upgrade', fullAccess = false) {
   return {
     plan_id: planId,
     kind,
     state: 'draft',
-    requires_approval: true,
+    requires_approval: !fullAccess,
     guidance:
-      'Only a draft was created. Preflight runs asynchronously. After a short delay, call next_step until ready, review changes, then call apply to request user approval and execute. Do not report the requested server change as completed yet.',
+      'Only a draft was created. Preflight runs asynchronously. After a short delay, call next_step until ready, review changes, then call apply to execute. Full access skips approval; other permission modes request user approval. Do not report the requested server change as completed yet.',
     next_step: show(planId),
   }
 }
@@ -26,7 +26,7 @@ export function planResult(plan: Awaited<ReturnType<typeof readChangePlan>>) {
     return {
       ...current,
       guidance:
-        'Review targets[].target_snapshot.changes and risks. Complete next_step.arguments.input with a maintenance window consistent with user intent, then call apply; the host requests user approval. This plan has not executed. Do not invent revision/digest or self-approval fields.',
+        'Review targets[].target_snapshot.changes and risks. Complete next_step.arguments.input with a maintenance window consistent with user intent, then call apply; the host executes directly under full access and requests user approval in other permission modes. This plan has not executed. Do not invent revision/digest or self-approval fields.',
       next_step: {
         tool: 'platform_server_upgrade_admin',
         arguments: {

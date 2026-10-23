@@ -1,12 +1,14 @@
 import type { Deps } from '../dependencies.ts'
 import type { connectSsh } from '../remote/ssh.ts'
 import type { ExecContext, ApprovalRequester } from '../harness/exec.ts'
+import type { Authorization } from '../harness/authorization.ts'
 export type AdminDeps = Deps & { connect?: typeof connectSsh }
 export type AdminContext = ExecContext & {
   approval?: ApprovalRequester
   source?: 'web' | 'system'
   approvalId?: string
   approvedAt?: Date
+  authorization?: Authorization
 }
 export type Input = Record<string, unknown>
 export class AdminError extends Error {

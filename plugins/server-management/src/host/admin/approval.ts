@@ -6,6 +6,7 @@ import type { AdminContext, AdminDeps } from './model.ts'
 import { AdminError } from './model.ts'
 import { account, audit } from './persistence/repository.ts'
 import { describeApproval } from './approval-copy.ts'
+import { authorizeOperation } from '../harness/authorization.ts'
 export async function approve(
   deps: Pick<AdminDeps, 'db' | 'definitions' | 'catalog'>,
   ctx: AdminContext,
@@ -17,28 +18,17 @@ export async function approve(
   const { db } = deps
   if (!ctx.agent) throw new AdminError('unauthorized')
   const actor = await account(db)
-  const summary = JSON.stringify({ action, target, preview })
-  if (summary.length > 48000) throw new AdminError('approval_preview_too_large')
-  const displayReason = await describeApproval(deps, tool, action, target, preview)
-  if (Object.values(displayReason).some(text => text.length > 48000))
-    throw new AdminError('approval_preview_too_large')
-  let outcome = 'unavailable'
-  if (ctx.approval && !ctx.signal.aborted) {
-    try {
-      outcome = await ctx.approval.request({
-        agent: ctx.agent,
-        toolName: tool,
-        callId: ctx.callId,
-        reason: displayReason.en,
-        displayReason,
-        signal: ctx.signal,
-      })
-    } catch (cause) {
-      void cause
-      outcome = 'unavailable'
-    }
-  }
-  if (outcome !== 'allowed-once' || ctx.signal.aborted) {
+  // Authorization belongs to this call; a reused context cannot carry a prior grant.
+  ctx.authorization = undefined
+  const decision = await authorizeOperation(ctx, ctx.approval, async () => {
+    const summary = JSON.stringify({ action, target, preview })
+    if (summary.length > 48000) throw new AdminError('approval_preview_too_large')
+    const displayReason = await describeApproval(deps, tool, action, target, preview)
+    if (Object.values(displayReason).some((text) => text.length > 48000))
+      throw new AdminError('approval_preview_too_large')
+    return { toolName: tool, reason: displayReason.en, displayReason }
+  })
+  if (!decision.allowed || ctx.signal.aborted) {
     await audit(db, {
       tool,
       action,
@@ -51,6 +41,7 @@ export async function approve(
     })
     throw new AdminError('approval_denied')
   }
+  ctx.authorization = decision.authorization
   return actor
 }
 export async function mutate<T>(

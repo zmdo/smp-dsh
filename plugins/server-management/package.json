@@ -59,6 +59,7 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh-permission-presets": "0.2.1-alpha.5",
     "@types/react": "^18.3.18",
     "@types/shell-quote": "^1.7.4",
     "@types/ssh2": "^1.15.5",

@@ -115,6 +115,7 @@ interface Policy {
   approved_by: string
   approval_id: string
   approved_at: Date
+  authorization_source: 'full-access' | 'user-approval'
 }
 async function policy(db: Db, lock = false) {
   return (await queries.retentionPolicy<Policy>(db, [], lock)).rows[0] ?? null
@@ -168,6 +169,7 @@ async function retentionAction(deps: AdminDeps, ctx: AdminContext, input: Input)
         input.enabled,
         await account(db),
         ctx.callId,
+        ctx.authorization?.source ?? 'user-approval',
       ])
       return policy(db)
     },
@@ -268,6 +270,10 @@ export async function scheduledRetention(db: Db, signal: AbortSignal) {
       source: 'system',
       approvalId: p.approval_id,
       approvedAt: p.approved_at,
+      authorization: {
+        source: p.authorization_source,
+        permissionMode: p.authorization_source === 'full-access' ? 'danger-full-access' : undefined,
+      },
     },
     p.approved_by,
     p,

@@ -14,7 +14,7 @@
 4. 管理审计数据
 5. 修改服务器信息
 
-这些工具提供结构化的管理入口，通过现有登录、逐次人工审批、变更计划和审计约束执行。命令执行本身也可能修改远端系统，不能把新增工具理解成另一套账号权限等级。
+这些工具提供结构化的管理入口，通过现有登录、会话权限、变更计划和审计约束执行。普通权限逐次人工审批，完全权限直接执行。命令执行本身也可能修改远端系统，不能把新增工具理解成另一套账号权限等级。
 
 ## 2. 前置条件
 
@@ -28,7 +28,7 @@
 - AI 工具复用平台已有的 Harness 会话与宿主工具执行上下文，不新增账号与 agent 的多用户归属体系
 - AI 参数不接收账号、角色、审批人或自报的审批结果；账号由服务端确定，会话、agent 和调用 ID 来自宿主
 - 五个 AI 管理工具只提供给 `server-ops`（服务器运维）组的会话，`general`（默认组）和未归属会话不展示也不能调用。按宿主确认的会话工作区归属判定，不依赖侧栏当前选中组，也不接受 AI 自报组名
-- 工作区组决定工具适用的业务场景，不引入用户角色；服务器分组 `server_groups` 仅组织服务器。两者均不代替人工审批
+- 工作区组决定工具适用的业务场景，不引入用户角色；服务器分组 `server_groups` 仅组织服务器。会话权限单独决定是否需要人工审批
 
 ### 2.2 服务端检查
 
@@ -38,7 +38,7 @@
 调用是否来自平台现有的可信登录／Harness 执行入口
 AI 会话是否属于服务器运维工作区组
 目标是否属于平台登记的资源
-本次操作是否取得所需的人工审批
+本次操作是否由完全权限授权，或取得所需的人工审批
 审批对应的参数、配置或计划是否仍然有效
 ```
 
@@ -50,11 +50,16 @@ HTTP 未登录继续返回现有 `unauthorized`。AI 执行缺少所需的可信
 
 本文的“审批”统一指唯一用户通过现有审批通道进行的一次人工确认。展示操作对象、完整变更和影响后，由用户批准或拒绝；不要求额外输入目标名称、二次确认或新增审批等级。
 
+本文后续“需要审批”均指普通权限下的 AI 操作。宿主确认当前会话的有效权限预设为 `danger-full-access` 且实际 sandbox mode 也为 `danger-full-access` 时，管理工具、`platform_server_exec` 和 `platform_server_rsync` 直接执行，不调用审批服务。不能仅凭 `approval=never` 放行；Auto 即使使用不受限 sandbox 也继续走其审批通道。权限在每次调用时从宿主读取，切回普通权限立即恢复审批。模型参数无法声明授权，完全权限也不扩大管理工具的工作区范围，不跳过参数、修订、预检、摘要、维护窗口及任务锁校验。
+
+完全权限执行的审计记录使用 `approval_status=not_required`、`permission_mode=danger-full-access` 和 `metadata.authorization_source=full-access`，不填写人工审批人、时间或审批 ID；普通权限通过审批时记录 `authorization_source=user-approval`。审计保留策略持久化授权来源，后续自动执行继承该来源与原授权调用 ID。审计页面以中英文展示授权来源。
+
 审批正文使用 `locale/zh.json`、`locale/en.json` 中的固定模板，按界面语言展示操作、名称及地址、变更前后值、执行窗口和实际影响，不直接展示原始 JSON。分组删除列出受影响服务器；升级风险从冻结计划读取；启用审计保留策略须说明后续每日自动执行。结构化参数和快照继续用于审计和执行前校验。私钥下载确认页读取已保存的界面语言，未设置时跟随浏览器语言，未支持语言回退英文；展示密钥名称、指纹及引用服务器，并保持一次性确认与下载校验。
 
 | 是否审批 | 要求 |
 |---|---|
 | 否 | 只读查询不单独弹出审批，仍校验调用入口和目标 |
+| 否 | 完全权限下的 AI 操作直接执行，仍保留业务校验和审计 |
 | 是 | 通过现有审批通道展示目标、变更和影响，用户一次确认本次操作 |
 
 审批绑定工具、action、目标、参数摘要和变更前快照；计划执行还绑定 `plan_id`、计划 revision、`review_digest`、精确软件目标和维护窗口。审批通过后、提交前重新校验；发生漂移时拒绝本次执行，重新读取并审批。
@@ -105,7 +110,7 @@ platform_server_admin
 | `platform_audit_admin` | `query/export {from?,to?,server_id?,kind?,status?,session_id?,tool?,page?,page_size?}`；`retention {mode:"get"/"run"}` 或 `{mode:"set",days,archive_directory,next_run,enabled}` |
 | `platform_server_admin` | `update {server,expected_config_revision,patch}`；`rebind {server,expected_config_revision,target_group,target_type?,install_missing,software_policies}`；`delete {server,expected_config_revision}` |
 
-`versions` 将软件 key 映射到精确版本。`patch` 仅接收第 8 节开放字段。所有 revision 都使用十进制字符串；日期时间使用带时区的 ISO 8601，维护时区使用 IANA 名称。`apply` 在一次人工审批中展示计划风险和窗口，再由宿主填写现有确认标志。
+`versions` 将软件 key 映射到精确版本。`patch` 仅接收第 8 节开放字段。所有 revision 都使用十进制字符串；日期时间使用带时区的 ISO 8601，维护时区使用 IANA 名称。`apply` 在普通权限下通过一次人工审批展示计划风险和窗口，完全权限下直接授权，再由宿主填写现有确认标志。
 
 模型实际收到的 schema 展开 `input` 字段及 `patch`、`declared_os`、`software_policies[].restriction` 的嵌套结构。宿主 schema 不支持按顶层 action 条件切换必填项，因此工具描述逐项声明各 action 的必填/可用字段，执行入口使用同一契约校验，错误提供字段路径。原生调用与 PTC SDK 使用同一契约；返回值保持 JSON 文本兼容，PTC 用 `JSON.parse` 读取。
 

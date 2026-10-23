@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { Pool } from 'pg'
+import { AdminRuntime } from '../src/host/admin/runtime.ts'
+import { registerServerTools } from '../src/host/harness/tools.ts'
+import { permissionFixture } from './fixtures/permissions.ts'
 import { executeAdmin, type AdminTool } from '../src/host/admin/service.ts'
 import { type AdminContext, type AdminDeps } from '../src/host/admin/model.ts'
 import { mutate } from '../src/host/admin/approval.ts'
@@ -130,6 +133,93 @@ test(
       return row.id
     }
 
+    await t.test('registered admin, command and transfer tools honor real host full access and record its authorization source', async t => {
+      const f = await permissionFixture(t)
+      const runtime = new AdminRuntime(deps)
+      const release = runtime.registerForAgent(f.agent, async () => {})
+      let connections = 0
+      let stopTransfer = false
+      const harness = await f.ctx.plugin(Object.assign((scope: typeof f.ctx) => registerServerTools(scope, {
+        ...deps,
+        secrets: { decrypt(value) { if (stopTransfer) throw new Error('transfer-execution-reached'); return secrets.decrypt(value) } },
+        connect: async () => { connections++; return { exec: async () => ({ code: 0, stdout: 'fixture', stderr: '' }), close() {} } as never },
+      }), { inject: ['tools'] }))
+      const invoke = (name: string, args: Record<string, unknown>) => f.ctx.tools.execute({
+        name, arguments: args, agent: f.agent, callId: randomUUID() as never, signal: new AbortController().signal,
+      })
+      const adminCall = async (name: string, action: string, input: Record<string, unknown>) => {
+        const result = await invoke(name, { action, input })
+        assert.equal(result.isError, false, JSON.stringify(result.content))
+        if (result.isError) throw new Error('unreachable failed tool')
+        return JSON.parse(String(result.value))
+      }
+      try {
+        f.set('danger-full-access')
+        const key = await makeKey(), server = await makeServer(key.id)
+        const group = await adminCall('platform_server_group_admin', 'create', { name: 'Full access fixture' })
+        await adminCall('platform_server_admin', 'update', { server, expected_config_revision: '1', patch: { region: 'Updated' } })
+        const revision = (await serverSnapshot(db, server)).config_revision
+        const draft = await adminCall('platform_server_admin', 'rebind', { server, expected_config_revision: revision, target_group: group.id, install_missing: false, software_policies: [] })
+        assert.equal(draft.requires_approval, false)
+        await pool.query("update server_change_targets set preflight_state='ready',target_snapshot=$2 where plan_id=$1", [draft.plan_id, { changes: [] }])
+        await pool.query("update server_change_plans set state='awaiting_confirmation' where id=$1", [draft.plan_id])
+        const plan = await adminCall('platform_server_upgrade_admin', 'show', { plan_id: draft.plan_id })
+        const scheduled = await adminCall('platform_server_upgrade_admin', 'apply', {
+          plan_id: plan.id, revision: plan.revision, review_digest: plan.review_digest,
+          start: new Date().toISOString(), end: new Date(Date.now() + 60000).toISOString(), timezone: 'UTC',
+        })
+        assert.equal(scheduled.state, 'scheduled')
+        await adminCall('platform_server_upgrade_admin', 'cancel', { plan_id: plan.id })
+        assert.equal((await invoke('platform_server_exec', { server, command: 'fixture-command' })).isError, false)
+        assert.equal(connections, 1)
+        stopTransfer = true
+        const transfer = await invoke('platform_server_rsync', { server, command: `rsync /tmp/fixture ${(await serverSnapshot(db, server)).host}:/tmp/fixture` })
+        assert.equal(transfer.isError, true)
+        assert.match(JSON.stringify(transfer.content), /transfer-execution-reached/)
+        assert.equal(f.prompts(), 0)
+        const records = (await pool.query('select * from server_audit_log where harness_session_id=$1', [f.session.id])).rows
+        assert.ok(records.length >= 6)
+        for (const row of records) {
+          assert.equal(row.permission_mode, 'danger-full-access')
+          assert.equal(row.approval_status, 'not_required')
+          assert.equal(row.metadata.authorization_source, 'full-access')
+          assert.equal(row.approved_at, null)
+          assert.equal(row.approved_by, null)
+          assert.equal(row.approval_id, null)
+        }
+        const stale = await invoke('platform_server_admin', { action: 'update', input: { server, expected_config_revision: '999', patch: { region: 'Stale' } } })
+        assert.equal(stale.isError, true)
+        assert.match(JSON.stringify(stale.content), /server_revision_conflict/)
+        f.set('workspace-write'); f.answer('rejected')
+        const denied = await invoke('platform_server_admin', { action: 'update', input: { server, expected_config_revision: revision, patch: { region: 'Denied' } } })
+        assert.equal(denied.isError, true)
+        assert.match(JSON.stringify(denied.content), /approval_denied/)
+        assert.equal((await serverSnapshot(db, server)).region, 'Updated')
+        const commandDenied = await invoke('platform_server_exec', { server, command: 'fixture-command' })
+        assert.equal(commandDenied.isError, true)
+        assert.equal(connections, 1)
+        assert.equal(f.prompts(), 2)
+        f.set('danger-full-access')
+        const directory = await mkdtemp(join(tmpdir(), 'smp-full-access-retention-'))
+        t.after(() => rm(directory, { recursive: true, force: true }))
+        const retention = await adminCall('platform_audit_admin', 'retention', { mode: 'set', days: 30, archive_directory: directory, next_run: new Date(Date.now() + 3600000).toISOString(), enabled: true })
+        assert.equal(retention.authorization_source, 'full-access')
+        await pool.query("update server_audit_retention set next_run=now()-interval '1 second'")
+        await scheduledRetention(db, new AbortController().signal)
+        const automatic = (await pool.query("select * from server_audit_log where actor_kind='system' order by created_at desc limit 1")).rows[0]
+        assert.equal(automatic.approval_status, 'not_required')
+        assert.equal(automatic.metadata.authorization_source, 'full-access')
+        assert.equal(automatic.metadata.authorization_call_id, retention.approval_id)
+        assert.equal(automatic.approval_id, null)
+        await deleteServer(db, server)
+        await deleteKey(db, key.id)
+        f.set('danger-full-access')
+        await adminCall('platform_server_group_admin', 'delete', { group_id: group.id })
+      } finally {
+        await harness.dispose(); release(); await runtime.close()
+      }
+    })
+
     await t.test(
       'denied and unavailable approval perform no writes; caller cannot self-approve',
       async () => {
@@ -163,7 +253,7 @@ test(
         assert.equal(
           (
             await pool.query(
-              "select count(*)::int as n from server_audit_log where status='denied'",
+              "select count(*)::int as n from server_audit_log where status='denied' and harness_session_id='session-fixture'",
             )
           ).rows[0].n,
           2,

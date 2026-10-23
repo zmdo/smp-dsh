@@ -52,9 +52,12 @@ export async function audit(
   const before = input.before as Input | undefined
   const snapshot = (before?.before ?? before) as Input | undefined
   const identity = targetType === 'server' && snapshot?.host ? snapshot : undefined
+  const authorization = input.context.authorization
+  const fullAccess = input.approval === 'approved' && authorization?.source === 'full-access'
+  const approvalStatus = fullAccess ? 'not_required' : input.approval
   await db.query<Record<string, unknown>>(
     `insert into server_audit_log(id,kind,actor_id,actor_kind,harness_session_id,agent_id,tool_call_id,root_tool_call_id,tool_name,permission_mode,approval_status,approval_id,approved_by,approved_at,status,finished_at,metadata,server_id,server_name,host,harness_turn,harness_step,harness_event_seq)
-    values($1,'admin',$2,$11,$3,$3,$4,$5,$6,'admin',$7,$18,$8,case when $7='approved' then coalesce($19::timestamptz,now()) end,$9,case when $9='pending' then null else now() end,$10,(select id from servers where id=$12),$13,$14,$15,$16,$17)`,
+    values($1,'admin',$2,$11,$3,$3,$4,$5,$6,$20,$7,$18,$8,case when $7='approved' then coalesce($19::timestamptz,now()) end,$9,case when $9='pending' then null else now() end,$10,(select id from servers where id=$12),$13,$14,$15,$16,$17)`,
     [
       id,
       input.actor,
@@ -62,8 +65,8 @@ export async function audit(
       input.context.callId,
       input.context.rootCallId ?? input.context.callId,
       input.tool,
-      input.approval,
-      input.approval === 'approved' ? input.actor : null,
+      approvalStatus,
+      approvalStatus === 'approved' ? input.actor : null,
       input.status,
       {
         action: input.action,
@@ -73,6 +76,9 @@ export async function audit(
         before: input.before ?? null,
         after: input.after ?? null,
         parameters: input.parameters ?? null,
+        authorization_source:
+          authorization?.source ?? (input.approval === 'approved' ? 'user-approval' : null),
+        authorization_call_id: input.context.approvalId ?? input.context.callId,
       },
       input.context.source ?? 'harness',
       identity ? input.target : null,
@@ -81,8 +87,9 @@ export async function audit(
       input.context.harnessTurn ?? null,
       input.context.harnessStep ?? null,
       input.context.harnessEventSeq ?? null,
-      input.context.approvalId ?? input.context.callId,
+      fullAccess ? null : (input.context.approvalId ?? input.context.callId),
       input.context.approvedAt ?? null,
+      authorization?.permissionMode ?? 'admin',
     ],
   )
   return id
@@ -213,7 +220,7 @@ export function retentionPolicy<T = Record<string, unknown>>(
   lock = false,
 ) {
   return db.query<T>(
-    'select days,archive_directory,next_run,revision::text,enabled,approved_by,approval_id,updated_at as approved_at from server_audit_retention where id=true' +
+    'select days,archive_directory,next_run,revision::text,enabled,approved_by,approval_id,authorization_source,updated_at as approved_at from server_audit_retention where id=true' +
       (lock ? ' for update' : ''),
     params,
   )
@@ -221,8 +228,8 @@ export function retentionPolicy<T = Record<string, unknown>>(
 
 export function saveRetentionPolicy<T = Record<string, unknown>>(db: Db, params: unknown[] = []) {
   return db.query<T>(
-    `insert into server_audit_retention(id,days,archive_directory,next_run,enabled,approved_by,approval_id) values(true,$1,$2,$3,$4,$5,$6)
-      on conflict(id) do update set days=$1,archive_directory=$2,next_run=$3,enabled=$4,approved_by=$5,approval_id=$6,revision=server_audit_retention.revision+1,updated_at=now()`,
+    `insert into server_audit_retention(id,days,archive_directory,next_run,enabled,approved_by,approval_id,authorization_source) values(true,$1,$2,$3,$4,$5,$6,$7)
+      on conflict(id) do update set days=$1,archive_directory=$2,next_run=$3,enabled=$4,approved_by=$5,approval_id=$6,authorization_source=$7,revision=server_audit_retention.revision+1,updated_at=now()`,
     params,
   )
 }

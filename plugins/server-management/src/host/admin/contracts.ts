@@ -114,12 +114,12 @@ interface ToolContract {
 const planId = { plan_id: required(id) }
 const baseServer = { server: required(server), expected_config_revision: required(configRevision) }
 const workflow =
-  'Move/type/install workflow: platform_server_get → platform_server_group_admin.list/types → platform_server_admin.rebind → platform_server_upgrade_admin.show until awaiting_confirmation with every target preflight_state=ready → apply → show until terminal → platform_server_get to verify. Creating a plan does not execute it. Follow returned next_step; do not stop at plan creation when execution was requested. Calling apply opens the host user approval UI; the model cannot approve itself.'
+  'Move/type/install workflow: platform_server_get → platform_server_group_admin.list/types → platform_server_admin.rebind → platform_server_upgrade_admin.show until awaiting_confirmation with every target preflight_state=ready → apply → show until terminal → platform_server_get to verify. Creating a plan does not execute it. Follow returned next_step; do not stop at plan creation when execution was requested. Calling apply executes directly under the host full-access permission preset; otherwise it opens the host user approval UI. The model cannot grant itself permissions.'
 
 export const ADMIN_CONTRACTS = {
   platform_server_group_admin: {
     description:
-      'Discover and manage server groups and available server types. System groups are read-only; user groups may be created/renamed/deleted with host user approval. ' +
+      'Discover and manage server groups and available server types. System groups are read-only; user groups may be created/renamed/deleted under the host authorization policy. ' +
       workflow,
     actions: {
       list: {
@@ -151,7 +151,7 @@ export const ADMIN_CONTRACTS = {
   },
   platform_server_key_admin: {
     description:
-      'Manage platform SSH keys. Never accepts or returns private key material. Mutations request host user approval. Read platform_server_get before rotation.',
+      'Manage platform SSH keys. Never accepts or returns private key material. Mutations execute directly under full access; otherwise they request host user approval. Read platform_server_get before rotation.',
     actions: {
       list: { description: 'Read key IDs, names and fingerprints.', fields: {} },
       create: {
@@ -187,7 +187,7 @@ export const ADMIN_CONTRACTS = {
   },
   platform_server_upgrade_admin: {
     description:
-      'Manage single-server change plans for BOTH software upgrades AND group/type/install changes created by server_admin.rebind. All mutating actions request host user approval. ' +
+      'Manage single-server change plans for BOTH software upgrades AND group/type/install changes created by server_admin.rebind. Mutating actions execute directly under full access; otherwise they request host user approval. ' +
       workflow,
     actions: {
       check: {
@@ -220,7 +220,7 @@ export const ADMIN_CONTRACTS = {
       },
       apply: {
         description:
-          'Request user approval and schedule the exact reviewed move OR upgrade plan. Copy revision/review_digest from the latest ready show; do not compute them. Read changes and risks, choose a maintenance window consistent with user intent. On plan_not_ready, show again and re-review. Result scheduled is not execution success; follow show.',
+          'Schedule the exact reviewed move OR upgrade plan, requesting user approval only when the host has not granted full access. Copy revision/review_digest from the latest ready show; do not compute them. Read changes and risks, choose a maintenance window consistent with user intent. On plan_not_ready, show again and re-review. Result scheduled is not execution success; follow show.',
         fields: {
           ...planId,
           revision: required(
@@ -246,7 +246,7 @@ export const ADMIN_CONTRACTS = {
   },
   platform_audit_admin: {
     description:
-      'Query, export and retain server audit records. No individual record editing/deletion. Export and retention writes require host user approval.',
+      'Query, export and retain server audit records. No individual record editing/deletion. Export and retention writes execute directly under full access; otherwise they require host user approval.',
     actions: {
       query: {
         description: 'Read paginated audit records. Optional from/to must satisfy from < to.',
@@ -280,7 +280,7 @@ export const ADMIN_CONTRACTS = {
   },
   platform_server_admin: {
     description:
-      'Edit, move/retype or delete one managed server using a fresh config_revision and host user approval. ' +
+      'Edit, move/retype or delete one managed server using a fresh config_revision and host authorization (full access or user approval). ' +
       workflow,
     actions: {
       update: {

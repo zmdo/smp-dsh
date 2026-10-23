@@ -2,6 +2,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { TEXT_OUTPUT } from '../harness/schema.ts'
 import { harnessTrace } from '../harness/trace.ts'
+import { sessionPermission } from '../harness/authorization.ts'
 import type { ApprovalRequester } from '../harness/exec.ts'
 import { executeAdmin } from './service.ts'
 import { ADMIN_ACTIONS, adminDescription, adminParameters, type AdminTool } from './contracts.ts'
@@ -83,6 +84,7 @@ export class AdminRuntime {
                       callId: String(exec.callId),
                       rootCallId: String(exec.rootCallId),
                       signal: AbortSignal.any([signal, exec.signal]),
+                    permission: sessionPermission(ctx, exec.agent),
                       approval: ctx.get('approval') as ApprovalRequester | undefined,
                       harnessTurn: trace.turn,
                       harnessStep: trace.step,

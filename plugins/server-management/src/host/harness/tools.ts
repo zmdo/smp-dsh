@@ -6,6 +6,7 @@ import { executeHarnessCommand, type ApprovalRequester } from './exec.ts'
 import { harnessTrace } from './trace.ts'
 import { getHarnessServer, listHarnessGroups, listHarnessServers, type HarnessDeps } from './service.ts'
 import { executeHarnessRsync } from './rsync.ts'
+import { sessionPermission } from './authorization.ts'
 
 const LIST_DESCRIPTION =
   'List servers managed by this platform. Only servers returned by this tool are managed. ' +
@@ -49,7 +50,7 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
       description:
         'Run a command on one managed server through the platform SSH credentials. ' +
         'The server argument must be a managed server id or exact name; never pass an arbitrary SSH host. ' +
-        'Every execution asks for approval and is audited.',
+        'With the host full-access permission preset, execute directly; otherwise request user approval. Every execution is audited.',
       parameters: execParameters(deps.execLimits ?? DEFAULT_EXEC_LIMITS),
       output: TEXT_OUTPUT,
       timeoutMs: 300_000,
@@ -63,6 +64,7 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
             callId: String(exec.callId),
             rootCallId: String(exec.rootCallId),
             signal: exec.signal,
+            permission: sessionPermission(ctx, exec.agent),
             harnessTurn: trace.turn,
             harnessStep: trace.step,
             harnessEventSeq: trace.eventSeq,
@@ -78,7 +80,7 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
       description:
         'Run a complete rsync command line against one managed server. ' +
         'The command must begin with rsync, contain a remote host belonging to the selected server, and pass the configured denied-flag policy. ' +
-        'Every transfer asks for approval and is audited.',
+        'With the host full-access permission preset, transfer directly; otherwise request user approval. Every transfer is audited.',
       parameters: rsyncParameters,
       output: TEXT_OUTPUT,
       timeoutMs: 600_000,
@@ -91,7 +93,7 @@ export function registerServerTools(ctx: Context, deps: HarnessDeps): void {
         return executeHarnessRsync(
           deps,
           args,
-          { agent: exec.agent, callId: String(exec.callId), rootCallId: String(exec.rootCallId), signal: exec.signal, harnessTurn: trace.turn, harnessStep: trace.step, harnessEventSeq: trace.eventSeq },
+          { agent: exec.agent, callId: String(exec.callId), rootCallId: String(exec.rootCallId), signal: exec.signal, permission: sessionPermission(ctx, exec.agent), harnessTurn: trace.turn, harnessStep: trace.step, harnessEventSeq: trace.eventSeq },
           ctx.get('approval') as ApprovalRequester | undefined,
           workspace,
         )

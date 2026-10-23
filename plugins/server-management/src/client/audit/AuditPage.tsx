@@ -221,7 +221,8 @@ function AuditDetail(props: { record: AuditPageDto['items'][number]; active: str
         <h3>{c.auditApproval}</h3>
         <dl className="smp-json-object">
           <div className="smp-json-row"><dt>{c.auditPermission}</dt><dd>{value(r.permission_mode)}</dd></div>
-          <div className="smp-json-row"><dt>{c.auditApprovalStatus}</dt><dd>{value(r.approval_status)}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditAuthorizationSource}</dt><dd>{r.metadata?.authorization_source === 'full-access' ? c.auditFullAccess : r.metadata?.authorization_source === 'user-approval' ? c.auditUserApproval : '—'}</dd></div>
+          <div className="smp-json-row"><dt>{c.auditApprovalStatus}</dt><dd>{r.approval_status === 'not_required' ? c.auditApprovalNotRequired : value(r.approval_status)}</dd></div>
           <div className="smp-json-row"><dt>{c.auditApprovedBy}</dt><dd>{value(r.approved_by)}</dd></div>
           <div className="smp-json-row"><dt>{c.auditApprovedAt}</dt><dd>{formatDate(r.approved_at, active)}</dd></div>
           <div className="smp-json-row"><dt>{c.auditApprovalReason}</dt><dd>{value(r.approval_reason)}</dd></div>
