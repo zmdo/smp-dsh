@@ -13,6 +13,7 @@ const LIST_DESCRIPTION =
 
 const GET_DESCRIPTION =
   'Read status, operating system, software and resource observations for one managed server. ' +
+  'Also returns id, config_revision, group_id, type_key, ssh_key_id and unfinished key_rotations. Read fresh config_revision before administrative changes; use these returned IDs rather than guessing. ' +
   'The server argument must be a managed server id or exact server name; never pass an arbitrary SSH host.'
 
 export function registerServerTools(ctx: Context, deps: HarnessDeps): void {

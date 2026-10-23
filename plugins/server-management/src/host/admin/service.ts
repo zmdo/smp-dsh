@@ -16,6 +16,8 @@ import { serverSnapshot, groupSnapshot, keySnapshot } from './persistence/reposi
 import { generateStoredKey, exportKeyPage } from './keys.ts'
 import { rotateKey } from './rotation.ts'
 import { auditAction } from './retention.ts'
+import { ADMIN_ACTIONS, validateAdminInput, type AdminTool } from './contracts.ts'
+import { draftResult, planResult } from './guidance.ts'
 import {
   AdminError,
   fields,
@@ -29,14 +31,7 @@ import {
   type Input,
 } from './model.ts'
 
-export const ADMIN_ACTIONS = {
-  platform_server_group_admin: ['list', 'create', 'rename', 'delete'],
-  platform_server_key_admin: ['list', 'create', 'delete', 'rotate', 'reveal'],
-  platform_server_upgrade_admin: ['check', 'plan', 'show', 'apply', 'cancel'],
-  platform_audit_admin: ['query', 'export', 'retention'],
-  platform_server_admin: ['update', 'rebind', 'delete'],
-} as const
-export type AdminTool = keyof typeof ADMIN_ACTIONS
+export { ADMIN_ACTIONS, type AdminTool } from './contracts.ts'
 export async function executeAdmin(
   deps: AdminDeps,
   ctx: AdminContext,
@@ -47,6 +42,7 @@ export async function executeAdmin(
   if (!ctx.agent || ctx.signal.aborted) throw new AdminError('unauthorized')
   if (!(ADMIN_ACTIONS[tool] as readonly string[]).includes(action))
     throw new AdminError('invalid_action')
+  validateAdminInput(tool, action, input)
   switch (tool) {
     case 'platform_server_group_admin':
       return groupAction(deps, ctx, action, input)
@@ -61,16 +57,9 @@ export async function executeAdmin(
   }
 }
 async function groupAction(deps: AdminDeps, ctx: AdminContext, action: string, input: Input) {
-  fields(
-    input,
-    action === 'list'
-      ? []
-      : action === 'create'
-        ? ['name']
-        : action === 'rename'
-          ? ['group_id', 'name']
-          : ['group_id'],
-  )
+  if (action === 'types')
+    return deps.definitions.options(input.group_id === null ? null : uuid(input.group_id))
+
   if (action === 'list') return listGroups(deps.db, deps.definitions)
   const id = action === 'create' ? 'new' : uuid(input.group_id)
   const name = action === 'create' || action === 'rename' ? text(input.name, 80) : undefined
@@ -94,7 +83,6 @@ async function groupAction(deps: AdminDeps, ctx: AdminContext, action: string, i
 }
 async function keyAction(deps: AdminDeps, ctx: AdminContext, action: string, input: Input) {
   if (action === 'rotate') return rotateKey(deps, ctx, input)
-  fields(input, action === 'list' ? [] : action === 'create' ? ['name'] : ['key_id'])
   if (action === 'list') return listKeys(deps.db)
   const id = action === 'create' ? 'new' : uuid(input.key_id)
   if (action === 'reveal') return exportKeyPage(deps, id)
@@ -118,21 +106,6 @@ async function managedId(deps: AdminDeps, input: Input) {
   return (await getHarnessServer(deps, text(input.server))).id
 }
 async function serverAction(deps: AdminDeps, ctx: AdminContext, action: string, input: Input) {
-  fields(
-    input,
-    action === 'update'
-      ? ['server', 'expected_config_revision', 'patch']
-      : action === 'rebind'
-        ? [
-            'server',
-            'expected_config_revision',
-            'target_group',
-            'target_type',
-            'install_missing',
-            'software_policies',
-          ]
-        : ['server', 'expected_config_revision'],
-  )
   const id = await managedId(deps, input),
     expected = revision(input.expected_config_revision)
   const patch = action === 'update' ? object(input.patch) : {}
@@ -197,7 +170,7 @@ async function serverAction(deps: AdminDeps, ctx: AdminContext, action: string, 
           install_missing: input.install_missing,
           software_policies: input.software_policies,
         })
-        return { plan_id: planId, kind: 'move', state: 'draft', requires_approval: true }
+        return draftResult(planId, 'move')
       }
       const before = await serverSnapshot(db, id)
       const connectionChanged = ['host', 'ssh_port', 'ssh_user', 'ssh_key_id'].some(
@@ -219,23 +192,22 @@ async function serverAction(deps: AdminDeps, ctx: AdminContext, action: string, 
   )
 }
 async function planAction(deps: AdminDeps, ctx: AdminContext, action: string, input: Input) {
-  fields(
-    input,
-    action === 'check'
-      ? ['server']
-      : action === 'plan'
-        ? ['server', 'versions', 'expected_config_revision']
-        : action === 'apply'
-          ? ['plan_id', 'revision', 'review_digest', 'start', 'end', 'timezone']
-          : ['plan_id'],
-  )
-  if (action === 'check') {
+  if (action === 'check' || action === 'suggestions') {
     const id = await managedId(deps, input)
-    await detectUpdates(deps, { server_ids: [id] })
+    const page = input.page ?? 1
+    if (typeof page !== 'number' || !Number.isInteger(page) || page < 1)
+      throw new AdminError('invalid_request', { field: 'input.page', hint: 'Use an integer >= 1.' })
+    if (action === 'check') await detectUpdates(deps, { server_ids: [id] })
     return {
-      queued: true,
+      queued: action === 'check',
+      guidance:
+        'Detection is asynchronous. Inspect checks.last_check_at/check_error/check_snapshot and suggestion validity before selecting exact versions. Poll suggestions after a short delay; check queues new work. Use page to read more items when total > page_size.',
+      next_step: {
+        tool: 'platform_server_upgrade_admin',
+        arguments: { action: 'suggestions', input: { server: id } },
+      },
       ...(await listSuggestions(deps, {
-        page: 1,
+        page,
         query: '',
         decision: '',
         server: id,
@@ -263,15 +235,15 @@ async function planAction(deps: AdminDeps, ctx: AdminContext, action: string, in
         if (row.config_revision !== expected) throw new AdminError('server_revision_conflict')
         return row
       },
-      async (db) => ({
-        plan_id: await createChangePlan(db, deps.definitions, {
-          kind: 'upgrade',
-          server_ids: [id],
-          versions: input.versions,
-        }),
-        state: 'draft',
-        requires_approval: true,
-      }),
+      async (db) =>
+        draftResult(
+          await createChangePlan(db, deps.definitions, {
+            kind: 'upgrade',
+            server_ids: [id],
+            versions: input.versions,
+          }),
+          'upgrade',
+        ),
       input,
     )
   }
@@ -282,7 +254,7 @@ async function planAction(deps: AdminDeps, ctx: AdminContext, action: string, in
     if (plan.targets.length !== 1) throw new AdminError('single_server_required')
     return plan
   }
-  if (action === 'show') return read(deps.db, false)
+  if (action === 'show') return planResult(await read(deps.db, false))
   if (action === 'apply') {
     text(input.review_digest, 64)
     text(input.revision)
@@ -307,7 +279,7 @@ async function planAction(deps: AdminDeps, ctx: AdminContext, action: string, in
           ack_major: true,
           ack_service_impact: true,
         })
-      return readChangePlan(db, id)
+      return planResult(await readChangePlan(db, id))
     },
     input,
   )

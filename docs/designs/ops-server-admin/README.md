@@ -99,13 +99,19 @@ platform_server_admin
 
 | 工具 | action 与 input |
 |---|---|
-| `platform_server_group_admin` | `list {}`；`create {name}`；`rename {group_id,name}`；`delete {group_id}` |
+| `platform_server_group_admin` | `list {}`；`types {group_id:UUID|null}`；`create {name}`；`rename {group_id,name}`；`delete {group_id}` |
 | `platform_server_key_admin` | `list {}`；`create {name}`；`delete/reveal {key_id}`；`rotate {server,key_id,expected_config_revision,operation_id?}` |
-| `platform_server_upgrade_admin` | `check {server}`；`plan {server,versions,expected_config_revision}`；`show/cancel {plan_id}`；`apply {plan_id,revision,review_digest,start,end,timezone}` |
+| `platform_server_upgrade_admin` | `check {server}`；`suggestions {server,page?}`；`plan {server,versions,expected_config_revision}`；`show/cancel {plan_id}`；`apply {plan_id,revision,review_digest,start,end,timezone}` |
 | `platform_audit_admin` | `query/export {from?,to?,server_id?,kind?,status?,session_id?,tool?,page?,page_size?}`；`retention {mode:"get"/"run"}` 或 `{mode:"set",days,archive_directory,next_run,enabled}` |
 | `platform_server_admin` | `update {server,expected_config_revision,patch}`；`rebind {server,expected_config_revision,target_group,target_type?,install_missing,software_policies}`；`delete {server,expected_config_revision}` |
 
 `versions` 将软件 key 映射到精确版本。`patch` 仅接收第 8 节开放字段。所有 revision 都使用十进制字符串；日期时间使用带时区的 ISO 8601，维护时区使用 IANA 名称。`apply` 在一次人工审批中展示计划风险和窗口，再由宿主填写现有确认标志。
+
+模型实际收到的 schema 展开 `input` 字段及 `patch`、`declared_os`、`software_policies[].restriction` 的嵌套结构。宿主 schema 不支持按顶层 action 条件切换必填项，因此工具描述逐项声明各 action 的必填/可用字段，执行入口使用同一契约校验，错误提供字段路径。原生调用与 PTC SDK 使用同一契约；返回值保持 JSON 文本兼容，PTC 用 `JSON.parse` 读取。
+
+移组、切换类型或安装类型所需软件的完整链路为：`platform_server_get` 获取当前修订 → `group_admin.list/types` 获取实际分组 UUID、类型 key 和软件规则 → `server_admin.rebind` 创建草案 → `upgrade_admin.show` 等待 `awaiting_confirmation` 且全部目标预检 `ready` → 携带最新计划 revision/digest 和维护窗口调用 `apply`，由宿主请求用户审批 → `show` 等待计划 `completed` 且目标 `succeeded` → `platform_server_get` 核实结果。`software_policies: []` 继承目标类型默认规则；自定义策略只能收窄规则。
+
+计划返回 `guidance` 和 `next_step`。待审批时 next_step 提供实际 plan_id/revision/review_digest，`required_input` 列出还需填写的维护窗口字段；阻塞、失败、取消等状态要求检查错误，不提示盲目重试。创建草案和进入 scheduled 都不表示已完成。升级检测 `check` 只排队，随后通过只读 `suggestions` 查看检查时间、错误和版本候选，避免重复排队。
 
 通过已有 `platform_server_get` 读取配置 revision、凭据引用和 `key_rotations`。轮换的 `server` 必须是服务器 UUID；其他服务器操作也支持现有精确名称解析。中断轮换保留 `state` 与最后确认的 `phase`，返回或查询到 `operation_id` 后，以当前 revision 和同一旧密钥 ID 再调用 `rotate`；新密钥不会重新生成，先验证当前连接与引用，再继续部署或清理。结果不明确时保持互斥，不能绕过核对继续派发任务。
 

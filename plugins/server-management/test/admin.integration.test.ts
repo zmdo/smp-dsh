@@ -24,6 +24,8 @@ import {
 } from '../src/host/servers/service.ts'
 import { createKey, deleteKey } from '../src/host/keys/service.ts'
 import { readChangePlan } from '../src/host/changes/service.ts'
+import { draftResult, planResult } from '../src/host/admin/guidance.ts'
+import type { TypeOptions } from '../src/shared/definitions.ts'
 import { nextCandidate, tryLockServer } from '../src/host/execution/persistence/repository.ts'
 import { registerRoutes, type HttpHost } from '../src/host/http/routes.ts'
 import { SecretsCodec } from '../../database/src/fernet.ts'
@@ -302,14 +304,29 @@ test(
       async () => {
         const server = await makeServer()
         const before = approvals
+        const options = await call('platform_server_group_admin', 'types', { group_id: null }) as TypeOptions
+        assert.ok(options.available)
+        assert.ok(options.types.some(type => type.key === options.default_type_key))
+        const jobCount = async () => (await pool.query('select count(*) from server_jobs where server_id=$1', [server])).rows[0].count
+        const jobsBefore = await jobCount()
+        const suggestions = await call('platform_server_upgrade_admin', 'suggestions', { server }) as { queued: boolean; items: unknown[]; checks: unknown[] }
+        assert.equal(suggestions.queued, false)
+        assert.ok(Array.isArray(suggestions.items) && Array.isArray(suggestions.checks))
+        assert.equal(await jobCount(), jobsBefore)
+        assert.equal(approvals, before)
         const created = (await call('platform_server_admin', 'rebind', {
           server,
           expected_config_revision: '1',
           target_group: null,
+          target_type: options.default_type_key,
           install_missing: false,
           software_policies: [],
-        })) as { plan_id: string }
+        })) as ReturnType<typeof draftResult>
         assert.equal(approvals - before, 1)
+        assert.equal(created.next_step.tool, 'platform_server_upgrade_admin')
+        const pending = await call('platform_server_upgrade_admin', created.next_step.arguments.action, created.next_step.arguments.input) as ReturnType<typeof planResult>
+        assert.equal(pending.state, 'draft')
+        assert.equal(pending.next_step?.arguments && 'action' in pending.next_step.arguments && pending.next_step.arguments.action, 'show')
         let plan = await readChangePlan(db, created.plan_id)
         const window = {
           start: new Date().toISOString(),
@@ -358,18 +375,30 @@ test(
           (error) => (error as { code: string }).code === 'plan_not_ready',
         )
         const count = approvals
-        await call('platform_server_upgrade_admin', 'apply', {
-          plan_id: plan.id,
-          revision: String(plan.revision),
-          review_digest: plan.review_digest,
-          ...window,
-        })
+        const ready = await call('platform_server_upgrade_admin', 'show', { plan_id: plan.id }) as ReturnType<typeof planResult>
+        assert.equal(ready.next_step?.tool, 'platform_server_upgrade_admin')
+        assert.ok(ready.next_step && 'required_input' in ready.next_step)
+        assert.deepEqual(ready.next_step.required_input, ['start', 'end', 'timezone'])
+        assert.equal(ready.next_step.arguments.action, 'apply')
+        const scheduled = await call('platform_server_upgrade_admin', ready.next_step.arguments.action, { ...ready.next_step.arguments.input, ...window }) as ReturnType<typeof planResult>
         assert.equal(approvals - count, 1)
         assert.match(preview, /Replace/)
         assert.match(preview, /Asia\/Shanghai/)
         assert.equal((await readChangePlan(db, plan.id)).state, 'scheduled')
-        await call('platform_server_upgrade_admin', 'cancel', { plan_id: plan.id })
+        assert.equal(scheduled.state, 'scheduled')
+        assert.match(scheduled.guidance, /Do not re-apply or claim success/)
+        const cancelled = await call('platform_server_upgrade_admin', 'cancel', { plan_id: plan.id }) as ReturnType<typeof planResult>
+        assert.equal(cancelled.next_step, null)
         assert.equal((await readChangePlan(db, plan.id)).state, 'cancelled')
+        // Simulate the worker's persisted terminal states without contacting a server.
+        await pool.query("update server_change_plans set state='completed' where id=$1", [plan.id])
+        await pool.query("update server_change_targets set state='succeeded' where plan_id=$1", [plan.id])
+        const completed = await call('platform_server_upgrade_admin', 'show', { plan_id: plan.id }) as ReturnType<typeof planResult>
+        assert.deepEqual(completed.next_step, { tool: 'platform_server_get', arguments: { server } })
+        await pool.query("update server_change_plans set state='blocked' where id=$1", [plan.id])
+        const blocked = await call('platform_server_upgrade_admin', 'show', { plan_id: plan.id }) as ReturnType<typeof planResult>
+        assert.equal(blocked.next_step, null)
+        assert.match(blocked.guidance, /preflight_error/)
         await call('platform_server_admin', 'delete', { server, expected_config_revision: '1' })
         const event = (
           await pool.query(

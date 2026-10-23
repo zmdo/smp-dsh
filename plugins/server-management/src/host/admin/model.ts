@@ -11,8 +11,8 @@ export type AdminContext = ExecContext & {
 export type Input = Record<string, unknown>
 export class AdminError extends Error {
   readonly code: string
-  constructor(code: string) {
-    super(JSON.stringify({ code }))
+  constructor(code: string, details?: Record<string, unknown>) {
+    super(JSON.stringify({ code, ...details }))
     this.name = 'AdminError'
     this.code = code
   }
