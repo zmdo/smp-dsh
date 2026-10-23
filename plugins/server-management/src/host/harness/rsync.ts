@@ -63,7 +63,10 @@ export async function executeHarnessRsync(
   const auditId = randomUUID()
   const commandBytes = Buffer.byteLength(args.command, 'utf8')
   const remote = parsed.remote[0]
-  const local = parsed.operands.find((operand) => !isRemoteSpec(operand)) ?? null
+  const localOperands = parsed.operands.filter((operand) => !isRemoteSpec(operand))
+  const local = localOperands[0] ?? null
+  const localStat = local === null ? undefined : await stat(local).catch(() => undefined)
+  const singleLocalFile = localOperands.length === 1 && localStat?.isFile() === true
   const base: Omit<AuditStart, 'approvalStatus' | 'approvalId' | 'approvedBy' | 'approvedAt' | 'approvalReason' | 'status' | 'startedAt' | 'finishedAt' | 'durationMs' | 'exitCode' | 'signal' | 'timedOut' | 'cancelled' | 'errorCode' | 'errorMessage' | 'stdoutExcerpt' | 'stderrExcerpt' | 'stdoutBytes' | 'stderrBytes' | 'stdoutTruncated' | 'stderrTruncated' | 'stdoutDigest' | 'stderrDigest'> = {
     id: auditId,
     kind: 'transfer',
@@ -98,6 +101,7 @@ export async function executeHarnessRsync(
       flags: parsed.flags,
       denied_flags: deniedFlags,
       remote: remote?.host ?? null,
+      bytes_scope: singleLocalFile ? 'file' : 'source-total',
     },
   }
   const outcome = await askApproval(approval, exec, target.name, args.command)
@@ -172,7 +176,7 @@ export async function executeHarnessRsync(
     const result = await runRsync(parsed.argv.slice(1), workspace ?? process.cwd(), { ...process.env, RSYNC_RSH: rsh }, timeoutMs, exec.signal, limits?.maxOutputBytes ?? 1024 * 1024)
     const durationMs = Date.now() - started
     const status = result.code === 0 ? 'succeeded' : 'failed'
-    const localInfo = status === 'succeeded' && local !== null ? await localFileInfo(local) : undefined
+    const localInfo = status === 'succeeded' && singleLocalFile && local !== null ? await localFileInfo(local) : undefined
     const bytes = status === 'succeeded' ? (localInfo?.bytes ?? parseTotalBytes(result.stdout)) : null
     await finishAudit(deps.db, auditId, {
       status,

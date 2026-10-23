@@ -300,7 +300,10 @@
     "settingsOutputHint": "Maximum captured output in bytes for one execution.",
     "rsyncDeniedFlagsLabel": "Denied rsync flags",
     "rsyncDeniedFlagsHint": "One flag per line. Empty means no flag-level filtering.",
-    "auditKindTransfer": "Transfer"
+    "auditKindTransfer": "Transfer",
+    "auditBytesScope": "Size scope",
+    "auditBytesFile": "Single file size",
+    "auditBytesSourceTotal": "Source-side total (directory or multiple operands)"
   },
   "reach": {
     "online": "Online",
