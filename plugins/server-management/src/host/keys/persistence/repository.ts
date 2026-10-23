@@ -20,7 +20,8 @@ export function insertKey(db: Db, { id, name, fingerprint, ciphertext }: InsertK
 }
 
 export function referenceCount(db: Db, id: string) {
-  return db.query<{ count: number }>('select count(*)::int as count from servers where ssh_key_id = $1', [id])
+  return db.query<{ count: number }>(`select (select count(*) from servers where ssh_key_id=$1) +
+    (select count(*) from server_key_rotations where (old_key_id=$1 or new_key_id=$1) and state in ('prepared','deployed','switched','unknown')) as count`, [id])
 }
 
 export function deleteKey(db: Db, id: string) {

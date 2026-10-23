@@ -1,3 +1,4 @@
+import { activeRotations } from '../servers/persistence/repository.ts'
 import type { DefinitionRegistry } from '../definitions/registry.ts'
 import type { Db } from '../database/connection.ts'
 import type { SshSession } from '../remote/ssh.ts'
@@ -115,7 +116,7 @@ export async function getHarnessServer(deps: HarnessDeps, server: string) {
   const target = await resolveServer(deps, server)
   const row = await serverRead(deps, target.id)
   if (row === undefined) throw new Error(serverNotFound(server))
-  return detail(row)
+  return { ...detail(row), key_rotations: (await activeRotations(deps.db, row.id)).rows }
 }
 
 async function resolveServer(deps: HarnessDeps, input: string): Promise<ResolvedServer> {
@@ -161,6 +162,13 @@ function serverNotFound(value: string): string {
 function detail(row: NonNullable<Awaited<ReturnType<typeof serverRead>>>) {
   return {
     id: row.id,
+    config_revision: String(row.config_revision),
+    group_id: row.group_id,
+    type_key: row.type_key,
+    ssh_user: row.ssh_user,
+    auth_method: row.auth_method,
+    ssh_key_id: row.ssh_key_id,
+    host_fingerprint: row.host_fingerprint,
     name: row.name,
     host: row.host,
     port: row.ssh_port,

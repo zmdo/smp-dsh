@@ -61,12 +61,19 @@ export function insertInspection(
 export function nextCandidate(db: Db) {
   return db.query<JobRecord>(`select j.* from server_jobs j
       where (j.state in ('claimed','running','recovering') and j.lease_expires_at<now())
-        or (j.state='queued' and (j.purpose<>'apply_plan' or exists(select 1 from server_change_targets t join server_change_plans p on p.id=t.plan_id where t.id=j.target_id and p.state in ('scheduled','running') and p.window_start<=now() and p.window_end>now())) and not exists(select 1 from server_jobs active where active.server_id=j.server_id and active.state in ('claimed','running','recovering')))
+        or (j.state='queued' and not exists(select 1 from server_key_rotations r where r.server_id=j.server_id and r.state in ('prepared','deployed','switched','unknown')) and (j.purpose<>'apply_plan' or exists(select 1 from server_change_targets t join server_change_plans p on p.id=t.plan_id where t.id=j.target_id and p.state in ('scheduled','running') and p.window_start<=now() and p.window_end>now())) and not exists(select 1 from server_jobs active where active.server_id=j.server_id and active.state in ('claimed','running','recovering')))
       order by case when j.state='queued' then 1 else 0 end,j.created_at,j.id for update of j skip locked limit 1`)
 }
 
-export function tryLockServer(db: Db, id: string) {
-  return db.query<{ id: string }>('select id from servers where id=$1 for update skip locked', [id])
+export async function tryLockServer(db: Db, id: string) {
+  const locked = await db.query<{ id: string }>('select id from servers where id=$1 for update skip locked', [id])
+  if (!locked.rows.length) return locked
+  // Read after acquiring the row lock so a rotation committed during lock acquisition is visible.
+  const rotations = await db.query<{ id: string }>(
+    "select id from server_key_rotations where server_id=$1 and state in ('prepared','deployed','switched','unknown')",
+    [id],
+  )
+  return rotations.rows.length ? { rows: [] } : locked
 }
 
 export function activeJobs(db: Db, id: string) {

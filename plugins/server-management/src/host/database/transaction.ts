@@ -1,5 +1,8 @@
 import type { Db, DbClient } from './connection.ts'
 
+const SCOPE = Symbol('transaction scope')
+type ScopedClient = DbClient & { [SCOPE]: true }
+
 export async function transaction<T>(db: Db, run: (client: DbClient) => Promise<T>): Promise<T> {
   return inTransaction(db, 'begin', run)
 }
@@ -9,10 +12,17 @@ export async function readTransaction<T>(db: Db, run: (client: DbClient) => Prom
 }
 
 async function inTransaction<T>(db: Db, begin: string, run: (client: DbClient) => Promise<T>): Promise<T> {
+  if (SCOPE in db) return run(db as ScopedClient)
   const client = await db.connect()
+  const scope: ScopedClient = {
+    [SCOPE]: true,
+    query: client.query.bind(client),
+    connect: async () => scope,
+    release() {},
+  }
   try {
     await client.query(begin)
-    const result = await run(client)
+    const result = await run(scope)
     await client.query('commit')
     return result
   } catch (cause) {

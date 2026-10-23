@@ -1,4 +1,5 @@
 export interface WorkspaceGroupsService {
+  groupForSession(id: string): Promise<string | undefined>
   register(input: {
     id: string
     label: string
@@ -17,6 +18,6 @@ export const SERVER_OPS_GROUP = {
 } as const
 
 /** Registers the Harness conversation group owned by this plugin. */
-export async function registerServerOpsGroup(groups: WorkspaceGroupsService): Promise<void> {
+export async function registerServerOpsGroup(groups: Pick<WorkspaceGroupsService, 'register'>): Promise<void> {
   await groups.register(SERVER_OPS_GROUP)
 }

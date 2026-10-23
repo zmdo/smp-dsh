@@ -9,6 +9,8 @@ interface Secrets {
   decrypt(ciphertext: string): string
 }
 export interface Deps {
+  localePreference?(): string | undefined
+  adminRun?<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T>
   db: Db
   secrets: Secrets
   catalog: readonly Component[]

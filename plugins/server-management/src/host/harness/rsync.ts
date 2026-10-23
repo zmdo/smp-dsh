@@ -8,6 +8,7 @@ import { getHarnessServer, type HarnessDeps } from './service.ts'
 import { DEFAULT_EXEC_LIMITS, type ApprovalRequester, type ExecContext } from './exec.ts'
 import { serverSecret } from '../servers/persistence/credential-repository.ts'
 import { finishAudit, insertAudit, type AuditStart } from '../audit/persistence/write-repository.ts'
+import { authorizeOperation } from './authorization.ts'
 
 const DEFAULT_TIMEOUT_MS = 10 * 60_000
 const MAX_TIMEOUT_MS = 10 * 60_000
@@ -100,8 +101,13 @@ export async function executeHarnessRsync(
       remote: remote?.host ?? null,
     },
   }
-  const outcome = await askApproval(approval, exec, target.name, args.command)
-  if (outcome !== 'allowed-once') {
+  const decision = await authorizeOperation(exec, approval, () => ({
+    toolName: 'platform_server_rsync', kind: 'transfer',
+    reason: `rsync on ${target.name}: ${args.command.slice(0, 500)}`,
+    displayReason: { en: `Run rsync on ${target.name}?`, zh: `是否在服务器 ${target.name} 上执行 rsync 传输？` },
+  }))
+  if (!decision.allowed) {
+    const outcome = decision.outcome
     const now = new Date()
     await insertAudit(deps.db, {
       ...base,
@@ -132,12 +138,16 @@ export async function executeHarnessRsync(
     throw toolError('approval_denied', `Approval was not granted: ${outcome}`)
   }
   const startedAt = new Date()
+  const { authorization } = decision
+  const fullAccess = authorization.source === 'full-access'
   await insertAudit(deps.db, {
     ...base,
-    approvalStatus: 'approved',
+    permissionMode: authorization.permissionMode ?? base.permissionMode,
+    metadata: { ...base.metadata, authorization_source: authorization.source },
+    approvalStatus: fullAccess ? 'not_required' : 'approved',
     approvalId: null,
     approvedBy: null,
-    approvedAt: startedAt,
+    approvedAt: fullAccess ? null : startedAt,
     approvalReason: null,
     status: 'pending',
     startedAt,
@@ -161,6 +171,7 @@ export async function executeHarnessRsync(
   const started = Date.now()
   let tempDir: string | undefined
   try {
+    exec.signal.throwIfAborted()
     tempDir = await mkdtemp(join(tmpdir(), 'smp-rsync-'))
     const keyFile = join(tempDir, 'id_key')
     const knownHosts = join(tempDir, 'known_hosts')
@@ -377,10 +388,3 @@ function sha256(value: string): string { return createHash('sha256').update(valu
 function quote(value: string): string { return `'${value.replaceAll("'", "'\\''")}'` }
 function errorCode(cause: unknown): string | undefined { return typeof cause === 'object' && cause !== null && 'code' in cause ? String((cause as { code: unknown }).code) : undefined }
 function toolError(code: string, message: string): Error & { code: string } { return Object.assign(new Error(message), { code }) }
-
-async function askApproval(approval: ApprovalRequester | undefined, exec: ExecContext, serverName: string, command: string): Promise<string> {
-  if (approval === undefined || exec.agent === undefined) return 'unavailable'
-  try {
-    return await approval.request({ agent: exec.agent, toolName: 'platform_server_rsync', kind: 'transfer', callId: exec.callId, reason: `rsync on ${serverName}: ${command.slice(0, 500)}`, displayReason: { en: `Run rsync on ${serverName}?`, zh: `是否在服务器 ${serverName} 上执行 rsync 传输？` }, signal: exec.signal })
-  } catch { return 'unavailable' }
-}

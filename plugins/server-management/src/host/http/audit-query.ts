@@ -1,7 +1,7 @@
 import { HttpError } from '../errors.ts'
 
 const STATUSES = new Set(['pending', 'succeeded', 'failed', 'denied', 'timeout', 'cancelled'])
-const KINDS = new Set(['command', 'upload', 'download', 'transfer'])
+const KINDS = new Set(['command', 'upload', 'download', 'transfer', 'admin'])
 const HOURS = new Set([0, 24, 168, 720])
 
 export function parseAuditQuery(params: URLSearchParams) {

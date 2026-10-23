@@ -1,3 +1,5 @@
+import { downloadRoute } from '../admin/http.ts'
+import { AdminError } from '../admin/model.ts'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { ServerError } from '../../shared/errors.ts'
 import { errorPayload } from '../../shared/i18n.ts'
@@ -26,6 +28,29 @@ export interface HttpHost {
 }
 export function* registerRoutes(host: HttpHost, deps: Deps): Generator<() => void> {
   yield host.webServer.register({
+    kind: 'prefix',
+    path: '/console-api/server-admin-downloads',
+    handler: (request, response) =>
+      guard(host, request, response, () =>
+        deps.adminRun
+          ? deps.adminRun((signal) =>
+              downloadRoute(
+                deps,
+                request,
+                response,
+                suffix(request, '/console-api/server-admin-downloads').slice(1),
+                signal,
+              ),
+            )
+          : downloadRoute(
+              deps,
+              request,
+              response,
+              suffix(request, '/console-api/server-admin-downloads').slice(1),
+            ),
+      ),
+  })
+  yield host.webServer.register({
     kind: 'exact',
     path: '/console-api/servers',
     handler: (request, response) =>
@@ -35,13 +60,17 @@ export function* registerRoutes(host: HttpHost, deps: Deps): Generator<() => voi
     kind: 'exact',
     path: '/console-api/servers/test-connection',
     handler: (request, response) =>
-      guard(host, request, response, () => routeServers(deps, request, response, '/test-connection')),
+      guard(host, request, response, () =>
+        routeServers(deps, request, response, '/test-connection'),
+      ),
   })
   yield host.webServer.register({
     kind: 'exact',
     path: '/console-api/servers/identify-system',
     handler: (request, response) =>
-      guard(host, request, response, () => routeServers(deps, request, response, '/identify-system')),
+      guard(host, request, response, () =>
+        routeServers(deps, request, response, '/identify-system'),
+      ),
   })
   yield host.webServer.register({
     kind: 'prefix',
@@ -55,7 +84,9 @@ export function* registerRoutes(host: HttpHost, deps: Deps): Generator<() => voi
     kind: 'exact',
     path: '/console-api/server-groups',
     handler: (request, response) =>
-      guard(host, request, response, () => routeGroups(deps.db, request, response, '', deps.definitions)),
+      guard(host, request, response, () =>
+        routeGroups(deps.db, request, response, '', deps.definitions),
+      ),
   })
   yield host.webServer.register({
     kind: 'prefix',
@@ -110,7 +141,8 @@ export function* registerRoutes(host: HttpHost, deps: Deps): Generator<() => voi
   yield host.webServer.register({
     kind: 'exact',
     path: '/console-api/server-management-settings',
-    handler: (request, response) => guard(host, request, response, () => routeHarnessSettings(deps, request, response)),
+    handler: (request, response) =>
+      guard(host, request, response, () => routeHarnessSettings(deps, request, response)),
   })
   yield host.webServer.register({
     kind: 'prefix',
@@ -140,6 +172,10 @@ async function guard(
   try {
     await run()
   } catch (cause) {
+    if (cause instanceof AdminError) {
+      sendJson(response, 422, { code: cause.code })
+      return
+    }
     if (cause instanceof HttpError) {
       sendJson(response, cause.status, errorPayload(cause))
       return
@@ -153,7 +189,8 @@ async function guard(
       return
     }
     ctx.logger.error(cause)
-    if (!response.headersSent) sendJson(response, 500, errorPayload(new ServerError('request_failed')))
+    if (!response.headersSent)
+      sendJson(response, 500, errorPayload(new ServerError('request_failed')))
   }
 }
 

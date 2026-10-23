@@ -138,3 +138,9 @@ export function updateServer(db: Db, id: string, patch: ServerPatch) {
 export function saveInternalHost(db: Db, serverId: string, host: string) {
   return db.query<never>('update servers set internal_host=$2, updated_at=now() where id=$1', [serverId, host])
 }
+export function activeRotations(db: Db, id: string) {
+  return db.query<{ id: string; old_key_id: string; new_key_id: string; state: string; phase: string }>(
+    "select id,old_key_id,new_key_id,state,phase from server_key_rotations where server_id=$1 and state in ('prepared','deployed','switched','unknown')",
+    [id],
+  )
+}

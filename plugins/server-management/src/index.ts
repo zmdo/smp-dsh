@@ -1,3 +1,6 @@
+import { AdminRuntime } from './host/admin/runtime.ts'
+import { localePreference, type LocaleSettingsReader } from './host/admin/download-copy.ts'
+import { registerWorkspaceAdminTools } from './host/admin/workspace-tools.ts'
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -131,6 +134,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     throw new Error('harness execution defaults exceed their maximum limits')
   const execLimits = await loadExecLimits(db, configuredExecLimits)
   const deps = {
+    localePreference: () => localePreference(ctx.get('settings') as LocaleSettingsReader | undefined),
     db,
     secrets: ctx.secrets,
     catalog,
@@ -142,7 +146,13 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     execLimits,
     freshnessMs: Math.max(90, config.inspectIntervalSeconds * 3) * 1000,
   }
-  ctx.inject(['tools'], (scope) => registerServerTools(scope, deps))
+  const admin = new AdminRuntime(deps)
+  ctx.inject(['tools'], (scope) => {
+    registerServerTools(scope, deps)
+  })
+  ctx.inject(['tools', 'agents', 'systemPrompt', 'workspaceGroups'], (scope: Context & { workspaceGroups: WorkspaceGroupsService }) =>
+    registerWorkspaceAdminTools(scope, admin, scope.workspaceGroups),
+  )
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield () => extensions.close()
@@ -158,7 +168,9 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
       (serverId) => enqueueExisting(deps, serverId, 'test_connection', 'scheduled'),
     )
     yield () => enrollment.close()
-    yield* registerRoutes(ctx, deps)
+    admin.start((cause) => ctx.logger.error(cause))
+    yield () => admin.close()
+    yield* registerRoutes(ctx, { ...deps, adminRun: (work) => admin.run(work) })
     const terminal = terminalRoute(db, ctx.secrets, ctx.consoleSession, connect)
     yield ctx.webServer.registerUpgrade({ path: '/console-api/servers/terminal', handler: terminal.handler })
     yield () => terminal.close()

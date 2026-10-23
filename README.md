@@ -4,6 +4,8 @@ Cyber Evolving System（赛博演进系统）。
 
 CES 做在 Smart Management Platform（SMP）基座上。基座是 DeepSeek Harness（`dsh`）里的一组 Cordis 插件，提供登录、侧栏、平台设置、数据库、加密密钥、会话和工作区存储。CES 的业务栏目作为插件装到基座上，不另起进程，也不再经过单独的网站后台。
 
+这是单用户系统，只有一个平台账户；管理操作与人工审批都由该用户完成，不设置账号角色或权限组。工作区组和服务器分组用于组织业务资源。
+
 本地 CES 实例约定使用 `9090`（`http://127.0.0.1:9090/`），实际监听地址和端口由 dsh 启动参数决定。
 
 `dsh` 重启不会主动删除数据库登记或远端容器。进行中的软件变更需按数据库与远端操作日志核对和恢复，见[执行与恢复](docs/framework/modules/server-management/execution-and-upgrades.md)。

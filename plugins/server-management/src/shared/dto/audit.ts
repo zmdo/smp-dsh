@@ -1,11 +1,11 @@
 export interface AuditRecordDto {
   id: string
-  kind: 'command' | 'upload' | 'download' | 'transfer'
+  kind: 'command' | 'upload' | 'download' | 'transfer' | 'admin'
   server_id: string | null
-  server_name: string
+  server_name: string | null
   current_server_name: string | null
   server_deleted: boolean
-  host: string
+  host: string | null
   actor_id: string
   actor_kind: string
   harness_session_id: string | null
@@ -52,6 +52,7 @@ export interface AuditRecordDto {
   stderr_truncated: boolean
   stdout_digest: string | null
   stderr_digest: string | null
+  metadata: Record<string, unknown>
   created_at: string
 }
 
