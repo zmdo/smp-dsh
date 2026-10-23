@@ -1,7 +1,7 @@
 import { type LocalizedText } from '../../shared/contracts/common.ts'
 import { typeSupportsOs } from '../../shared/definitions.ts'
 import { ServerError } from '../../shared/errors.ts'
-import { osLabel, osVerification } from '../../shared/operating-systems.ts'
+import { osLabel, osVerification, parseDeclaredOs } from '../../shared/operating-systems.ts'
 import { type SoftwarePolicy } from '../../shared/policies.ts'
 import {
   type DisplayStatus,
@@ -9,6 +9,8 @@ import {
   type StatusReason,
 } from '../../shared/server-status.ts'
 import { type ServerListItem, type ServerListPage } from '../../shared/dto/servers.ts'
+import type { ServerTypeView } from '../../shared/definitions.ts'
+import type { DeclaredOs } from '../../shared/operating-system-types.ts'
 import { type Db } from '../database/connection.ts'
 import { readTransaction } from '../database/transaction.ts'
 import { policySignature } from '../definitions/policies.ts'
@@ -24,6 +26,28 @@ function recent(date: Date | null, now: number, maxAge: number): boolean {
 }
 function reason(code: StatusReason['code'], parameters: Record<string, string> = {}): StatusReason {
   return { code, parameters }
+}
+
+
+function safeTypeSnapshot(key: string, value: unknown): ServerTypeView {
+  const raw = value !== null && typeof value === 'object' ? value as Partial<ServerTypeView> : {}
+  const names = raw.name_i18n !== null && typeof raw.name_i18n === 'object' ? raw.name_i18n : undefined
+  const zh = typeof names?.zh === 'string' && names.zh !== '' ? names.zh : key
+  const en = typeof names?.en === 'string' && names.en !== '' ? names.en : zh
+  return {
+    key: typeof raw.key === 'string' && raw.key !== '' ? raw.key : key,
+    name_i18n: { zh, en },
+    software: Array.isArray(raw.software) ? raw.software : [],
+    supportedOs: raw.supportedOs !== null && typeof raw.supportedOs === 'object' ? raw.supportedOs : { kind: 'all' },
+  }
+}
+
+function safeDeclaredOs(value: unknown): DeclaredOs {
+  try {
+    return parseDeclaredOs(value)
+  } catch {
+    return { kind: 'custom', text: 'Unknown OS' }
+  }
 }
 
 export function displayStatus(input: {
@@ -183,20 +207,21 @@ function enrich(
   policies: SoftwarePolicy[],
   upgradeCounts: { count: number; definition: string }[],
 ) {
+  const declaredOs = safeDeclaredOs(row.declared_os)
   const osState =
     String(row.observed_config_revision) === String(row.config_revision) ? row.os_probe_state : 'unknown'
-  const verification = osVerification(row.declared_os, row.detected_os, osState)
+  const verification = osVerification(declaredOs, row.detected_os, osState)
   let resolved: ReturnType<DefinitionRegistry['describeType']>
   try {
     resolved = definitions.describeType(
       group,
       row.type_key,
-      verification === 'matched' && row.detected_os ? row.detected_os : row.declared_os,
+      verification === 'matched' && row.detected_os ? row.detected_os : declaredOs,
     )
   } catch (cause) {
     if (!(cause instanceof ServerError)) throw cause
   }
-  const type = resolved?.type ?? row.type_snapshot
+  const type = resolved?.type ?? safeTypeSnapshot(row.type_key, row.type_snapshot)
   const available = resolved !== undefined
   const upgradeCount = resolved
     ? upgradeCounts
@@ -269,7 +294,7 @@ function enrich(
   })
   const compatible = typeSupportsOs(
     type,
-    verification === 'matched' && row.detected_os ? row.detected_os : row.declared_os,
+    verification === 'matched' && row.detected_os ? row.detected_os : declaredOs,
   )
   const status = displayStatus({ row, verification, available, compatible, software, operation, now, maxAge })
   const installation = {
@@ -297,6 +322,7 @@ function enrich(
     os_verification: verification,
     type_supported_os: type.supportedOs,
     type_os_compatible: compatible,
+    declared_os: declaredOs,
     type_name_i18n: type.name_i18n,
     type_available: available,
     required_software: required,
