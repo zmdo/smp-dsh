@@ -2,6 +2,14 @@ import { randomUUID } from 'node:crypto'
 import type { Db } from '../../database/connection.ts'
 import type { AdminContext, Input } from '../model.ts'
 import { AdminError } from '../model.ts'
+import type { GroupRow } from '../../groups/persistence/rows.ts'
+
+export function approvalGroups(db: Db, ids: string[]) {
+  return db.query<GroupRow>('select * from server_groups where id=any($1::uuid[])', [ids])
+}
+export function approvalServer(db: Db, id: string) {
+  return db.query<{ name: string; host: string }>('select name,host from servers where id=$1', [id])
+}
 
 export async function account(db: Db): Promise<string> {
   const rows = (await db.query<{ username: string }>('select username from accounts limit 2')).rows
@@ -90,7 +98,7 @@ export async function serverSnapshot(db: Db, id: string, lock = false): Promise<
     await db.query<Record<string, unknown>>('select id from servers where id=$1 for update', [id])
   const row = (
     await db.query<Input>(
-      `select id,name,host,host_fingerprint,ssh_port,ssh_user,auth_method,ssh_key_id,(select fingerprint from ssh_keys where id=servers.ssh_key_id) as key_fingerprint,group_id,type_key,region,declared_os,install_required_software,config_revision::text from servers where id=$1`,
+      `select id,name,host,host_fingerprint,ssh_port,ssh_user,auth_method,ssh_key_id,(select name from ssh_keys where id=servers.ssh_key_id) as key_name,(select fingerprint from ssh_keys where id=servers.ssh_key_id) as key_fingerprint,group_id,type_key,region,declared_os,install_required_software,config_revision::text from servers where id=$1`,
       [id],
     )
   ).rows[0]
@@ -125,7 +133,7 @@ export async function groupSnapshot(db: Db, id: string, lock = false): Promise<I
   if (!row) throw new AdminError('group_not_found')
   const members = (
     await db.query<Record<string, unknown>>(
-      'select id,name,type_key,config_revision::text from servers where group_id=$1 order by id' +
+      'select id,name,host,type_key,config_revision::text from servers where group_id=$1 order by id' +
         (lock ? ' for update' : ''),
       [id],
     )

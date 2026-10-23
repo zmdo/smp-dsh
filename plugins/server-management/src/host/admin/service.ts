@@ -77,7 +77,7 @@ async function groupAction(deps: AdminDeps, ctx: AdminContext, action: string, i
   const read =
     action === 'create' ? async () => null : (db: Db, lock: boolean) => groupSnapshot(db, id, lock)
   return mutate(
-    deps.db,
+    deps,
     ctx,
     'platform_server_group_admin',
     action,
@@ -100,7 +100,7 @@ async function keyAction(deps: AdminDeps, ctx: AdminContext, action: string, inp
   if (action === 'reveal') return exportKeyPage(deps, id)
   const name = action === 'create' ? text(input.name, 80) : undefined
   return mutate(
-    deps.db,
+    deps,
     ctx,
     'platform_server_key_admin',
     action,
@@ -170,7 +170,7 @@ async function serverAction(deps: AdminDeps, ctx: AdminContext, action: string, 
       throw new AdminError('invalid_request')
   }
   return mutate(
-    deps.db,
+    deps,
     ctx,
     'platform_server_admin',
     action,
@@ -253,7 +253,7 @@ async function planAction(deps: AdminDeps, ctx: AdminContext, action: string, in
       expected = revision(input.expected_config_revision)
     object(input.versions)
     return mutate(
-      deps.db,
+      deps,
       ctx,
       'platform_server_upgrade_admin',
       action,
@@ -291,7 +291,7 @@ async function planAction(deps: AdminDeps, ctx: AdminContext, action: string, in
     text(input.timezone)
   }
   return mutate(
-    deps.db,
+    deps,
     ctx,
     'platform_server_upgrade_admin',
     action,

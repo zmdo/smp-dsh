@@ -6,12 +6,7 @@ import { account, audit, keySnapshot } from './persistence/repository.ts'
 import type { AdminDeps } from './model.ts'
 import { AdminError, uuid } from './model.ts'
 import { digest } from '../recipes/canonical.ts'
-function escape(value: string) {
-  return value.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  )
-}
+import { downloadLocale, keyDownloadPage } from './download-copy.ts'
 export async function downloadRoute(
   deps: AdminDeps,
   req: IncomingMessage,
@@ -45,6 +40,8 @@ async function download(deps: AdminDeps, req: IncomingMessage, res: ServerRespon
     const snapshot = await keySnapshot(deps.db, row.target_id)
     if (snapshot.fingerprint !== row.fingerprint) throw new AdminError('key_changed')
     const token = randomBytes(32).toString('hex')
+    const nonce = randomBytes(16).toString('hex')
+    const locale = downloadLocale(deps.localePreference?.(), req.headers['accept-language'])
     await queries.setDownloadChallenge(deps.db, [
       id,
       createHash('sha256')
@@ -54,11 +51,13 @@ async function download(deps: AdminDeps, req: IncomingMessage, res: ServerRespon
     res.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'no-store',
-      'content-security-policy': "default-src 'none'; form-action 'self'; frame-ancestors 'none'",
+      'content-security-policy': `default-src 'none'; style-src 'nonce-${nonce}'; form-action 'self'; frame-ancestors 'none'`,
       'referrer-policy': 'no-referrer',
+      'content-language': locale,
+      'x-content-type-options': 'nosniff',
     })
     res.end(
-      `<!doctype html><html lang="zh"><meta charset="utf-8"><title>导出 SSH 密钥</title><h1>导出 SSH 密钥</h1><p>下载后请妥善保存私钥。此次确认仅下载一次。</p><pre>${escape(JSON.stringify(snapshot, null, 2))}</pre><form method="post"><input type="hidden" name="token" value="${token}"><button type="submit">确认并下载私钥</button></form></html>`,
+      keyDownloadPage(locale, { name: String(snapshot.name), fingerprint: String(snapshot.fingerprint), servers: snapshot.servers as { name: string; host: string }[] }, token, nonce),
     )
     return
   }

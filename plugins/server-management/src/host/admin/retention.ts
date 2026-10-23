@@ -79,7 +79,7 @@ export async function auditAction(
       .rows[0]!.count
     return { items: rows.rows, total: Number(total), page: filter.page, page_size: filter.size }
   }
-  const actor = await approve(deps.db, ctx, 'platform_audit_admin', 'export', 'audit', {
+  const actor = await approve(deps, ctx, 'platform_audit_admin', 'export', 'audit', {
     filter: input,
     maximum_records: LIMIT,
   })
@@ -132,7 +132,7 @@ async function retentionAction(deps: AdminDeps, ctx: AdminContext, input: Input)
     const cutoff = new Date(Date.now() - p.days * 86400000)
     const rows = (await queries.expiredAudits<{ id: string }>(deps.db, [cutoff, LIMIT], false)).rows
     const ids = rows.map((row) => row.id)
-    const actor = await approve(deps.db, ctx, 'platform_audit_admin', 'retention', 'audit_policy', {
+    const actor = await approve(deps, ctx, 'platform_audit_admin', 'retention', 'audit_policy', {
       policy: p,
       cutoff: cutoff.toISOString(),
       count: ids.length,
@@ -154,7 +154,7 @@ async function retentionAction(deps: AdminDeps, ctx: AdminContext, input: Input)
   if (!isAbsolute(directory) || !Number.isFinite(+next) || +next < Date.now())
     throw new AdminError('invalid_request')
   return mutate(
-    deps.db,
+    deps,
     ctx,
     'platform_audit_admin',
     'retention',

@@ -117,10 +117,11 @@ export async function rotateKey(deps: AdminDeps, ctx: AdminContext, input: Input
   if (previous && !stored) throw new AdminError('key_not_found')
   const privateKey = pair?.private ?? deps.secrets.decrypt(stored!.secret_ciphertext),
     fingerprint = keyFingerprint(privateKey)
-  const actor = await approve(deps.db, ctx, 'platform_server_key_admin', 'rotate', server, {
+  const actor = await approve(deps, ctx, 'platform_server_key_admin', 'rotate', server, {
     before,
     operation_id: operationId,
     old_key_id: oldId,
+    old_fingerprint: old.fingerprint,
     new_key_id: newId,
     new_fingerprint: fingerprint,
     phase: previous?.state ?? 'new',

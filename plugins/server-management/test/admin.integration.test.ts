@@ -213,7 +213,7 @@ test(
       const server = await makeServer()
       await assert.rejects(
         mutate(
-          db,
+          deps,
           context(),
           'platform_server_admin',
           'update',
@@ -333,10 +333,10 @@ test(
               changes: [
                 {
                   action: 'replace',
-                  softwareKey: 'fixture/database',
-                  effects: ['restart'],
-                  before: { version: '1' },
-                  after: { version: '2' },
+                  software: 'fixture/database',
+                  effects: [{ kind: 'service-restart', description: { en: 'Restart the database', zh: '重启数据库' } }],
+                  before: { state: 'installed', version: '1' },
+                  target: { version: '2' },
                 },
               ],
               risks: { major: true },
@@ -365,7 +365,7 @@ test(
           ...window,
         })
         assert.equal(approvals - count, 1)
-        assert.match(preview, /replace/)
+        assert.match(preview, /Replace/)
         assert.match(preview, /Asia\/Shanghai/)
         assert.equal((await readChangePlan(db, plan.id)).state, 'scheduled')
         await call('platform_server_upgrade_admin', 'cancel', { plan_id: plan.id })
@@ -423,7 +423,16 @@ test(
           const url = `http://127.0.0.1:${address.port}${ticket.url}`,
             headers = { cookie: 'session=test' }
           assert.equal((await fetch(url)).status, 401)
-          const page = await (await fetch(url, { headers })).text()
+          const english = await fetch(url, { headers: { ...headers, 'accept-language': 'en-US' } })
+          assert.equal(english.headers.get('content-language'), 'en')
+          assert.match(await english.text(), /Confirm and download private key/)
+          deps.localePreference = () => 'zh'
+          const chinese = await fetch(url, { headers: { ...headers, 'accept-language': 'en-US' } })
+          assert.equal(chinese.headers.get('content-language'), 'zh')
+          const page = await chinese.text()
+          assert.match(page, /确认并下载私钥/)
+          assert.doesNotMatch(page, /<pre>|"fingerprint"/)
+          delete deps.localePreference
           assert.doesNotMatch(page, /PRIVATE KEY|ciphertext/)
           const token = page.match(/name="token" value="([a-f0-9]+)"/)![1]!
           const body = new URLSearchParams({ token })

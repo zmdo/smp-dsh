@@ -2,21 +2,26 @@ import { digest } from '../recipes/canonical.ts'
 import { lockCatalog } from '../groups/persistence/catalog-lock.ts'
 import { transaction } from '../database/transaction.ts'
 import type { Db } from '../database/connection.ts'
-import type { AdminContext } from './model.ts'
+import type { AdminContext, AdminDeps } from './model.ts'
 import { AdminError } from './model.ts'
 import { account, audit } from './persistence/repository.ts'
+import { describeApproval } from './approval-copy.ts'
 export async function approve(
-  db: Db,
+  deps: Pick<AdminDeps, 'db' | 'definitions' | 'catalog'>,
   ctx: AdminContext,
   tool: string,
   action: string,
   target: string,
   preview: unknown,
 ) {
+  const { db } = deps
   if (!ctx.agent) throw new AdminError('unauthorized')
   const actor = await account(db)
   const summary = JSON.stringify({ action, target, preview })
   if (summary.length > 48000) throw new AdminError('approval_preview_too_large')
+  const displayReason = await describeApproval(deps, tool, action, target, preview)
+  if (Object.values(displayReason).some(text => text.length > 48000))
+    throw new AdminError('approval_preview_too_large')
   let outcome = 'unavailable'
   if (ctx.approval && !ctx.signal.aborted) {
     try {
@@ -24,8 +29,8 @@ export async function approve(
         agent: ctx.agent,
         toolName: tool,
         callId: ctx.callId,
-        reason: summary,
-        displayReason: { en: summary, zh: summary },
+        reason: displayReason.en,
+        displayReason,
         signal: ctx.signal,
       })
     } catch (cause) {
@@ -49,7 +54,7 @@ export async function approve(
   return actor
 }
 export async function mutate<T>(
-  db: Db,
+  deps: Pick<AdminDeps, 'db' | 'definitions' | 'catalog'>,
   ctx: AdminContext,
   tool: string,
   action: string,
@@ -58,8 +63,9 @@ export async function mutate<T>(
   run: (db: Db) => Promise<T>,
   parameters: unknown,
 ) {
+  const { db } = deps
   const before = await read(db, false)
-  const actor = await approve(db, ctx, tool, action, target, { before, parameters })
+  const actor = await approve(deps, ctx, tool, action, target, { before, parameters })
   try {
     return await transaction(db, async (client) => {
       if (ctx.signal.aborted) throw new AdminError('cancelled')

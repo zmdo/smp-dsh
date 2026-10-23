@@ -1,4 +1,5 @@
 import { AdminRuntime } from './host/admin/runtime.ts'
+import { localePreference, type LocaleSettingsReader } from './host/admin/download-copy.ts'
 import { registerWorkspaceAdminTools } from './host/admin/workspace-tools.ts'
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
@@ -133,6 +134,7 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
     throw new Error('harness execution defaults exceed their maximum limits')
   const execLimits = await loadExecLimits(db, configuredExecLimits)
   const deps = {
+    localePreference: () => localePreference(ctx.get('settings') as LocaleSettingsReader | undefined),
     db,
     secrets: ctx.secrets,
     catalog,
