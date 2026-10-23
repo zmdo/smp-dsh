@@ -74,6 +74,8 @@ export interface AuditFinish {
   stderrTruncated: boolean
   stdoutDigest: string | null
   stderrDigest: string | null
+  bytes?: number | null
+  sha256?: string | null
 }
 
 export function insertAudit(db: Db, input: AuditStart) {
@@ -116,13 +118,15 @@ export function finishAudit(db: Db, id: string, input: AuditFinish) {
       status=$2,finished_at=$3,duration_ms=$4,exit_code=$5,signal=$6,timed_out=$7,cancelled=$8,
       error_code=$9,error_message=$10,stdout_excerpt=$11,stderr_excerpt=$12,
       stdout_bytes=$13,stderr_bytes=$14,stdout_truncated=$15,stderr_truncated=$16,
-      stdout_digest=$17,stderr_digest=$18
+      stdout_digest=$17,stderr_digest=$18,
+      bytes=coalesce($19,bytes),sha256=coalesce($20,sha256)
      where id=$1 and status='pending'`,
     [
       id, input.status, input.finishedAt, input.durationMs, input.exitCode, input.signal,
       input.timedOut, input.cancelled, input.errorCode, input.errorMessage,
       input.stdoutExcerpt, input.stderrExcerpt, input.stdoutBytes, input.stderrBytes,
       input.stdoutTruncated, input.stderrTruncated, input.stdoutDigest, input.stderrDigest,
+      input.bytes ?? null, input.sha256 ?? null,
     ],
   )
 }

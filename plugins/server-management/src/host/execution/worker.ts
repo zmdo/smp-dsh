@@ -113,6 +113,7 @@ export async function executeJob(
       probe.state,
     )
     if (verified === 'mismatch') throw new ServerError('os_mismatch')
+    if (verified === 'custom' && (job.purpose === 'apply_plan' || job.request_snapshot.prepare)) throw new ServerError('os_unverified')
     lease = await definitions.lease(
       explicit?.selection?.binding ? explicit.selection.binding.groupId : server.group_id,
       explicit?.selection?.binding?.typeKey ?? server.type_key,

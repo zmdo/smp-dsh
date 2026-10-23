@@ -120,7 +120,7 @@ export function startMetrics(
         !server ||
         server.detected_os?.family === 'builtin/windows-server' ||
         String(server.observed_config_revision) !== String(server.config_revision) ||
-        osVerification(server.declared_os, server.detected_os, server.os_probe_state) !== 'matched'
+        !['matched', 'custom'].includes(osVerification(server.declared_os, server.detected_os, server.os_probe_state))
       ) {
         session?.close()
         sessions.delete(id)

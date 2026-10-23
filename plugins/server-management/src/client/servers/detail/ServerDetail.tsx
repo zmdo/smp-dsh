@@ -41,7 +41,8 @@ export function ServerDetail(props: ServerDetailProps) {
       {error !== null ? <p className="banner error">{displayError(active, error)}</p> : null}
       {queued ? <p className="banner ok">{copy.jobQueued}</p> : null}
       {!server.type_available && <p className="banner error">{copy.typeUnavailable}</p>}
-      {server.os_verification !== 'matched' && (
+      {server.os_verification === 'custom' && <p className="banner">{copy.osCustom}</p>}
+      {server.os_verification !== 'matched' && server.os_verification !== 'custom' && (
         <p className={`banner ${server.os_verification === 'mismatch' ? 'error' : ''}`}>
           {server.os_verification === 'mismatch' ? copy.osMismatch : copy.osUnverified}
         </p>

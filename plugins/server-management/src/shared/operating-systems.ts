@@ -207,8 +207,9 @@ export function osVerification(
   declared: DeclaredOs,
   detected: DetectedOs | null,
   state: string,
-): 'unverified' | 'matched' | 'mismatch' {
-  if (state !== 'detected' || detected === null || declared.kind === 'custom') return 'unverified'
+): 'unverified' | 'matched' | 'mismatch' | 'custom' {
+  if (declared.kind === 'custom') return 'custom'
+  if (state !== 'detected' || detected === null) return 'unverified'
   return matchesSelector(detected, {
     family: declared.family,
     versions:

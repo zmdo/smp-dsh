@@ -134,7 +134,7 @@
     "operatingSystem": "Operating system",
     "osRelease": "OS release",
     "osOther": "Other",
-    "osCustom": "System name and version",
+    "osCustom": "Custom OS: automatic verification is skipped",
     "osChoose": "Select…",
     "osDetected": "Detected OS",
     "osUnverified": "Unverified",

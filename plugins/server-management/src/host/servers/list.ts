@@ -49,7 +49,7 @@ export function displayStatus(input: {
   if (!input.available) attention.push(reason('type_unavailable'))
   else if (!input.compatible) attention.push(reason('os_unsupported'))
   if (input.verification === 'mismatch') attention.push(reason('os_mismatch'))
-  else if (input.verification !== 'matched' || !recent(row.os_checked_at, now, maxAge))
+  else if (input.verification !== 'custom' && (input.verification !== 'matched' || !recent(row.os_checked_at, now, maxAge)))
     unverified.push(reason('os_unverified'))
   for (const software of input.software) {
     const parameters = {

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { createReadStream } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse as parseShell } from 'shell-quote'
@@ -173,6 +174,8 @@ export async function executeHarnessRsync(
     const result = await runRsync(parsed.argv.slice(1), workspace ?? process.cwd(), { ...process.env, RSYNC_RSH: rsh }, timeoutMs, exec.signal, limits?.maxOutputBytes ?? 1024 * 1024)
     const durationMs = Date.now() - started
     const status = result.code === 0 ? 'succeeded' : 'failed'
+    const localInfo = local === null ? undefined : await localFileInfo(local)
+    const bytes = localInfo?.bytes ?? parseTotalBytes(result.stdout)
     await finishAudit(deps.db, auditId, {
       status,
       finishedAt: new Date(),
@@ -191,6 +194,8 @@ export async function executeHarnessRsync(
       stderrTruncated: result.stderrTruncated,
       stdoutDigest: sha256(result.stdout),
       stderrDigest: sha256(result.stderr),
+      bytes: bytes ?? null,
+      sha256: localInfo?.sha256 ?? null,
     })
     return JSON.stringify({ exit_code: result.code, stdout: result.stdout, stderr: result.stderr, stdout_truncated: result.stdoutTruncated, stderr_truncated: result.stderrTruncated, duration_ms: durationMs })
   } catch (cause) {
@@ -362,6 +367,26 @@ function capture(command: string, args: string[], timeoutMs: number): Promise<st
     child.on('error', (cause) => { clearTimeout(timer); reject(cause) })
     child.on('close', (code) => { clearTimeout(timer); if (code === 0 && stdout.trim() !== '') resolve(stdout); else reject(toolError('rsync/fingerprint-mismatch', `${command} failed: ${stderr.trim()}`)) })
   })
+}
+
+async function localFileInfo(path: string): Promise<{ bytes: number; sha256: string } | undefined> {
+  const info = await stat(path).catch(() => undefined)
+  if (info?.isFile() !== true) return undefined
+  const digest = createHash('sha256')
+  await new Promise<void>((resolve, reject) => {
+    const stream = createReadStream(path)
+    stream.on('data', (chunk: Buffer) => digest.update(chunk))
+    stream.on('error', reject)
+    stream.on('end', () => resolve())
+  })
+  return { bytes: info.size, sha256: digest.digest('hex') }
+}
+
+function parseTotalBytes(stdout: string): number | null {
+  const match = /total size is\s+([\d,]+)/i.exec(stdout)
+  if (match === null) return null
+  const value = Number(match[1]!.replaceAll(',', ''))
+  return Number.isSafeInteger(value) ? value : null
 }
 
 function excerpt(value: string): string { return value.length > AUDIT_EXCERPT ? value.slice(0, AUDIT_EXCERPT) : value }
