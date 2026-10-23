@@ -1,4 +1,5 @@
 import { AdminRuntime } from './host/admin/runtime.ts'
+import { registerWorkspaceAdminTools } from './host/admin/workspace-tools.ts'
 import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -146,8 +147,10 @@ export async function* apply(ctx: HostCtx, config: Config): AsyncGenerator<() =>
   const admin = new AdminRuntime(deps)
   ctx.inject(['tools'], (scope) => {
     registerServerTools(scope, deps)
-    admin.register(scope)
   })
+  ctx.inject(['tools', 'agents', 'systemPrompt', 'workspaceGroups'], (scope: Context & { workspaceGroups: WorkspaceGroupsService }) =>
+    registerWorkspaceAdminTools(scope, admin, scope.workspaceGroups),
+  )
   yield ctx.effect(function* () {
     yield () => definitions.close()
     yield () => extensions.close()

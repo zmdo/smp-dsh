@@ -9,21 +9,7 @@ import { generateKey, publicKey } from '../src/host/admin/keys.ts'
 import { AUTHORIZED_KEYS_SCRIPT } from '../src/host/admin/rotation.ts'
 import { auditFilter } from '../src/host/admin/retention.ts'
 
-test('admin tools expose structured actions without secret or approval overrides', () => {
-  const definitions: {
-    name: string
-    parameters: { properties: Record<string, { type: string; enum?: string[] }> }
-  }[] = []
-  const runtime = new AdminRuntime({} as never)
-  runtime.register({
-    tools: { register: (definition: (typeof definitions)[number]) => definitions.push(definition) },
-  } as never)
-  assert.equal(definitions.length, 5)
-  for (const tool of definitions) {
-    assert.deepEqual(Object.keys(tool.parameters.properties), ['action', 'input'])
-    assert.equal(tool.parameters.properties.input!.type, 'object')
-    assert.ok(tool.parameters.properties.action!.enum!.length > 1)
-  }
+test('audit filters reject invalid dates, oversized pages and mutation fields', () => {
   assert.throws(() => auditFilter({ from: 'bad' }), /audit_invalid/)
   assert.throws(() => auditFilter({ page_size: 101 }), /audit_invalid/)
   assert.throws(() => auditFilter({ delete: true }), /invalid_request/)

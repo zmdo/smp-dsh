@@ -1,4 +1,4 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { TEXT_OUTPUT } from '../harness/schema.ts'
 import { harnessTrace } from '../harness/trace.ts'
@@ -43,57 +43,71 @@ export class AdminRuntime {
     this.controller.abort()
     await Promise.allSettled([...this.pending])
   }
-  register(ctx: Context) {
-    for (const [name, actions] of Object.entries(ADMIN_ACTIONS)) {
-      ctx.tools.register(
-        defineTool({
-          name,
-          description: descriptions[name as AdminTool],
-          parameters: {
-            action: {
-              type: 'string',
-              enum: actions,
-              required: true,
-              description: 'Management operation.',
+  registerForAgent(agent: Agent, checkWorkspace: (agent: Agent | undefined) => Promise<void>): () => void {
+    const ctx = agent.ctx
+    // Use the active host registry's scope check: separate plugin installs may carry
+    // different dsh-scope symbols. An empty restriction changes no tool visibility.
+    const releaseScopeCheck = ctx.tools.restrict({ deny: [] })
+    releaseScopeCheck()
+    const disposers: (() => void)[] = []
+    const dispose = () => { for (const release of disposers.splice(0).reverse()) release() }
+    try {
+      for (const [name, actions] of Object.entries(ADMIN_ACTIONS)) {
+        disposers.push(ctx.tools.register(
+          defineTool({
+            name,
+            description: descriptions[name as AdminTool],
+            parameters: {
+              action: {
+                type: 'string',
+                enum: actions,
+                required: true,
+                description: 'Management operation.',
+              },
+              input: {
+                type: 'object',
+                additionalProperties: true,
+                required: true,
+                description: inputs[name as AdminTool],
+              },
             },
-            input: {
-              type: 'object',
-              additionalProperties: true,
-              required: true,
-              description: inputs[name as AdminTool],
-            },
-          },
-          output: TEXT_OUTPUT,
-          timeoutMs: 600000,
-          execute: (args, exec) =>
-            this.run(async (signal) => {
-              const input = object(args.input)
-              const trace = harnessTrace(
-                exec.agent,
-                String(exec.callId),
-                ctx.get('sessionProjections') as Parameters<typeof harnessTrace>[2],
-              )
-              const result = await executeAdmin(
-                this.deps,
-                {
-                  agent: exec.agent,
-                  callId: String(exec.callId),
-                  rootCallId: String(exec.rootCallId),
-                  signal: AbortSignal.any([signal, exec.signal]),
-                  approval: ctx.get('approval') as ApprovalRequester | undefined,
-                  harnessTurn: trace.turn,
-                  harnessStep: trace.step,
-                  harnessEventSeq: trace.eventSeq,
-                },
-                name as AdminTool,
-                args.action,
-                input,
-              )
-              return JSON.stringify(result ?? { ok: true })
-            }),
-        }),
-      )
+            output: TEXT_OUTPUT,
+            timeoutMs: 600000,
+            execute: (args, exec) =>
+              this.run(async (signal) => {
+                await checkWorkspace(exec.agent)
+                const input = object(args.input)
+                const trace = harnessTrace(
+                  exec.agent,
+                  String(exec.callId),
+                  ctx.get('sessionProjections') as Parameters<typeof harnessTrace>[2],
+                )
+                const result = await executeAdmin(
+                  this.deps,
+                  {
+                    agent: exec.agent,
+                    callId: String(exec.callId),
+                    rootCallId: String(exec.rootCallId),
+                    signal: AbortSignal.any([signal, exec.signal]),
+                    approval: ctx.get('approval') as ApprovalRequester | undefined,
+                    harnessTurn: trace.turn,
+                    harnessStep: trace.step,
+                    harnessEventSeq: trace.eventSeq,
+                  },
+                  name as AdminTool,
+                  args.action,
+                  input,
+                )
+                return JSON.stringify(result ?? { ok: true })
+              }),
+          }),
+        ))
+      }
+    } catch (cause) {
+      dispose()
+      throw cause
     }
+    return dispose
   }
 }
 const descriptions: Record<AdminTool, string> = {
