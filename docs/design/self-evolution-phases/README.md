@@ -8,6 +8,7 @@
   - [自演进基础设施](../ces-self-evolution-infrastructure/README.md)
   - [内网域名与网络](../ces-self-evolution-infrastructure/INTERNAL_DNS_AND_NETWORKS.md)
   - [OneDev 自动初始化验证](../ces-self-evolution-infrastructure/ONEDEV_BOOTSTRAP_VERIFICATION.md)
+  - [三类服务器与首次演进设计](server-types-and-first-evolution.md)
 
 本文把自演进拆成三个阶段，并把验证阶段进一步拆成 P1、P2、P3 三个门禁。每个阶段都必须通过验收后才能进入下一阶段。
 
