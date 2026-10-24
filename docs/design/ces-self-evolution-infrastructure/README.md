@@ -10,7 +10,9 @@
 
 OneDev 首次初始化和 Agent 自动接入的独立验证结果见 [ONEDEV_BOOTSTRAP_VERIFICATION.md](ONEDEV_BOOTSTRAP_VERIFICATION.md)。
 
-内网域名、CoreDNS 和 Docker 网络隔离方案见 [INTERNAL_DNS_AND_NETWORKS.md](INTERNAL_DNS_AND_NETWORKS.md)。文中的主机名、域名及路径是规划值，尚未安装软件或创建远端资源；任务名称和发布记录也属于待实现的约定。
+内网域名、CoreDNS 和 Docker 网络隔离方案见 [INTERNAL_DNS_AND_NETWORKS.md](INTERNAL_DNS_AND_NETWORKS.md)。
+
+三阶段实施与 P1/P2/P3 门禁见 [自演进三阶段实施方案](../self-evolution-phases/README.md)。文中的主机名、域名及路径是规划值，尚未安装软件或创建远端资源；任务名称和发布记录也属于待实现的约定。
 
 ## 1. 已确定的决策
 
