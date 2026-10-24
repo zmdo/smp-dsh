@@ -24,6 +24,7 @@ secrets = base / 'secrets'
 compose = runtime / 'compose.yml'
 env_file = runtime / '.env'
 caddyfile = runtime / 'Caddyfile'
+admin_password = secrets / 'onedev-admin-password'
 
 def root(args, check=True):
     command = args if os.geteuid() == 0 else ['sudo', '-n'] + args
@@ -58,6 +59,8 @@ def ensure_files():
     if not env_file.exists() or '\\n' in env_file.read_text(errors='ignore'):
         password = subprocess.check_output(['openssl', 'rand', '-hex', '24'], text=True).strip()
         write_root(env_file, 'ONEDEV_DB_PASSWORD=' + password + '\n')
+    if not admin_password.exists() or not admin_password.read_text(errors='ignore').strip():
+        write_root(admin_password, subprocess.check_output(['openssl', 'rand', '-hex', '24'], text=True).strip() + '\n')
     write_root(compose, """name: ces-infra
 services:
   postgres:
@@ -85,6 +88,12 @@ services:
       hibernate_connection_url: jdbc:postgresql://postgres:5432/onedev
       hibernate_connection_username: onedev
       hibernate_connection_password: ${ONEDEV_DB_PASSWORD}
+      initial_user: admin
+      initial_password_file: /run/secrets/onedev-admin-password
+      initial_email: admin@example.com
+      initial_server_url: http://onedev:6610
+    secrets:
+      - onedev-admin-password
     volumes:
       - /srv/ces-infra/onedev:/opt/onedev
     ports:
@@ -101,8 +110,55 @@ services:
       - 127.0.0.1:8080:80
     depends_on:
       - onedev
+secrets:
+  onedev-admin-password:
+    file: /srv/ces-infra/secrets/onedev-admin-password
 """)
     write_root(caddyfile, ':80 {\n  reverse_proxy onedev:6610\n}\n')
+
+def http(url, method='GET', body=None):
+    import urllib.request, base64
+    password = admin_password.read_text().strip()
+    auth = base64.b64encode(('admin:' + password).encode()).decode()
+    headers = {'Authorization': 'Basic ' + auth}
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode()
+        headers['Content-Type'] = 'application/json'
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=15) as response:
+        return response.read().decode()
+
+def ensure_project():
+    import urllib.error
+    for _ in range(120):
+        try:
+            if http('http://127.0.0.1:6610/~api/server/ready').strip() == 'true':
+                break
+        except Exception:
+            pass
+        time.sleep(2)
+    else:
+        raise RuntimeError('onedev did not become ready')
+    try:
+        http('http://127.0.0.1:6610/~api/projects/ids/CES')
+        return
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+    body = {
+        'name': 'CES',
+        'key': 'CES',
+        'description': 'CES self evolution repository',
+        'codeManagement': True,
+        'packManagement': True,
+        'issueManagement': False,
+        'wikiManagement': False,
+        'gitPackConfig': {},
+        'codeIndexingSetting': {},
+    }
+    http('http://127.0.0.1:6610/~api/projects', 'POST', body)
+    http('http://127.0.0.1:6610/~api/projects/ids/CES')
 
 def inspect():
     ids = docker(['compose', '-f', str(compose), '--env-file', str(env_file), 'ps', '-q', service], check=False)
@@ -146,6 +202,8 @@ def apply():
     current = wait_ready()
     if current.get('state') != 'installed' or not current.get('healthy'):
         raise RuntimeError(service + ' did not become healthy')
+    if service == 'onedev':
+        ensure_project()
     return current
 
 try:
@@ -167,6 +225,8 @@ try:
         change = request['change']
         before = installed()
         if before.get('state') == 'installed' and before.get('targetIdentity') == change['target']['targetIdentity'] and before.get('healthy'):
+            if service == 'onedev':
+                ensure_project()
             result = {'operation': operation, 'state': 'completed', 'changes': []}
         else:
             apply()
