@@ -80,7 +80,7 @@ services:
     image: 1dev/server:16.9.7
     restart: unless-stopped
     environment:
-      hibernate_dialect: org.hibernate.dialect.PostgreSQLDialect
+      hibernate_dialect: io.onedev.server.persistence.PostgreSQLDialect
       hibernate_connection_driver_class: org.postgresql.Driver
       hibernate_connection_url: jdbc:postgresql://postgres:5432/onedev
       hibernate_connection_username: onedev
