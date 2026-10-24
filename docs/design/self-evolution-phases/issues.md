@@ -31,7 +31,7 @@
 | SE-PHASE-005 | 生产替换与失败恢复验收过于笼统 | 验收缺口 | 阻断 | P2 | 待处理 |
 | SE-PHASE-006 | 用户验收、工具审批与 AI 自行验收混用 | 业务语义 | 重要 | P2、阶段三 | 待处理 |
 | SE-PHASE-007 | 重建与恢复步骤待细化和验证 | 实施与验证缺口 | 阻断 | P3 | 场景已区分，待细化与验证 |
-| SE-PHASE-008 | 工作区脚本的 `request` 名称覆盖阻断 recipe 路径 | 当前代码缺陷 | 阻断 | 阶段一、P1 | 待处理 |
+| SE-PHASE-008 | 工作区脚本的 `request` 名称覆盖阻断 recipe 路径 | 当前代码缺陷 | 阻断 | 阶段一、P1 | 已验证（2026-10-25） |
 
 ## 3. 逐项说明
 
@@ -221,6 +221,25 @@ d01cfa2f98d8fbcf28577e82fbc09980e68fd3486f589d3ab936977f26b84836
 **关闭条件**
 
 对应修复提交消除变量覆盖；两条受影响路径有针对性验证，插件实际安装另有结果记录。不能仅以脚本语法检查或 Agent 在线代替这些验证。
+
+**2026-10-25 验证与关闭**
+
+修复提交 `a0d9fd3` 将 HTTP 辅助函数改名为 `http()`，并加入 [recipe-script.test.ts](../../../plugins/self-evolution/test/recipe-script.test.ts) 回归测试。验证记录：
+
+```text
+脚本路径（43.128.69.189）：
+  detect missing → resolve install → execute completed
+  OneDev ready，CES 项目 id=1
+  第二次 execute changes=[]，容器身份不变
+
+插件路径（CES 网站后端）：
+  Job 64f9e136-4b2e-48bc-993c-343d4f3aec9f（install_components / apply_plan）succeeded
+  docker-engine keep、postgresql/onedev/caddy 安装完成
+  服务器 software_state=ready，status=normal
+  再次 install_components 后容器身份不变
+```
+
+结果记录见 [A recipe 验证报告](../../reports/self-evolution-a-recipe-verification-2026-10-25/README.md)。本项关闭；B/C 与构建流水线不在本项范围。
 
 ## 4. 阶段门禁修订建议
 

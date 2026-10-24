@@ -1,6 +1,6 @@
 # A 测试服务器 recipe 路径验证（2026-10-25）
 
-- 状态：脚本级验证通过；插件与网站路径尚未验证
+- 状态：脚本级、插件路径与网站 API 验证通过；B/C 与构建流水线未验证
 - 代码基线：`ces/self-evolution`，`b4ddc7f`
 - 验证对象：`plugins/self-evolution/scripts/stack.sh`
 - 测试服务器：`43.128.69.189`（`ubuntu`，Ubuntu 24.04.4，Docker 29.1.3，Compose 2.40.3）
@@ -89,3 +89,49 @@ SSH 连接建立后，SSH banner 交换前被关闭
 - 曾在 A 上尝试 `sudo systemctl restart ssh` 以清除来源惩罚，命令挂起；之后无法建立新连接。该操作可能是当前症状的一部分，需通过云控制台确认 sshd 状态。
 - 本地 CES 已停止，避免周期任务继续重试 SSH；Colima 与本地 PostgreSQL 仍在运行。
 - 需要的恢复动作：通过云控制台检查/启动 `ssh` 服务，确认安全组仍允许当前出口 IP 访问 22 端口；恢复后重新建立长连接继续插件路径验证。
+
+## 7. 插件路径与网站 API 验证（07:25-07:29）
+
+SSH 恢复后，用 CES 网站后端登记并安装 A，未再手动执行 recipe。
+
+### 7.1 登记
+
+- 删除旧的 container 类型记录，创建 `A-69-189`：
+  `@smp/console-self-evolution/infrastructure`，自演进组，`smp-test-key`。
+- 服务器详情：`software_state=ready`，`status=normal`，无阻塞原因。
+
+### 7.2 安装 Job
+
+```text
+5eaacbbe-b08a-46b4-baf8-d713221378a7  install_components  succeeded  preflight
+64f9e136-4b2e-48bc-993c-343d4f3aec9f  install_components  succeeded  已完成安装并验证
+da39d35a-1ced-4a8e-9efd-da9ce54911ed  install_components  succeeded  再次 preflight
+314eba12-c32d-4d48-9daf-c12ef1ba73d4  install_components  succeeded  幂等检查
+```
+
+`64f9e136` 的 `apply_plan` 结果逐步为：
+
+```text
+docker-engine  after installed 29.1.3     changes []
+postgresql     after installed 16.15.0    changes [container postgres]
+onedev         after installed 16.9.7     changes [container onedev]
+caddy          after installed 2.10.2     changes [container caddy]
+```
+
+### 7.3 结果
+
+```text
+容器：ces-infra-postgres-1 healthy，onedev/caddy Up
+OneDev：/~api/server/ready = true
+项目：GET /~api/projects/ids/CES = 1
+网站：服务器状态 normal，software_state ready
+幂等：再次 install_components 后容器 ID 与 StartedAt 不变
+```
+
+插件路径与手动脚本路径使用同一个 `stack.sh`，因此同时验证了名称覆盖修复在插件执行链中生效。
+
+### 7.4 未覆盖
+
+- B/C 类型与跨主机 Agent/Executor。
+- 初始提交、`.onedev-buildspec.yml`、build/candidate 流水线。
+- 浏览器页面的人工点击验收；本次通过网站后端 API 检查状态与任务。
