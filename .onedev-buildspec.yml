@@ -9,6 +9,7 @@ jobs:
       type: DefaultCredential
     withLfs: false
     withSubmodules: false
+    condition: SUCCESSFUL
   - type: CommandStep
     name: probe
     runInContainer: false
