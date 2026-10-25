@@ -88,7 +88,7 @@ jobs:
         set -euo pipefail
         ssh -i /srv/ces-infra/agent/secrets/deploy-key \
           -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-          cesdeploy@43.153.204.197 \
+          -l cesdeploy 43.153.204.197 \
           "sudo -n /usr/local/sbin/ces-runtime install --digest '@param:digest@'"
     condition: SUCCESSFUL
   retryCondition: never
