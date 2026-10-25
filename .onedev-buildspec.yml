@@ -27,3 +27,9 @@ jobs:
   - type: BranchUpdateTrigger
     branches: main
     userMatch: anyone
+  retryCondition: never
+  maxAttempts: 1
+  retryDelay: 60
+  includeUpstreamWhenRebuild: false
+  includeDownstreamWhenRebuild: false
+  timeout: 3600
