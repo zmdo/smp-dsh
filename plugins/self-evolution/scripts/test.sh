@@ -4,7 +4,7 @@ input=$(mktemp)
 trap 'rm -f "$input"' EXIT
 cat > "$input"
 python3 - "$input" <<'PY'
-import base64, grp, json, os, subprocess, sys, time
+import base64, grp, json, os, pwd, subprocess, sys, time
 from pathlib import Path
 
 request = json.load(open(sys.argv[1]))
@@ -111,7 +111,8 @@ services:
               encryption.read_text().strip(),
               session.read_text().strip()))
     try:
-        os.chown(candidate_env, 0, grp.getgrnam('cesagent').gr_gid)
+        account = pwd.getpwnam('cesagent')
+        os.chown(candidate_env, account.pw_uid, account.pw_gid)
     except KeyError:
         pass
 
