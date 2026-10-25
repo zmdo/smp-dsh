@@ -94,3 +94,13 @@ C：
 ![C 登录页](login-c.png)
 
 两张截图由 headless Chrome 直接访问 `/login` 生成。
+
+
+## 7. 登录后页面
+
+B 的 headless Chrome 在跨境网络下约 36 秒后出现应用外壳：
+
+![B 应用外壳](b-app-shell.png)
+
+页面显示 `HARNESS / Loading plugins…`，说明登录、dsh-auth cookie 和前端入口
+已通过；后续插件 bundle 仍受跨境网络带宽影响。
