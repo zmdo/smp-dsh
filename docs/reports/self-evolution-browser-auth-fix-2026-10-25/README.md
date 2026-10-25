@@ -81,3 +81,16 @@ GET /（带 cookie）→ 200 text/html
 - 入口仍应优先使用浏览器实际访问的域名/IP；换公网 IP 时要同步更新
   `public-host` 并重建容器。
 - 如需彻底消除首次加载慢，可把静态资源放到 CDN 或更近的 Caddy。
+
+
+## 6. 登录页截图
+
+B：
+
+![B 登录页](login-b.png)
+
+C：
+
+![C 登录页](login-c.png)
+
+两张截图由 headless Chrome 直接访问 `/login` 生成。
