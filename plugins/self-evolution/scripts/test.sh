@@ -102,7 +102,7 @@ services:
       postgres-test:
         condition: service_healthy
 """)
-    write(caddyfile, ':80 {\n  reverse_proxy candidate-ces:9090\n}\n')
+    write(caddyfile, ':80 {\n  encode zstd gzip\n  reverse_proxy candidate-ces:9090\n}\n')
     encryption = secrets / 'candidate-encryption-key'
     if not encryption.exists():
         write(encryption, base64.urlsafe_b64encode(os.urandom(32)).decode() + '\n')
@@ -110,11 +110,15 @@ services:
     if not session.exists():
         write(session, subprocess.check_output(['openssl', 'rand', '-hex', '24'], text=True).strip() + '\n')
     candidate_env = base / 'candidate.env'
-    write(candidate_env, 'DATABASE_URL=postgresql://ces:%s@postgres-test:5432/ces_test\n'
+    public_host = (secrets / 'public-host').read_text().strip() if (secrets / 'public-host').exists() else ''
+    candidate_text = ('DATABASE_URL=postgresql://ces:%s@postgres-test:5432/ces_test\n'
           'ENCRYPTION_KEY=%s\nSESSION_SECRET=%s\nINITIAL_PASSWORD=changeme\n' % (
               (secrets / 'test-db-password').read_text().strip(),
               encryption.read_text().strip(),
               session.read_text().strip()))
+    if public_host:
+        candidate_text += 'TRUSTED_HOST=' + public_host + '\n'
+    write(candidate_env, candidate_text)
     try:
         account = pwd.getpwnam('cesagent')
         os.chown(candidate_env, account.pw_uid, account.pw_gid)

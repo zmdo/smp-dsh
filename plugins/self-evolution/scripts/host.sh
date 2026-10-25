@@ -102,17 +102,21 @@ services:
       postgres-prod:
         condition: service_healthy
 """)
-    write(caddyfile, ':80 {\n  reverse_proxy prod-ces:9090\n}\n')
+    write(caddyfile, ':80 {\n  encode zstd gzip\n  reverse_proxy prod-ces:9090\n}\n')
     encryption = secrets / 'prod-encryption-key'
     if not encryption.exists():
         write(encryption, base64.urlsafe_b64encode(os.urandom(32)).decode() + '\n')
     session = secrets / 'prod-session-secret'
     if not session.exists():
         write(session, subprocess.check_output(['openssl', 'rand', '-hex', '24'], text=True).strip() + '\n')
-    write(base / 'prod.env', 'DATABASE_URL=postgresql://ces:%s@postgres-prod:5432/ces\n'
+    public_host = (secrets / 'public-host').read_text().strip() if (secrets / 'public-host').exists() else ''
+    prod_text = ('DATABASE_URL=postgresql://ces:%s@postgres-prod:5432/ces\n'
           'ENCRYPTION_KEY=%s\nSESSION_SECRET=%s\nINITIAL_PASSWORD=changeme\n' % (
               (secrets / 'prod-db-password').read_text().strip(),
               encryption.read_text().strip(), session.read_text().strip()))
+    if public_host:
+        prod_text += 'TRUSTED_HOST=' + public_host + '\n'
+    write(base / 'prod.env', prod_text)
 
 def ensure_host():
     ensure_files()
