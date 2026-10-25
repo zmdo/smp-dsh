@@ -31,8 +31,8 @@
   },
   "dependencies": {
     "@deepseek-ai/cordis": "~4.0.5-alpha.2",
-    "@deepseek-ai/dsh-session": "file:../../tmp/dsh-cli/node_modules/@deepseek-ai/dsh-session",
-    "@deepseek-ai/dsh-session-persistence": "file:../../tmp/dsh-cli/node_modules/@deepseek-ai/dsh-session-persistence",
+    "@deepseek-ai/dsh-session": "0.2.1-alpha.5",
+    "@deepseek-ai/dsh-session-persistence": "0.2.1-alpha.5",
     "pg": "^8.16.3"
   }
 }
