@@ -11,7 +11,7 @@ NETWORK=ces-prod_default
 export DOCKER_CONFIG=${DOCKER_CONFIG:-$ROOT/docker-config}
 
 usage() {
-  echo "usage: ces-runtime install --digest <ref> | verify | rollback --release <id>" >&2
+  echo "usage: ces-runtime install --digest <ref> | verify | rollback --release <id> | backup | restore --file <path>" >&2
   exit 2
 }
 
@@ -80,6 +80,24 @@ rollback() {
   install "$image"
 }
 
+backup() {
+  mkdir -p "$ROOT/backups"
+  file="$ROOT/backups/ces-$(date -u +%Y%m%dT%H%M%SZ).sql"
+  docker exec ces-prod-postgres-prod-1 pg_dump -U ces --clean --if-exists ces > "$file"
+  chmod 600 "$file"
+  echo "$file"
+}
+
+restore() {
+  file=$1
+  [ -f "$file" ] || { echo "backup not found: $file" >&2; exit 1; }
+  docker stop prod-ces >/dev/null 2>&1 || true
+  docker exec -i ces-prod-postgres-prod-1 psql -U ces -d ces < "$file" >/dev/null
+  docker start prod-ces >/dev/null
+  wait_ready || { echo "prod-ces did not recover after restore" >&2; exit 1; }
+  echo "restored $file"
+}
+
 verify() {
   docker inspect -f '{{.State.Status}}' prod-ces 2>/dev/null | grep -qx running || {
     echo "prod-ces is not running" >&2
@@ -101,6 +119,13 @@ case "$1" in
     ;;
   verify)
     verify
+    ;;
+  backup)
+    backup
+    ;;
+  restore)
+    [ $# -eq 3 ] && [ "$2" = "--file" ] || usage
+    restore "$3"
     ;;
   *) usage ;;
 esac

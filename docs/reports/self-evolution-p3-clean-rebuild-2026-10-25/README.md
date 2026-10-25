@@ -127,3 +127,18 @@ C 生产：    http://43.153.204.197/  → 303 /login
 2. 做一次备份/恢复演练。
 3. 形成正式用户验收记录。
 4. 清理 OneDev 中重复/离线的 agent 记录。
+
+## 9. 后续补充
+
+- B 候选已用 build-17 digest 重新部署：
+
+```text
+digest: sha256:5c4b6371...
+candidate-ces：Up
+http://43.163.113.98/ → 303 /login
+admin/changeme → 200
+ces_test：36 条迁移，1 个账号
+```
+
+- C 已增加备份/恢复命令并完成演练，见
+  `docs/reports/self-evolution-backup-restore-2026-10-25/`。
