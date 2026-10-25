@@ -98,6 +98,22 @@ services:
         condition: service_healthy
 """)
     write(caddyfile, ':80 {\n  reverse_proxy candidate-ces:9090\n}\n')
+    encryption = secrets / 'candidate-encryption-key'
+    if not encryption.exists():
+        write(encryption, base64.urlsafe_b64encode(os.urandom(32)).decode() + '\n')
+    session = secrets / 'candidate-session-secret'
+    if not session.exists():
+        write(session, subprocess.check_output(['openssl', 'rand', '-hex', '24'], text=True).strip() + '\n')
+    candidate_env = base / 'candidate.env'
+    write(candidate_env, 'DATABASE_URL=postgresql://ces:%s@postgres-test:5432/ces_test\n'
+          'ENCRYPTION_KEY=%s\nSESSION_SECRET=%s\nINITIAL_PASSWORD=changeme\n' % (
+              (secrets / 'test-db-password').read_text().strip(),
+              encryption.read_text().strip(),
+              session.read_text().strip()))
+    try:
+        os.chown(candidate_env, 0, grp.getgrnam('cesagent').gr_gid)
+    except KeyError:
+        pass
 
 def inspect():
     ids = compose_run('ps', '-q', service, check=False)
