@@ -19,6 +19,7 @@ const onedevRecipe = `${owner}/onedev-docker`
 const caddy = `${owner}/caddy`
 const caddyRecipe = `${owner}/caddy-docker`
 const buildAgent = `${owner}/onedev-build-agent`
+const cesHost = `${owner}/ces-host`
 const supportedOs = [{ family: 'builtin/ubuntu', versions: { kind: 'release' as const, version: '24.04' }, architectures: ['x86_64', 'aarch64'] }]
 const script: ScriptDefinition = {
   path: fileURLToPath(new URL('../scripts/stack.sh', import.meta.url)),
@@ -28,6 +29,12 @@ const script: ScriptDefinition = {
 }
 const testScript: ScriptDefinition = {
   path: fileURLToPath(new URL('../scripts/test.sh', import.meta.url)),
+  interpreter: 'posix-sh',
+  timeoutMs: 900_000,
+  outputLimitBytes: 1_048_576,
+}
+const hostScript: ScriptDefinition = {
+  path: fileURLToPath(new URL('../scripts/host.sh', import.meta.url)),
   interpreter: 'posix-sh',
   timeoutMs: 900_000,
   outputLimitBytes: 1_048_576,
@@ -46,6 +53,8 @@ const recipe = (key: string, software: string, requires: RecipeDefinition['requi
   recipeWith(script, key, software, requires)
 const testRecipe = (key: string, software: string, requires: RecipeDefinition['requires'] = []): RecipeDefinition =>
   recipeWith(testScript, key, software, requires)
+const hostRecipe = (key: string, software: string, requires: RecipeDefinition['requires'] = []): RecipeDefinition =>
+  recipeWith(hostScript, key, software, requires)
 const infrastructureType = `${owner}/infrastructure`
 const testType = `${owner}/test`
 const hostType = `${owner}/host`
@@ -58,6 +67,7 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
     { key: 'onedev', name: { zh: 'OneDev', en: 'OneDev' }, versions: 'semver-stable' },
     { key: 'caddy', name: { zh: 'Caddy', en: 'Caddy' }, versions: 'semver-stable' },
     { key: 'onedev-build-agent', name: { zh: 'OneDev 构建 Agent', en: 'OneDev build agent' }, versions: 'semver-stable' },
+    { key: 'ces-host', name: { zh: 'CES 部署接收端', en: 'CES deploy target' }, versions: 'semver-stable' },
   ],
   recipes: [
     recipe('postgresql-docker', postgresql, [{ software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] }]),
@@ -79,6 +89,16 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
       { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
       { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
     ]),
+    hostRecipe('postgresql-prod-docker', postgresql, [
+      { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
+      { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
+    ]),
+    hostRecipe('caddy-prod-docker', caddy, [
+      { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
+      { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
+      { software: postgresql, versions: { kind: 'any' }, recipes: [`${owner}/postgresql-prod-docker`] },
+    ]),
+    hostRecipe('ces-host-bootstrap', cesHost),
   ],
   types: [
     {
@@ -107,8 +127,14 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
     {
       key: 'host',
       name: { zh: '自演进宿主服务器', en: 'Self-evolution host server' },
-      supportedOs: { kind: 'all' },
-      requirements: [],
+      supportedOs: { kind: 'explicit', selectors: supportedOs },
+      requirements: [
+        { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
+        { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
+        { software: postgresql, versions: { kind: 'any' }, recipes: [`${owner}/postgresql-prod-docker`] },
+        { software: caddy, versions: { kind: 'any' }, recipes: [`${owner}/caddy-prod-docker`] },
+        { software: cesHost, versions: { kind: 'any' }, recipes: [`${owner}/ces-host-bootstrap`] },
+      ],
     },
   ],
   groups: [

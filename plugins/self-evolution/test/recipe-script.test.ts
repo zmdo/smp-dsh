@@ -76,3 +76,25 @@ test('test server recipes resolve without touching Docker', () => {
     assert.deepEqual(output.additionalRequirements, [])
   }
 })
+
+const hostScript = fileURLToPath(new URL('../scripts/host.sh', import.meta.url))
+
+test('host recipes resolve without touching Docker', () => {
+  const cases = [
+    ['@smp/console-self-evolution/postgresql', '@smp/console-self-evolution/postgresql-prod-docker'],
+    ['@smp/console-self-evolution/caddy', '@smp/console-self-evolution/caddy-prod-docker'],
+    ['@smp/console-self-evolution/ces-host', '@smp/console-self-evolution/ces-host-bootstrap'],
+  ] as const
+  for (const [software, recipe] of cases) {
+    const result = spawnSync('sh', [hostScript], {
+      input: JSON.stringify({ ...caseBase, software, recipe }),
+      encoding: 'utf8',
+    })
+    assert.equal(result.status, 0, result.stderr)
+    const output = JSON.parse(result.stdout)
+    assert.equal(output.operation, 'resolve')
+    assert.equal(output.change.software, software)
+    assert.equal(output.change.recipe, recipe)
+    assert.equal(output.change.action, 'install')
+  }
+})

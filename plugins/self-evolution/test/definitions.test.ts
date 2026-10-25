@@ -20,7 +20,7 @@ test('self-evolution defines one system group with three dedicated server types'
   )
   assert.equal(selfEvolutionDefinitions.types?.[0]?.requirements.length, 4)
   assert.equal(selfEvolutionDefinitions.types?.[1]?.requirements.length, 5)
-  assert.equal(selfEvolutionDefinitions.types?.[2]?.requirements.length, 0)
+  assert.equal(selfEvolutionDefinitions.types?.[2]?.requirements.length, 5)
   assert.deepEqual(selfEvolutionDefinitions.publicTypes, undefined)
   assert.equal(selfEvolutionDefinitions.groups?.length, 1)
   assert.deepEqual(selfEvolutionDefinitions.groups?.[0], {
