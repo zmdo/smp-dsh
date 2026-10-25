@@ -10,6 +10,8 @@ const owner = '@smp/console-self-evolution'
 const runtime = '@smp/console-container-runtime'
 const docker = `${runtime}/docker-engine`
 const dockerRecipe = `${runtime}/docker-engine-apt`
+const compose = `${runtime}/docker-compose`
+const composeRecipe = `${runtime}/docker-compose-apt`
 const postgresql = `${owner}/postgresql`
 const postgresqlRecipe = `${owner}/postgresql-docker`
 const onedev = `${owner}/onedev`
@@ -23,16 +25,26 @@ const script: ScriptDefinition = {
   timeoutMs: 900_000,
   outputLimitBytes: 1_048_576,
 }
-const recipe = (key: string, software: string, requires: RecipeDefinition['requires'] = []): RecipeDefinition => ({
+const testScript: ScriptDefinition = {
+  path: fileURLToPath(new URL('../scripts/test.sh', import.meta.url)),
+  interpreter: 'posix-sh',
+  timeoutMs: 900_000,
+  outputLimitBytes: 1_048_576,
+}
+const recipeWith = (source: ScriptDefinition, key: string, software: string, requires: RecipeDefinition['requires'] = []): RecipeDefinition => ({
   key,
   software,
   supportedOs,
   requires,
-  detect: script,
-  listCandidates: script,
-  resolve: script,
-  mutation: { actions: ['install', 'upgrade', 'replace'], execute: script, verify: script, recover: script },
+  detect: source,
+  listCandidates: source,
+  resolve: source,
+  mutation: { actions: ['install', 'upgrade', 'replace'], execute: source, verify: source, recover: source },
 })
+const recipe = (key: string, software: string, requires: RecipeDefinition['requires'] = []): RecipeDefinition =>
+  recipeWith(script, key, software, requires)
+const testRecipe = (key: string, software: string, requires: RecipeDefinition['requires'] = []): RecipeDefinition =>
+  recipeWith(testScript, key, software, requires)
 const infrastructureType = `${owner}/infrastructure`
 const testType = `${owner}/test`
 const hostType = `${owner}/host`
@@ -52,6 +64,15 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
       { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
     ]),
     recipe('caddy-docker', caddy, [{ software: onedev, versions: { kind: 'any' }, recipes: [onedevRecipe] }]),
+    testRecipe('postgresql-test-docker', postgresql, [
+      { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
+      { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
+    ]),
+    testRecipe('caddy-test-docker', caddy, [
+      { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
+      { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
+      { software: postgresql, versions: { kind: 'any' }, recipes: [`${owner}/postgresql-test-docker`] },
+    ]),
   ],
   types: [
     {
@@ -68,8 +89,13 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
     {
       key: 'test',
       name: { zh: '自演进测试服务器', en: 'Self-evolution test server' },
-      supportedOs: { kind: 'all' },
-      requirements: [],
+      supportedOs: { kind: 'explicit', selectors: supportedOs },
+      requirements: [
+        { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
+        { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
+        { software: postgresql, versions: { kind: 'any' }, recipes: [`${owner}/postgresql-test-docker`] },
+        { software: caddy, versions: { kind: 'any' }, recipes: [`${owner}/caddy-test-docker`] },
+      ],
     },
     {
       key: 'host',

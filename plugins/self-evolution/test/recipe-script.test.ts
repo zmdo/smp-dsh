@@ -54,3 +54,25 @@ test('resolve returns an install change for every recipe without touching Docker
     assert.deepEqual(output.additionalRequirements, [])
   }
 })
+
+const testScript = fileURLToPath(new URL('../scripts/test.sh', import.meta.url))
+
+test('test server recipes resolve without touching Docker', () => {
+  const cases = [
+    ['@smp/console-self-evolution/postgresql', '@smp/console-self-evolution/postgresql-test-docker'],
+    ['@smp/console-self-evolution/caddy', '@smp/console-self-evolution/caddy-test-docker'],
+  ] as const
+  for (const [software, recipe] of cases) {
+    const result = spawnSync('sh', [testScript], {
+      input: JSON.stringify({ ...caseBase, software, recipe }),
+      encoding: 'utf8',
+    })
+    assert.equal(result.status, 0, result.stderr)
+    const output = JSON.parse(result.stdout)
+    assert.equal(output.operation, 'resolve')
+    assert.equal(output.change.software, software)
+    assert.equal(output.change.recipe, recipe)
+    assert.equal(output.change.action, 'install')
+    assert.deepEqual(output.additionalRequirements, [])
+  }
+})
