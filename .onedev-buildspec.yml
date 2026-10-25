@@ -18,11 +18,17 @@ jobs:
       shell: bash
       commands: |
         set -euo pipefail
+        export DOCKER_CONFIG=/srv/ces-test/docker-config
         image="ces-candidate:build-@build_number@"
+        registry="43.128.69.189/ces/ces-candidate:build-@build_number@"
         docker build --network=host -t "$image" -f docker/Dockerfile .
+        docker tag "$image" "$registry"
+        docker push "$registry"
         id=$(docker image inspect --format '{{.Id}}' "$image")
+        digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$registry" | sed 's/.*@//')
         commit=$(git rev-parse HEAD)
-        printf '{"build":"@build_number@","commit":"%s","image":"%s","id":"%s"}\n' "$commit" "$image" "$id" > image.json
+        printf '{"build":"@build_number@","commit":"%s","image":"%s","registry":"%s","id":"%s","digest":"%s","ref":"%s@%s"}\n' \
+          "$commit" "$image" "$registry" "$id" "$digest" "$registry" "$digest" > image.json
         cat image.json
     condition: SUCCESSFUL
   - type: PublishArtifactStep
@@ -61,7 +67,7 @@ jobs:
       shell: bash
       commands: |
         set -euo pipefail
-        bash scripts/deploy-candidate.sh "@param:image@" /srv/ces-test/candidate.env
+        DOCKER_CONFIG=/srv/ces-test/docker-config bash scripts/deploy-candidate.sh "@param:image@" /srv/ces-test/candidate.env
     condition: SUCCESSFUL
   retryCondition: never
   maxAttempts: 1
