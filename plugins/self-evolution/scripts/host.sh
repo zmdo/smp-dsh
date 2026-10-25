@@ -103,8 +103,19 @@ services:
         condition: service_healthy
 """)
     write(caddyfile, ':80 {\n  reverse_proxy prod-ces:9090\n}\n')
+    encryption = secrets / 'prod-encryption-key'
+    if not encryption.exists():
+        write(encryption, base64.urlsafe_b64encode(os.urandom(32)).decode() + '\n')
+    session = secrets / 'prod-session-secret'
+    if not session.exists():
+        write(session, subprocess.check_output(['openssl', 'rand', '-hex', '24'], text=True).strip() + '\n')
+    write(base / 'prod.env', 'DATABASE_URL=postgresql://ces:%s@postgres-prod:5432/ces\n'
+          'ENCRYPTION_KEY=%s\nSESSION_SECRET=%s\nINITIAL_PASSWORD=changeme\n' % (
+              (secrets / 'prod-db-password').read_text().strip(),
+              encryption.read_text().strip(), session.read_text().strip()))
 
 def ensure_host():
+    ensure_files()
     key = secrets / 'authorized_keys'
     if not key.exists() or not key.read_text().strip():
         raise RuntimeError('deploy_key_missing')
@@ -125,12 +136,14 @@ def ensure_host():
     write(target, key.read_text(), 0o600)
     os.chown(target, account.pw_uid, account.pw_gid)
     wrapper = Path('/usr/local/sbin/ces-runtime')
-    write(wrapper, """#!/bin/sh
+    bootstrap = base / 'bootstrap' / 'ces-runtime.sh'
+    if bootstrap.exists():
+        write(wrapper, bootstrap.read_text(), 0o755)
+    else:
+        write(wrapper, """#!/bin/sh
 set -eu
-case "${1:-}" in
-  install|verify|rollback) echo "ces-runtime: release handling is not implemented yet" >&2; exit 1 ;;
-  *) echo "usage: ces-runtime install --digest <digest> | verify | rollback --release <id>" >&2; exit 2 ;;
-esac
+echo "ces-runtime: bootstrap script is missing" >&2
+exit 1
 """, 0o755)
     sudoers = Path('/etc/sudoers.d/cesdeploy')
     write(sudoers, 'cesdeploy ALL=(root) NOPASSWD: /usr/local/sbin/ces-runtime\n', 0o440)
