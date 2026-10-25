@@ -18,6 +18,7 @@ const onedev = `${owner}/onedev`
 const onedevRecipe = `${owner}/onedev-docker`
 const caddy = `${owner}/caddy`
 const caddyRecipe = `${owner}/caddy-docker`
+const buildAgent = `${owner}/onedev-build-agent`
 const supportedOs = [{ family: 'builtin/ubuntu', versions: { kind: 'release' as const, version: '24.04' }, architectures: ['x86_64', 'aarch64'] }]
 const script: ScriptDefinition = {
   path: fileURLToPath(new URL('../scripts/stack.sh', import.meta.url)),
@@ -56,6 +57,7 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
     { key: 'postgresql', name: { zh: 'PostgreSQL', en: 'PostgreSQL' }, versions: 'semver-stable' },
     { key: 'onedev', name: { zh: 'OneDev', en: 'OneDev' }, versions: 'semver-stable' },
     { key: 'caddy', name: { zh: 'Caddy', en: 'Caddy' }, versions: 'semver-stable' },
+    { key: 'onedev-build-agent', name: { zh: 'OneDev 构建 Agent', en: 'OneDev build agent' }, versions: 'semver-stable' },
   ],
   recipes: [
     recipe('postgresql-docker', postgresql, [{ software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] }]),
@@ -72,6 +74,10 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
       { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
       { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
       { software: postgresql, versions: { kind: 'any' }, recipes: [`${owner}/postgresql-test-docker`] },
+    ]),
+    testRecipe('onedev-build-agent-test', buildAgent, [
+      { software: docker, versions: { kind: 'any' }, recipes: [dockerRecipe] },
+      { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
     ]),
   ],
   types: [
@@ -95,6 +101,7 @@ export const selfEvolutionDefinitions: DefinitionBundle = {
         { software: compose, versions: { kind: 'any' }, recipes: [composeRecipe] },
         { software: postgresql, versions: { kind: 'any' }, recipes: [`${owner}/postgresql-test-docker`] },
         { software: caddy, versions: { kind: 'any' }, recipes: [`${owner}/caddy-test-docker`] },
+        { software: buildAgent, versions: { kind: 'any' }, recipes: [`${owner}/onedev-build-agent-test`] },
       ],
     },
     {

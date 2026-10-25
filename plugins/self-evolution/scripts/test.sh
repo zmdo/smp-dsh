@@ -4,20 +4,25 @@ input=$(mktemp)
 trap 'rm -f "$input"' EXIT
 cat > "$input"
 python3 - "$input" <<'PY'
-import base64, grp, json, os, pwd, subprocess, sys, time
+import base64, grp, json, os, pwd, shutil, subprocess, sys, time
 from pathlib import Path
 
 request = json.load(open(sys.argv[1]))
 operation = request['operation']
 software = request['software']
 prefix = '@smp/console-self-evolution/'
+agent = prefix + 'onedev-build-agent'
 services = {
     prefix + 'postgresql': ('postgres-test', 'postgres:16.15', '16.15.0'),
     prefix + 'caddy': ('caddy', 'caddy:2.10.2', '2.10.2'),
 }
-if software not in services:
+is_agent = software == agent
+if not is_agent and software not in services:
     raise SystemExit('unsupported software: ' + software)
-service, image, version = services[software]
+if is_agent:
+    service, image, version = 'onedev-agent', 'onedev-agent:ces-build-agent', '3.3.12'
+else:
+    service, image, version = services[software]
 base = Path('/srv/ces-test')
 runtime = base / 'runtime'
 secrets = base / 'secrets'
@@ -128,7 +133,45 @@ def inspect():
     except json.JSONDecodeError:
         return None
 
+def systemctl_active():
+    result = run(['systemctl', 'is-active', 'onedev.agent'], check=False)
+    return result.returncode == 0
+
+def agent_installed():
+    if systemctl_active():
+        return {'state': 'installed', 'version': version, 'targetIdentity': image, 'healthy': True, 'packages': []}
+    return {'state': 'missing'}
+
+def ensure_agent():
+    token = secrets / 'onedev-agent-token'
+    server = secrets / 'onedev-server-url'
+    package = base / 'bootstrap' / 'agent.tar.gz'
+    if not token.exists() or not server.exists():
+        raise RuntimeError('agent_bootstrap_missing')
+    if not package.exists():
+        raise RuntimeError('agent_package_missing')
+    account = pwd.getpwnam('cesagent')
+    target = base / 'agent'
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True, exist_ok=True, mode=0o700)
+    run(['tar', '-xzf', str(package), '-C', str(target), '--strip-components=1'])
+    run(['chown', '-R', '%d:%d' % (account.pw_uid, account.pw_gid), str(target)])
+    config = target / 'conf' / 'agent.properties'
+    write(config, 'serverUrl=%s\nagentTokenFile=%s\nagentName=ces-build-agent\n' % (
+        server.read_text().strip(), token))
+    os.chown(config, account.pw_uid, account.pw_gid)
+    run(['bash', '-c', 'cd %s && RUN_AS_USER=cesagent ./bin/agent.sh install' % target])
+    run(['systemctl', 'start', 'onedev.agent'], check=False)
+    for _ in range(60):
+        if systemctl_active():
+            return
+        time.sleep(2)
+    raise RuntimeError('agent service did not become active')
+
 def installed():
+    if is_agent:
+        return agent_installed()
     state = inspect()
     if state is None:
         return {'state': 'missing'}
@@ -150,6 +193,12 @@ def wait_ready():
     return installed()
 
 def apply():
+    if is_agent:
+        ensure_agent()
+        current = installed()
+        if current.get('state') != 'installed' or not current.get('healthy'):
+            raise RuntimeError('onedev agent did not become active')
+        return current
     ensure_files()
     compose_run('up', '-d', service, check=True)
     current = wait_ready()
@@ -170,7 +219,7 @@ try:
             'software': software, 'recipe': request['recipe'], 'recipeRevision': request['recipeRevision'],
             'action': action, 'before': before, 'target': target, 'dependencies': [],
             'effects': [{'kind': 'service-restart', 'description': {'zh': '容器服务将启动或重启。', 'en': 'The container service will start or restart.'}}],
-            'payload': {'service': service, 'image': image},
+            'payload': {'service': service, 'image': image, 'agentName': 'ces-build-agent'},
         }, 'additionalRequirements': []}
     elif operation == 'execute':
         change = request['change']
@@ -179,7 +228,8 @@ try:
             result = {'operation': operation, 'state': 'completed', 'changes': []}
         else:
             apply()
-            result = {'operation': operation, 'state': 'completed', 'changes': [{'kind': 'container', 'service': service, 'image': image}]}
+            kind = 'service' if is_agent else 'container'
+            result = {'operation': operation, 'state': 'completed', 'changes': [{'kind': kind, 'service': service, 'image': image}]}
     elif operation == 'verify':
         current = installed()
         result = {'operation': operation, 'result': current, 'healthy': current.get('state') == 'installed' and current.get('healthy')}
