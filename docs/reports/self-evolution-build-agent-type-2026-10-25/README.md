@@ -63,3 +63,24 @@ SSH 恢复后：
 2. 确认 `onedev.agent` 为 active，OneDev Agents 页面 online。
 3. 确认 `/srv/ces-test/agent/conf/agent.properties` 使用新 token。
 4. 重新写入候选并验证 80 入口。
+
+## 7. 后续：安装成功（2026-10-25）
+
+B 的 SSH 恢复后重新执行 `install-components`：
+
+```text
+preflight ced68bf6... succeeded
+apply     d4ddfe3f... succeeded
+```
+
+结果：
+
+```text
+onedev.agent：active
+/srv/ces-test/agent/conf/agent.properties：存在
+OneDev agent：ces-build-agent online（token id 3）
+B 服务器：status=normal，software_state=ready
+```
+
+说明 `test.sh` 的 agent 分支、bootstrap token/package 和 systemd 安装路径
+均可用；之前的失败确认为 SSH 认证超时。
