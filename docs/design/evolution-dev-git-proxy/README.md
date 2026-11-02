@@ -100,11 +100,12 @@ credential.helper=store
 
 ### 5.1 位置
 
-在现有 Harness 设置页增加一个 section：
+在现有 Harness 设置页增加一个 section。当前 UI 的实际分组名是“平台设置”，
+用户习惯上也叫“平台配置”：
 
 ```text
-平台配置
-└─ Harness 配置
+平台设置（平台配置）
+└─ Harness
    └─ 演进开发
 ```
 
@@ -119,13 +120,14 @@ evolution-dev
 ### 5.2 表单字段
 
 ```text
+启用 Git 工具：是/否（生产实例必须关闭）
 启用备灾仓库：是/否
 Remote 名称：backup
 地址：git@backup.example.com:ces.git
 用户名：git
 验证方式：
   - SSH 私钥
-  - SSH Agent
+  - SSH Agent（runner 必须能访问 agent socket）
   - HTTPS + Access Token
   - HTTPS + 用户名/密码
 凭据：写入后只显示“已配置”
@@ -183,11 +185,14 @@ OneDev 的地址和 token 不放在工作区，建议：
 
 ```text
 name: onedev
-url: http://43.128.69.189/CES.git
-username: <token name 或 admin>
+url: <onedev-base>/CES.git   # 例如 http://43.128.69.189/CES.git
+username: admin（或该 token 对应的账号）
 auth_type: https_token
-secret: 受限 access token
+secret: 只对 CES 仓库有 code write 权限的 access token
 ```
+
+不要使用管理员密码；OneDev token 的具体用户名规则以 OneDev 的 access token
+文档为准，实现时通过测试连接验证。
 
 OneDev 地址可以作为内置配置，避免用户误改；也可以在同一个配置 section 中展示但只读。
 
@@ -211,8 +216,8 @@ secretHint: "已配置"
 ```text
 name: git
 description: 在演进开发默认工作区执行 Git 命令
-args:
-  - string[]
+输入：
+  args: string[]      # 例如 ["status", "-sb"]，不含 git 本身
 ```
 
 调用示例：
@@ -248,17 +253,23 @@ git ls-remote backup
 
 ### 7.3 执行位置
 
-Git 在 host/runner 侧执行，不在模型可随意读写的 shell 里直接拿 token。
-
-工作目录固定为：
+Git 在 runner 中执行，不在模型的会话 shell 中直接拿 token。runner 的部署方式
+决定它看到的代码路径，不能把宿主机路径和容器路径混用：
 
 ```text
-/srv/evolution/ces
+runner 在 CES 容器内：
+  workdir = /root/.smp/evolution-dev/default-workspace
+
+runner 在宿主机或独立 sidecar：
+  workdir = /srv/evolution/ces
 ```
 
-会话看到的是同一目录的 bind mount。
+两种部署都必须保证 runner 和会话看到的是**同一份代码**。实现时把 runner
+workdir 做成部署配置，而不是在代码里写死一个路径。
 
-如果只在同一容器内执行，容器 root 仍可能读 secret；单用户场景可以接受，但要在文档中写明这一边界。
+如果 runner 和会话在同一个容器内，容器 root 仍可能读到运行时 secret；单用户
+场景可以接受，但这不是强隔离，必须在部署文档中明确。如果需要更强边界，
+应把 runner 放到独立 sidecar/host，只挂载代码目录和 secret。
 
 ### 7.4 凭据注入
 
@@ -275,18 +286,25 @@ askpass 从 secret store 读取 token，不写入 `.git/config`。
 
 #### SSH
 
-使用临时私钥文件：
+runner 为配置的 SSH remote 生成临时私钥文件，例如：
 
 ```text
 0600 /run/evolution-dev/keys/backup
-GIT_SSH_COMMAND=ssh -i <key> -o IdentitiesOnly=yes -o UserKnownHostsFile=<known_hosts>
 ```
 
-命令结束后删除临时私钥。
+并通过一个 **按 host 选择 key 的 SSH wrapper** 注入，而不是设置一个全局的
+`GIT_SSH_COMMAND -i backup-key`，否则未知 SSH 地址也会拿到备灾私钥：
+
+```text
+backup.example.com  -> backup key
+其他 SSH host       -> 不注入 key，使用 runner 默认 SSH 配置或失败
+```
+
+命令结束后删除临时私钥和 wrapper。
 
 #### 按 remote 路由
 
-根据 Git 提示或 remote URL 匹配：
+根据 remote URL 或 Git 认证提示匹配：
 
 ```text
 OneDev host      -> OneDev token
@@ -294,7 +312,8 @@ backup host      -> backup key/token
 unknown host     -> 不注入，push 失败
 ```
 
-不能把 OneDev token 发给任意 remote。
+不能把 OneDev token 或 backup key 发给未配置的 remote。URL 使用主机名而不是
+SSH alias，避免路由匹配不到。
 
 ### 7.5 不做过细白名单
 
@@ -364,6 +383,25 @@ git ls-remote origin refs/heads/main
 
 commit 一致说明推送成功。
 
+### 8.4 备灾范围与恢复
+
+这个备灾仓库只覆盖 **Git 仓库内容**：
+
+- refs、commit、tree、blob；
+- 不使用 LFS 时，`git push --mirror` 可完整复制仓库；
+- 使用 LFS 时，还需要执行 `git lfs push --all backup`，否则 LFS 对象缺失；
+- 不包含 OneDev 的 issue、PR、构建记录、registry 镜像、用户和数据库。
+
+恢复：
+
+```bash
+git clone <backup-url> ces-restore
+git remote add origin http://43.128.69.189/CES.git
+git push origin --mirror
+```
+
+如果需要完整灾备，OneDev PostgreSQL、registry 和配置也必须单独备份。
+
 ## 9. 迁移步骤
 
 1. 在 OneDev 创建仓库级 access token：
@@ -382,7 +420,10 @@ commit 一致说明推送成功。
 git config --unset credential.helper
 ```
 
-5. 从 C 的生产容器移除开发工作区挂载，或至少移除凭据。
+5. 从 C 的生产容器移除开发工作区挂载和 Git 凭据；生产实例不应启用
+   evolution-dev 的 Git 工具，也不应暴露开发工作区。生产实例通过配置
+   `启用 Git 工具=否` 或不在 profile 中加载该插件来关闭工具，不能只依赖
+   不挂载目录。
 6. 启用 `git` 工具，只对 evolution-dev 组开放。
 7. 验证：
    - `git push origin` 走 OneDev token；
@@ -407,7 +448,10 @@ git config --unset credential.helper
 - 凭据按 remote 路由，不发给未知地址；
 - 操作审计；
 - 异地 mirror 和 reflog 作为恢复手段；
-- 生产 C 不配置开发 Git 工具。
+- 生产 C 不配置开发 Git 工具，不挂载开发工作区；
+- 仅不挂载目录不足以禁用工具，生产实例还要通过配置关闭 Git 工具，
+  或不在 profile 中加载该插件；
+- 备灾只覆盖 Git，OneDev 元数据和 registry 另做备份。
 
 ## 11. 验收标准
 
@@ -425,7 +469,10 @@ git config --unset credential.helper
    - `git ls-remote backup`
 6. 工作区不存在 `.git/credentials`，`git config credential.helper` 不再指向明文文件。
 7. OneDev 地址和 backup 地址使用不同凭据；未知 remote 不注入。
-8. 审计记录包含 session、group、remote、commit、push 结果。
+8. `git push backup --mirror` 后，`git ls-remote backup` 与本地 refs 一致；
+   LFS 仓库额外验证 `git lfs push --all backup`。
+9. 审计记录包含 session、group、remote、commit、push 结果。
+10. 生产 C 不挂载开发工作区，且 Git 工具在配置上关闭或未加载。
 
 ## 12. 实施拆分
 
