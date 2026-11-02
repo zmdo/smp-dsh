@@ -271,6 +271,12 @@ function sanitize(value: string, remote: Remote, secret = ''): string {
 async function runGit(service: { db: any; secrets: any }, settings: Settings, argv: string[], agent?: any, options: { test?: boolean } = {}): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const cwd = settings.workdir
   await mkdir(cwd, { recursive: true }).catch(() => undefined)
+  const secretValues: string[] = []
+  for (const remote of settings.remotes) {
+    if (!remote.secretCiphertext) continue
+    try { secretValues.push(service.secrets.decrypt(remote.secretCiphertext)) } catch { /* ignore undecryptable values */ }
+  }
+  const redact = (value: string): string => secretValues.reduce((text, secret) => secret ? text.split(secret).join('***') : text, value)
   const temp = await mkdtemp(join(tmpdir(), 'evolution-dev-git-'))
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -323,7 +329,7 @@ async function runGit(service: { db: any; secrets: any }, settings: Settings, ar
       child.on('close', code => { clearTimeout(timer); resolve({ exitCode: code ?? 1, stdout: stdout.slice(-800000), stderr: stderr.slice(-200000) }) })
       child.on('error', cause => { clearTimeout(timer); resolve({ exitCode: 1, stdout: '', stderr: String(cause) }) })
     })
-    return result
+    return { ...result, stdout: redact(result.stdout), stderr: redact(result.stderr) }
   } finally {
     await rm(temp, { recursive: true, force: true }).catch(() => undefined)
   }

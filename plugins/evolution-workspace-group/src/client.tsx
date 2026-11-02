@@ -112,7 +112,7 @@ export function GitSettings() {
   return <div>
     <style>{STYLE}</style>
     <h2 style={{ margin: '0 0 6px' }}>演进开发</h2>
-    <p style={{ color: 'var(--muted)', margin: '0 0 12px' }}>只对“演进开发”工作区组生效。OpenAI 密钥不会回显；留空表示保留原值。</p>
+    <p style={{ color: 'var(--muted)', margin: '0 0 12px' }}>只对“演进开发”工作区组生效。凭据不会回显；留空表示保留原值。</p>
     <div className="evolution-git-row"><label>启用 Git 工具</label><input type="checkbox" checked={config.enabled} onChange={e => setConfig({ ...config, enabled: e.target.checked })} /></div>
     <div className="evolution-git-row"><label>工作目录</label><input value={config.workdir} onChange={e => setConfig({ ...config, workdir: e.target.value })} /></div>
     {config.remotes.map(remote => <Card key={remote.role} remote={remote} setRemote={next => updateRemote(remote.role, next)} test={() => void test(remote.role)} />)}
