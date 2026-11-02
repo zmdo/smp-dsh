@@ -93,23 +93,20 @@ role: Code Writer
 
 不再使用 admin 密码。
 
-备灾 remote（测试用裸仓库）：
+备灾 remote（第四台服务器 OneDev）：
 
 ```text
 role: backup
-url: ubuntu@43.128.69.189:/srv/git-backup/ces.git
-username: ubuntu
-authType: ssh_key
+url: http://43.128.72.83/CES-BACKUP.git
+username: admin
+authType: https_token
 pushMode: mirror
 ```
 
-该仓库在 A 上：
+第四台服务器 `43.128.72.83` 已清空并重建 OneDev，项目 `CES-BACKUP`。
+真实 mirror push 和 clone 恢复见：
 
-```text
-/srv/git-backup/ces.git
-```
-
-只用于验证 SSH 备灾路径；正式环境应改成真正的异地地址。
+[第四台服务器异地备灾验证](../self-evolution-offsite-backup-2026-11-02/README.md)
 
 ## 5. 部署
 
@@ -175,7 +172,8 @@ B/C admin/changeme → 200
 - 还没有在真实的 evolution-dev 会话里点击并调用 `git` 工具；API 测试连接和工具
   使用同一套 runner/凭据逻辑，但会话级工具调用仍需 UI 验收。
 - Harness 设置 section 已打包并通过客户端构建，但没有做浏览器手工点击截图。
-- 备灾仓库是 A 上的本地裸仓库，仅用于测试 SSH 凭据链路；不是真正异地。
+- 备灾已改为第四台服务器上的 OneDev，并完成真实 push/clone；但仍是手工 mirror，
+  没有定时任务。
 - B 工作区代码仍停在 8dfa947，OneDev 已到 1d4f270；需要在默认对话里通过 git 工具
   执行 `git pull`。
 - 备灾镜像使用个人 `smp.pem` 作为测试 SSH key；正式环境应使用专用部署 key。
