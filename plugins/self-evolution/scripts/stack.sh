@@ -107,6 +107,7 @@ services:
     volumes:
       - /srv/ces-infra/runtime/Caddyfile:/etc/caddy/Caddyfile:ro
     ports:
+      - 80:80
       - 127.0.0.1:8080:80
     depends_on:
       - onedev
