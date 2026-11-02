@@ -8,6 +8,7 @@ COPY scripts ./scripts
 RUN npm ci --ignore-scripts && npm run build
 
 FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app /app
 RUN npm install -g @deepseek-ai/dsh@0.2.1-alpha.5 --registry=https://registry.npmmirror.com
