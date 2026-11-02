@@ -144,7 +144,7 @@ B/C：credential.helper 未设置
 B：
 
 ```text
-OneDev test: ok，main = c3f3c76
+OneDev test: ok，main = 1d4f270
 backup test: ok，refs/heads/main = 8dfa947
 ```
 
